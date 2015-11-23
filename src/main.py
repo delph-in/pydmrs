@@ -1,4 +1,5 @@
 from collections import namedtuple
+from xml.etree.ElementTree import XML 
 
 
 class Pred(object):
@@ -186,12 +187,17 @@ class Dmrs(object):
     A superclass to set the API for all DMRS classes
     """
     @classmethod
-    def loads(cls, string):
-        pass
+    def loads(cls, bytestring):
+        xml = XML(bytestring)
+        return xml
         # Read in the nodes and links, then create a new instance and return it?
     
     @classmethod
     def load(cls, filehandle):
+        """
+        Load a DMRS from a file
+        NB: read as a bytestring!
+        """
         return cls.loads(filehandle.read())
     
     @classmethod
@@ -208,6 +214,9 @@ class ListDmrs(Dmrs):
     """
     A DMRS graph implemented with lists for nodes and links
     """
+    
+    Node = ListNode  # Called in inherited class methods
+    
     def __init__(self, nodes, links, top=None):
         self.nodes = nodes
         self.links = links
@@ -261,6 +270,9 @@ class DictDmrs(Dmrs):
     """
     A DMRS graph implemented with dicts for nodes and links
     """
+    
+    Node = DictNode  # Called in inherited class methods
+    
     def __init__(self, nodes, links, top=None):
         """
         Initialise dictionaries from lists
