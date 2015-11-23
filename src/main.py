@@ -4,7 +4,7 @@ from xml.etree.ElementTree import XML
 
 class Pred(object):
     """
-    A superclass to set the API for all Pred classes
+    A superclass for all Pred classes
     """
     @property
     def string(self):
@@ -81,34 +81,32 @@ class Link(namedtuple('Link',('start','end','rargname','post'))):
 
 class Node(object):
     """
-    A superclass to set the API for all Node classes
+    A superclass for all Node classes
     """
-    def __init__(self, nodeid, pred, sortinfo, cfrom, cto, carg, cvtype):
-        self.id = nodeid
-        self.pred = pred
-        self.sortinfo = sortinfo
-        self.cfrom = cfrom
-        self.cto = cto
-        self.carg = carg
-        self.cvtype = cvtype
-    
     @property
     def span(self):
-        if self.cfrom and self.cto:
-            return (self.cfrom, self.cto)
-        else:
-            return None
+        return (self.cfrom, self.cto)
 
 
 class ListNode(Node):
     """
     A node implemented with a list for the sortinfo
     """
+    def __init__(self, nodeid, pred, sortinfo=None, cfrom=None, cto=None, surface=None, base=None, carg=None):
+        self.nodeid = nodeid
+        self.pred = pred
+        self.sortinfo = sortinfo
+        self.cfrom = cfrom
+        self.cto = cto
+        self.surface = surface
+        self.base = base
+        self.carg = carg
+    
     def dict_node(self, graph=None):
         """
         Convert to a DictNode
         """
-        return DictNode(self.id, self.pred, self.sortinfo, self.cfrom, self.cto, self.carg, self.cvtype, graph)
+        return DictNode(self.nodeid, self.pred, self.sortinfo, self.cfrom, self.cto, self.surface, self.base, self.carg, graph)
 
 
 class DictNode(Node):
@@ -116,13 +114,14 @@ class DictNode(Node):
     A node implemented with a dict for the sortinfo,
     and a pointer to the DMRS graph to access links
     """
-    def __init__(self, nodeid, pred, sortinfo=None, cfrom=None, cto=None, carg=None, cvtype=None, graph=None):
-        self.id = nodeid
+    def __init__(self, nodeid, pred, sortinfo=None, cfrom=None, cto=None, surface=None, base=None, carg=None, graph=None):
+        self.nodeid = nodeid
         self.pred = pred
         self.cfrom = cfrom
         self.cto = cto
+        self.surface = surface
+        self.base = base
         self.carg = carg
-        self.cvtype = cvtype
         self._graph = graph
         if sortinfo:
             if isinstance(sortinfo, list):
@@ -137,21 +136,23 @@ class DictNode(Node):
         """
         Convert to a ListNode
         """
-        return ListNode(self.id, self.pred, self.sortinfo.items(), self.cfrom, self.cto, self.carg, self.cvtype)
+        return ListNode(self.nodeid, self.pred, self.sortinfo.items(), self.cfrom, self.cto, self.carg, self.cvtype)
     
     @property
     def incoming(self):
         """
         Incoming links, indexed by nodeids
         """
-        return self._graph.incoming[self.id]
+        # If there are no incoming links, return an empty dict
+        return self._graph.incoming.get(self.nodeid, {})
     
     @property
     def outgoing(self):
         """
         Outgoing links, indexed by nodeids
         """
-        return self._graph.outgoing[self.id]
+        # If there are no outgoing links, return an empty dict
+        return self._graph.outgoing.get(self.nodeid, {})
     
     def in_label(self, label, post=None):
         """
@@ -184,13 +185,73 @@ def search_keys(dictionary, target):
 
 class Dmrs(object):
     """
-    A superclass to set the API for all DMRS classes
+    A superclass for all DMRS classes
     """
     @classmethod
     def loads(cls, bytestring):
+        """
+        Currently processes "<dmrs>...</dmrs>"
+        To be updated for "<dmrslist>...</dmrslist>"...
+        """
         xml = XML(bytestring)
-        return xml
-        # Read in the nodes and links, then create a new instance and return it?
+        
+        dmrs_cfrom = int(xml.get('cfrom'))
+        dmrs_cto = int(xml.get('cto'))
+        dmrs_surface = xml.get('surface')
+        ident = xml.get('ident')
+        index = xml.get('index')
+        if ident: ident = int(ident)
+        if index: index = int(index)
+        top = None
+        
+        nodes = []
+        links = []
+        
+        for elem in xml:
+            if elem.tag == 'node':
+                nodeid = int(elem.get('nodeid'))
+                cfrom = int(elem.get('cfrom'))
+                cto = int(elem.get('cto'))
+                surface = elem.get('surface')
+                base = elem.get('base')
+                carg = elem.get('carg')
+                
+                pred = None
+                sortinfo = None
+                for sub in elem:
+                    if sub.tag == 'realpred':
+                        pred = RealPred(sub.get('lemma'),sub.get('pos'),sub.get('sense'))
+                    elif sub.tag == 'gpred':
+                        pred = GPred(sub.text[:-4])
+                    elif sub.tag == 'sortinfo':
+                        sortinfo = sub.items()
+                    else:
+                        raise ValueError(sub.tag)
+                
+                nodes.append(cls.Node(nodeid, pred, sortinfo, cfrom, cto, surface, base, carg))
+            
+            elif elem.tag == 'link':
+                start = int(elem.get('from'))
+                end = int(elem.get('to'))
+                
+                if start == 0:
+                    top = end
+                
+                else:
+                    rargname = None
+                    post = None
+                    for sub in elem:
+                        if sub.tag == 'rargname':
+                            rargname = sub.text
+                        elif sub.tag == 'post':
+                            post = sub.text
+                        else:
+                            raise ValueError(sub.tag)
+                    links.append(Link(start, end, rargname, post))
+            else:
+                raise ValueError(elem.tag)
+        
+        return cls(nodes, links, dmrs_cfrom, dmrs_cto, dmrs_surface, ident, index, top)
     
     @classmethod
     def load(cls, filehandle):
@@ -203,7 +264,7 @@ class Dmrs(object):
     @classmethod
     def dumps(cls, dmrs):
         pass
-        # Get the nodes and links, then write them out?
+        # Get the nodes and links, then write them out...
     
     @classmethod
     def dump(cls, filehandle, dmrs):
@@ -217,16 +278,21 @@ class ListDmrs(Dmrs):
     
     Node = ListNode  # Called in inherited class methods
     
-    def __init__(self, nodes, links, top=None):
+    def __init__(self, nodes, links, cfrom=None, cto=None, surface=None, ident=None, index=None, top=None):
         self.nodes = nodes
         self.links = links
+        self.cfrom = cfrom
+        self.cto = cto
+        self.surface = surface
+        self.ident = ident
+        self.index = index
         self.top = top
     
     def dict_dmrs(self):
         """
         Convert to a DictDmrs
         """
-        return DictDmrs(self.nodes, self.links, self.top)
+        return DictDmrs(self.nodes, self.links, self.cfrom, self.cto, self.surface, self.ident, self.index, self.top)
 
 
 class DoubleDict(dict):
@@ -273,38 +339,66 @@ class DictDmrs(Dmrs):
     
     Node = DictNode  # Called in inherited class methods
     
-    def __init__(self, nodes, links, top=None):
+    def __init__(self, nodes, links, cfrom=None, cto=None, surface=None, ident=None, index=None, top=None):
         """
         Initialise dictionaries from lists
         """
+        # Initialise simple attributes
+        self.cfrom = cfrom
+        self.cto = cto
+        self.surface = surface
+        self.ident = ident
+        
         # Initialise nodes
         self._nodes = {}
         for n in nodes:
             # Allow the list of nodes to be DictNodes, ListNodes, or tuples
             if isinstance(n, DictNode):
-                self._nodes[n.id] = n
-                n.graph = self
+                self._nodes[n.nodeid] = n
+                n._graph = self
             elif isinstance(n, ListNode):
-                self._nodes[n.id] = n.dict_node(graph=self)
+                self._nodes[n.nodeid] = n.dict_node(graph=self)
             else:
                 self._nodes[n[0]] = DictNode(*n, graph=self)
+                
         # Initialise links
         self.outgoing = DoubleDict()
         self.incoming = DoubleDict()
         for start, end, rargname, post in links:
             label = LinkLabel(rargname, post)
             self.add_link(start, end, label)
-        # Allow top to be a nodeid, or a node
-        if top in self:
-            self.top = self[top]
+        
+        # Allow index and top to be a nodeid, or a node, or None
+        if index:
+            if index in self:
+                self.index = self[index]
+            elif index.nodeid in self:
+                self.index = index
+            else:
+                raise ValueError(index)
         else:
-            assert top.id in self
+            self.top = None
+        if top:
+            if top in self:
+                self.top = self[top]
+            elif top.nodeid in self:
+                self.top = top
+            else:
+                raise ValueError(top)
+        else:
+            self.top = None
     
     def __getitem__(self, nodeid):
         """
         Allow accessing nodes as self[nodeid]
         """
         return self._nodes[nodeid]
+    
+    def __iter__(self):
+        """
+        Allow iterating over nodes using 'in'
+        """
+        return self._nodes.__iter__()
     
     def iter_links(self):
         """
@@ -373,4 +467,4 @@ class DictDmrs(Dmrs):
         Convert to a ListDmrs
         """
         list_nodes = [n.list_node() for n in self._nodes.values()]
-        return ListDmrs(list_nodes, self.links, self.top.id)
+        return ListDmrs(list_nodes, self.links, self.top.nodeid)
