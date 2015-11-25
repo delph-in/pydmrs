@@ -268,6 +268,10 @@ class Dmrs(object):
     
     @classmethod
     def dump(cls, filehandle, dmrs):
+        """
+        Dump a DMRS to a file
+        NB: write as a bytestring!
+        """
         filehandle.write(cls.dumps(dmrs))
 
 
@@ -298,7 +302,7 @@ class ListDmrs(Dmrs):
 class DoubleDict(dict):
     """
     A dict of dicts, mapping to sets.
-    Used to store links in the DictDmrs class below.
+    Used to store links in the DictDmrs class.
     """
     def add(self, key1, key2, value):
         """
@@ -351,15 +355,7 @@ class DictDmrs(Dmrs):
         
         # Initialise nodes
         self._nodes = {}
-        for n in nodes:
-            # Allow the list of nodes to be DictNodes, ListNodes, or tuples
-            if isinstance(n, DictNode):
-                self._nodes[n.nodeid] = n
-                n._graph = self
-            elif isinstance(n, ListNode):
-                self._nodes[n.nodeid] = n.dict_node(graph=self)
-            else:
-                self._nodes[n[0]] = DictNode(*n, graph=self)
+        self.add_nodes(nodes)
                 
         # Initialise links
         self.outgoing = DoubleDict()
@@ -368,23 +364,13 @@ class DictDmrs(Dmrs):
             label = LinkLabel(rargname, post)
             self.add_link(start, end, label)
         
-        # Allow index and top to be a nodeid, or a node, or None
+        # Initialise index and top
         if index:
-            if index in self:
-                self.index = self[index]
-            elif index.nodeid in self:
-                self.index = index
-            else:
-                raise ValueError(index)
+            self.index = self[index]
         else:
-            self.top = None
+            self.index = None
         if top:
-            if top in self:
-                self.top = self[top]
-            elif top.nodeid in self:
-                self.top = top
-            else:
-                raise ValueError(top)
+            self.top = self[top]
         else:
             self.top = None
     
@@ -461,6 +447,50 @@ class DictDmrs(Dmrs):
         """
         for link in iterable:
             self.remove_link(*link)
+    
+    def add_node(self, node):
+        """
+        Add a node, converting to DictNode if necessary
+        """
+        if isinstance(node, self.Node):
+            self._nodes[node.nodeid] = node
+            node._graph = self
+        elif isinstance(node, Node):
+            self._nodes[node.nodeid] = node.dict_node(graph=self)
+        else:
+            self._nodes[node[0]] = self.Node(*node, graph=self)
+    
+    def add_nodes(self, iterable):
+        """
+        Add a number of nodes
+        """
+        for node in iterable:
+            self.add_node(node)
+    
+    def remove_node(self, nodeid):
+        """
+        Remove a node and all associated links
+        """
+        if nodeid in self.outgoing:
+            for end in self.outgoing[nodeid]:
+                self.incoming[end].pop(nodeid)
+            self.outgoing.pop(nodeid)
+        if nodeid in self.incoming:
+            for start in self.incoming[nodeid]:
+                self.outgoing[start].pop(nodeid)
+            self.incoming.pop(nodeid)
+        self._nodes.pop(nodeid)
+        if self.top.nodeid == nodeid:
+            self.top = None
+        if self.index.nodeid == nodeid:
+            self.index = None
+    
+    def remove_nodes(self, iterable):
+        """
+        Remove a number of nodes
+        """
+        for nodeid in iterable:
+            self.remove_node(nodeid)
     
     def list_dmrs(self):
         """
