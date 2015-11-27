@@ -1,13 +1,12 @@
 from collections import namedtuple
-from xml.etree.ElementTree import XML 
+from xml.etree.ElementTree import XML
 
 
 class Pred(object):
     """
     A superclass for all Pred classes
     """
-    @property
-    def string(self):
+    def __str__(self):
         raise NotImplementedError
     
     @staticmethod
@@ -33,8 +32,7 @@ class RealPred(Pred, namedtuple('RealPred',('lemma','pos','sense'))):
         """
         return super(RealPred, cls).__new__(cls, lemma, pos, sense)
     
-    @property
-    def string(self):
+    def __str__(self):
         """
         Return a string, with leading underscore, and trailing '_rel'
         """
@@ -48,8 +46,7 @@ class GPred(Pred, namedtuple('GPred',('name'))):
     """
     Grammar predicate, with a rel name
     """
-    @property
-    def string(self):
+    def __str__(self):
         """
         Return a string, with trailing '_rel'
         """
@@ -188,11 +185,14 @@ class Dmrs(object):
     A superclass for all DMRS classes
     """
     @classmethod
-    def loads(cls, bytestring):
+    def loads_xml(cls, bytestring, encoding=None):
         """
         Currently processes "<dmrs>...</dmrs>"
         To be updated for "<dmrslist>...</dmrslist>"...
+        Expects a bytestring; to load from a string instead, specify encoding
         """
+        if encoding:
+            bytestring = bytestring.encode('utf-8')
         xml = XML(bytestring)
         
         dmrs_cfrom = int(xml.get('cfrom'))
@@ -254,20 +254,20 @@ class Dmrs(object):
         return cls(nodes, links, dmrs_cfrom, dmrs_cto, dmrs_surface, ident, index, top)
     
     @classmethod
-    def load(cls, filehandle):
+    def load_xml(cls, filehandle):
         """
         Load a DMRS from a file
-        NB: read as a bytestring!
+        NB: read file as bytes!
         """
         return cls.loads(filehandle.read())
     
     @classmethod
-    def dumps(cls, dmrs):
+    def dumps_xml(cls, dmrs):
         pass
         # Get the nodes and links, then write them out...
     
     @classmethod
-    def dump(cls, filehandle, dmrs):
+    def dump_xml(cls, filehandle, dmrs):
         """
         Dump a DMRS to a file
         NB: write as a bytestring!
