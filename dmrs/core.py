@@ -58,8 +58,7 @@ class LinkLabel(namedtuple('LinkLabel',('rargname','post'))):
     """
     A label for a link
     """
-    @property
-    def string(self):
+    def __str__(self):
         return "{}/{}".format(*self)
 
 class Link(namedtuple('Link',('start','end','rargname','post'))):
@@ -78,105 +77,68 @@ class Link(namedtuple('Link',('start','end','rargname','post'))):
 
 class Node(object):
     """
-    A superclass for all Node classes
-    """
-    @property
-    def span(self):
-        return (self.cfrom, self.cto)
-
-
-class ListNode(Node):
-    """
-    A node implemented with a list for the sortinfo
+    A DMRS node
     """
     def __init__(self, nodeid, pred, sortinfo=None, cfrom=None, cto=None, surface=None, base=None, carg=None):
         self.nodeid = nodeid
         self.pred = pred
-        self.sortinfo = sortinfo
         self.cfrom = cfrom
         self.cto = cto
         self.surface = surface
         self.base = base
         self.carg = carg
-    
-    def dict_node(self, graph=None):
-        """
-        Convert to a DictNode
-        """
-        return DictNode(self.nodeid, self.pred, self.sortinfo, self.cfrom, self.cto, self.surface, self.base, self.carg, graph)
-
-
-class DictNode(Node):
-    """
-    A node implemented with a dict for the sortinfo,
-    and a pointer to the DMRS graph to access links
-    """
-    def __init__(self, nodeid, pred, sortinfo=None, cfrom=None, cto=None, surface=None, base=None, carg=None, graph=None):
-        self.nodeid = nodeid
-        self.pred = pred
-        self.cfrom = cfrom
-        self.cto = cto
-        self.surface = surface
-        self.base = base
-        self.carg = carg
-        self._graph = graph
         if sortinfo:
-            if isinstance(sortinfo, list):
-                self.sortinfo = {x:y for x,y in sortinfo}
-            else:
-                assert isinstance(sortinfo, dict)
+            if isinstance(sortinfo, dict):
                 self.sortinfo = sortinfo
+            else:  # Allow initialising sortinfo from (key,value) pairs
+                self.sortinfo = {x:y for x,y in sortinfo}
         else:
             self.sortinfo = {}
     
-    def list_node(self):
-        """
-        Convert to a ListNode
-        """
-        return ListNode(self.nodeid, self.pred, self.sortinfo.items(), self.cfrom, self.cto, self.carg, self.cvtype)
+    @property
+    def span(self):
+        return (self.cfrom, self.cto)
+    
+    def convert_to(self, cls):
+        return cls(self.nodeid, self.pred, self.sortinfo, self.cfrom, self.cto, self.surface, self.base, self.carg)
+
+
+class PointerNode(Node):
+    """
+    A DMRS node with a pointer to the whole graph,
+    to allow access to links
+    """
+    def __init__(self, *args, graph=None, **kwargs):
+        super(PointerNode, self).__init__(*args, **kwargs)
+        self.graph = graph
     
     @property
     def incoming(self):
         """
-        Incoming links, indexed by nodeids
+        Incoming links
         """
-        # If there are no incoming links, return an empty dict
-        return self._graph.incoming.get(self.nodeid, {})
+        return self.graph.get_in(self.nodeid)
     
     @property
     def outgoing(self):
         """
-        Outgoing links, indexed by nodeids
+        Outgoing links
         """
-        # If there are no outgoing links, return an empty dict
-        return self._graph.outgoing.get(self.nodeid, {})
+        return self.graph.get_out(self.nodeid)
     
-    def in_label(self, label, post=None):
+    def get_in(self, rargname=None, post=None, nodes=False):
         """
-        Find all incoming links with a given label
+        Incoming links, filtered by the label.
+        If nodes is set to True, return nodes rather than links. 
         """
-        if post:
-            label = LinkLabel(label, post)
-        return search_keys(self.incoming, label)
+        return self.graph.get_in(self.nodeid, rargname=rargname, post=post, nodes=nodes)
     
-    def out_label(self, label, post=None):
+    def get_out(self, rargname=None, post=None, nodes=False):
         """
-        Find all outgoing links with a given label
+        Outgoing links, filtered by the label.
+        If nodes is set to True, return nodes rather than links.
         """
-        if post:
-            label = LinkLabel(label, post)
-        return search_keys(self.outgoing, label)
-
-def search_keys(dictionary, target):
-    """
-    For a dictionary of sets,
-    search for keys whose values contain the target
-    """
-    output = set()
-    for key, valueset in dictionary.items():
-        if target in valueset:
-            output.add(key)
-    return output
+        return self.graph.get_out(self.nodeid, rargname=rargname, post=post, nodes=nodes)
 
 
 
@@ -184,6 +146,28 @@ class Dmrs(object):
     """
     A superclass for all DMRS classes
     """
+    Node = Node
+    
+    def __init__(self, cfrom=None, cto=None, surface=None, ident=None, index=None, top=None):
+        """
+        Initialise simple attributes, index, and top.
+        Does not initialise nodes and links!
+        """
+        # Initialise simple attributes
+        self.cfrom = cfrom
+        self.cto = cto
+        self.surface = surface
+        self.ident = ident
+        # Initialise index and top
+        if index:
+            self.index = self[index]
+        else:
+            self.index = None
+        if top:
+            self.top = self[top]
+        else:
+            self.top = None
+    
     @classmethod
     def loads_xml(cls, bytestring, encoding=None):
         """
@@ -273,106 +257,222 @@ class Dmrs(object):
         NB: write as a bytestring!
         """
         filehandle.write(cls.dumps(dmrs))
+    
+    def convert_to(self, cls):
+        """
+        Convert to a different DMRS format
+        """
+        if self.Node == cls.Node:
+            node_list = self.nodes
+        else:
+            node_list = [n.convert_to(cls.Node) for n in self.nodes]
+        return cls(node_list, self.links, self.cfrom, self.cto, self.surface, self.ident, self.index.nodeid, self.top.nodeid)
 
 
 class ListDmrs(Dmrs):
     """
     A DMRS graph implemented with lists for nodes and links
     """
-    
-    Node = ListNode  # Called in inherited class methods
-    
-    def __init__(self, nodes, links, cfrom=None, cto=None, surface=None, ident=None, index=None, top=None):
-        self.nodes = nodes
+    def __init__(self, nodes, links, *args, **kwargs):
+        """
+        Initialise the graph
+        """
+        self.nodes = []
+        self.add_nodes(nodes)  # Allow subclasses to modify this
         self.links = links
-        self.cfrom = cfrom
-        self.cto = cto
-        self.surface = surface
-        self.ident = ident
-        self.index = index
-        self.top = top
+        super(ListDmrs, self).__init__(*args, **kwargs)
     
-    def dict_dmrs(self):
+    def __getitem__(self, nodeid):
         """
-        Convert to a DictDmrs
+        Allow accessing nodes as self[nodeid]
         """
-        return DictDmrs(self.nodes, self.links, self.cfrom, self.cto, self.surface, self.ident, self.index, self.top)
+        for n in self.nodes:
+            if n.nodeid == nodeid:
+                return n
+    
+    def __iter__(self):
+        """
+        Allow iterating over nodeids using 'in'
+        """
+        for n in self.nodes:
+            yield n.nodeid
+    
+    def add_link(self, link):
+        """Add a link"""
+        self.links.append(link)
+    
+    def add_links(self, iterable):
+        """Add a number of links"""
+        self.links.extend(iterable)
+    
+    def remove_link(self, link):
+        """Remove a link"""
+        self.links.remove(link)
+    
+    def remove_links(self, iterable):
+        """Remove a number of links"""
+        for link in iterable:
+            self.remove_link(link)
+    
+    def add_node(self, node):
+        """Add a node"""
+        assert type(node) == self.Node
+        self.nodes.append(node)
+    
+    def add_nodes(self, iterable):
+        """Add a number of nodes"""
+        for node in iterable:
+            self.add_node(node)
+        
+    def remove_node(self, nodeid):
+        """
+        Remove a node and all associated links
+        """
+        # Remove node:
+        for i, node in enumerate(self.nodes):
+            if node.nodeid == nodeid:
+                self.nodes.pop(i)
+                break
+        else: # if nodeid never found
+            raise KeyError(nodeid)
+        # Remove links:
+        remove = []
+        for i, link in enumerate(self.links):
+            if link.start == nodeid or link.end == nodeid:
+                remove.append(i)
+        for i in reversed(remove):
+            self.links.pop(i)
+        # Check if the node was top or index
+        if self.top.nodeid == nodeid:
+            self.top = None
+        if self.index.nodeid == nodeid:
+            self.index = None
+    
+    def remove_nodes(self, nodeids):
+        """
+        Remove a number of nodes and all associated links
+        """
+        # Remove nodes:
+        remove = []
+        for i, node in enumerate(self.nodes):
+            if node.nodeid in nodeids:
+                remove.append(node.nodeid)
+        if len(remove) != len(nodeids):
+            raise KeyError(nodeids)
+        for i in reversed(remove):
+            self.nodes.pop(i)
+        # Remove links:
+        remove = []
+        for i, link in enumerate(self.links):
+            if link.start in nodeids or link.end in nodeids:
+                remove.append(i)
+        for i in reversed(remove):
+            self.links.pop(i)
+        # Check if a node was top or index
+        if self.top.nodeid in nodeids:
+            self.top = None
+        if self.index.nodeid in nodeids:
+            self.index = None
+    
+    def iter_outgoing(self, nodeid):
+        """
+        Iterate through links going from a given node
+        """
+        for link in self.links:
+            if link.start == nodeid:
+                yield link
+    
+    def iter_incoming(self, nodeid):
+        """
+        Iterate through links coming to a given node
+        """
+        for link in self.links:
+            if link.end == nodeid:
+                yield link
+    
+    def get_out(self, nodeid, rargname=None, post=None, nodes=False):
+        """
+        Get links going from a node.
+        If rargname or post are specified, filter according to the label.
+        If nodes is set to True, return nodes rather than links.
+        """
+        linkset = self.iter_outgoing(nodeid)
+        if rargname or post:
+            linkset = filter_links(linkset, rargname=rargname, post=post)
+        if nodes:
+            return {self[link.end] for link in linkset}
+        else:
+            return set(linkset)
+    
+    def get_in(self, nodeid, rargname=None, post=None, nodes=False):
+        """
+        Get links coming to a node.
+        If rargname or post are specified, filter according to the label.
+        If nodes is set to True, return nodes rather than links.
+        """
+        linkset = self.iter_incoming(nodeid)
+        if rargname or post:
+            linkset = filter_links(linkset, rargname=rargname, post=post)
+        if nodes:
+            return {self[link.start] for link in linkset}
+        else:
+            return set(linkset)
+    
+    def get_label(self, rargname=None, post=None):
+        """
+        Get links, filtered according to the label
+        """
+        return filter_links(self.links, rargname=rargname, post=post)
 
 
-class DoubleDict(dict):
+
+class SetDict(dict):
     """
-    A dict of dicts, mapping to sets.
-    Used to store links in the DictDmrs class.
+    A dict of sets.
+    Used to store links in DictDmrs.
     """
-    def add(self, key1, key2, value):
+    def remove(self, key, value):
         """
-        Add an entry, creating new dicts or sets as necessary,
-        i.e. self[key1][key2].add(value) with defaults
+        Remove value from the set self[key],
+        and remove the whole set if there's nothing left
         """
-        self.setdefault(key1,{}).setdefault(key2,set()).add(value)
+        self[key].remove(value)
+        if not self[key]:
+            self.pop(key)
     
-    def trim(self, key1, key2, value):
+    def add(self, key, value):
         """
-        Remove an entry, cleaning up empty dicts or sets
+        Add value to the set self[key],
+        initialising a new set if it doesn't already exist
         """
-        if not value in self[key1][key2]:
-            raise KeyError((key1, key2, value))
-        n = len(self[key1][key2])
-        if n > 1:
-            self[key1][key2].remove(value)
-        elif len(self[key1]) > 1:
-            self[key1].pop(key2)
-        else:
-            self.pop(key1)
+        self.setdefault(key, set()).add(value)
     
-    def trim_all(self, key1, key2):
+    def get(self, key):
         """
-        Remove a whole set, not just a single element
+        Get a set in the dictionary,
+        defaulting to the empty set if not found
         """
-        if not self[key1][key2]:
-            raise KeyError((key1, key2))
-        if len(self[key1]) > 1:
-            self[key1].pop(key2)
-        else:
-            self.pop(key1)
+        return super(SetDict, self).get(key, set())
+
+
 
 class DictDmrs(Dmrs):
     """
     A DMRS graph implemented with dicts for nodes and links
     """
-    
-    Node = DictNode  # Called in inherited class methods
-    
-    def __init__(self, nodes, links, cfrom=None, cto=None, surface=None, ident=None, index=None, top=None):
+    def __init__(self, nodes, links, *args, **kwargs):
         """
         Initialise dictionaries from lists
         """
-        # Initialise simple attributes
-        self.cfrom = cfrom
-        self.cto = cto
-        self.surface = surface
-        self.ident = ident
-        
-        # Initialise nodes
+        # Initialise nodes:
         self._nodes = {}
         self.add_nodes(nodes)
-                
-        # Initialise links
-        self.outgoing = DoubleDict()
-        self.incoming = DoubleDict()
-        for start, end, rargname, post in links:
-            label = LinkLabel(rargname, post)
-            self.add_link(start, end, label)
-        
-        # Initialise index and top
-        if index:
-            self.index = self[index]
-        else:
-            self.index = None
-        if top:
-            self.top = self[top]
-        else:
-            self.top = None
+        # Initialise links:
+        self.outgoing = SetDict()
+        self.incoming = SetDict()
+        self.add_links(links)
+        # Initialise rest:
+        super(DictDmrs, self).__init__(*args, **kwargs)
     
     def __getitem__(self, nodeid):
         """
@@ -382,18 +482,29 @@ class DictDmrs(Dmrs):
     
     def __iter__(self):
         """
-        Allow iterating over nodes using 'in'
+        Allow iterating over nodeids using 'in'
         """
         return self._nodes.__iter__()
+    
+    def __contains__(self, nodeid):
+        """
+        Allow checking if a node is in the graph
+        """
+        return self._nodes.__contains__(nodeid)
     
     def iter_links(self):
         """
         Iterate through all links.
         """
-        for start, outdict in self.outgoing.items():
-            for end, labelset in outdict.items():
-                for label in labelset:
-                    yield Link(start, end, *label)
+        for outset in self.outgoing.values():
+            for link in outset:
+                yield link
+    
+    def iter_nodes(self):
+        """
+        Iterate through all nodes.
+        """
+        return iter(self._nodes.values())
     
     @property
     def links(self):
@@ -403,62 +514,43 @@ class DictDmrs(Dmrs):
     def nodes(self):
         return list(self._nodes.values())
     
-    def add_link(self, start, end, label, post=None):
+    def add_link(self, link):
         """
         Safely add a link.
-        If (start, end, label) is given, adds a link from start to end with that label
-        If (start, end, rargname, post) is given, the label is (rargname, post)
         """
-        if not (start in self and end in self):
-            raise KeyError((start, end))
-        if post:
-            rargname = label
-            label = LinkLabel(rargname, post)
-        self.outgoing.add(start, end, label)
-        self.incoming.add(end, start, label)
+        if not (link.start in self and link.end in self):
+            raise KeyError((link.start, link.end))
+        self.outgoing.add(link.start, link)
+        self.incoming.add(link.end, link)
     
     def add_links(self, iterable):
         """
         Safely add a number of links
         """
         for link in iterable:
-            self.add_link(*link)
+            self.add_link(link)
     
-    def remove_link(self, start, end, label=None, post=None):
+    def remove_link(self, link):
         """
         Safely remove a link.
-        If (start, end) is given, removes all links from start to end
-        If (start, end, label) is given, removes the link from start to end with that label
-        If (start, end, rargname, post) is given, removes the link with label (rargname, post)
         """
-        if label:
-            if post:
-                rargname = label
-                label = LinkLabel(rargname,post)
-            self.outgoing.trim(start, end, label)
-            self.incoming.trim(end, start, label)
-        else:
-            self.outgoing.trim_all(start, end)
-            self.incoming.trim_all(end, start)
+        self.outgoing.remove(link.start, link)
+        self.incoming.remove(link.end, link)
     
     def remove_links(self, iterable):
         """
         Safely remove a number of links.
         """
         for link in iterable:
-            self.remove_link(*link)
+            self.remove_link(link)
     
     def add_node(self, node):
         """
-        Add a node, converting to DictNode if necessary
+        Add a node
         """
-        if isinstance(node, self.Node):
-            self._nodes[node.nodeid] = node
-            node._graph = self
-        elif isinstance(node, Node):
-            self._nodes[node.nodeid] = node.dict_node(graph=self)
-        else:
-            self._nodes[node[0]] = self.Node(*node, graph=self)
+        assert not node.nodeid in self
+        assert type(node) == self.Node
+        self._nodes[node.nodeid] = node
     
     def add_nodes(self, iterable):
         """
@@ -471,15 +563,18 @@ class DictDmrs(Dmrs):
         """
         Remove a node and all associated links
         """
+        # Remove links
         if nodeid in self.outgoing:
-            for end in self.outgoing[nodeid]:
-                self.incoming[end].pop(nodeid)
+            for link in self.outgoing[nodeid]:
+                self.incoming.remove(link.end, link)
             self.outgoing.pop(nodeid)
         if nodeid in self.incoming:
-            for start in self.incoming[nodeid]:
-                self.outgoing[start].pop(nodeid)
+            for link in self.incoming[nodeid]:
+                self.outgoing.remove(link.start, link)
             self.incoming.pop(nodeid)
+        # Remove the node
         self._nodes.pop(nodeid)
+        # Check if the node was top or index
         if self.top.nodeid == nodeid:
             self.top = None
         if self.index.nodeid == nodeid:
@@ -487,14 +582,83 @@ class DictDmrs(Dmrs):
     
     def remove_nodes(self, iterable):
         """
-        Remove a number of nodes
+        Remove a number of nodes and all associated links
         """
         for nodeid in iterable:
             self.remove_node(nodeid)
     
-    def list_dmrs(self):
+    def get_out(self, nodeid, rargname=None, post=None, nodes=False):
         """
-        Convert to a ListDmrs
+        Get links going from a node.
+        If rargname or post are specified, filter according to the label.
+        If nodes is set to True, return nodes rather than links.
         """
-        list_nodes = [n.list_node() for n in self._nodes.values()]
-        return ListDmrs(list_nodes, self.links, self.top.nodeid)
+        linkset = self.outgoing.get(nodeid)
+        if rargname or post:
+            linkset = filter_links(linkset, rargname=rargname, post=post)
+        if nodes:
+            return {self[link.end] for link in linkset}
+        else:
+            return linkset
+    
+    def get_in(self, nodeid, rargname=None, post=None, nodes=False):
+        """
+        Get links coming to a node.
+        If rargname or post are specified, filter according to the label.
+        If nodes is set to True, return nodes rather than links.
+        """
+        linkset = self.incoming.get(nodeid)
+        if rargname or post:
+            linkset = filter_links(linkset, rargname=rargname, post=post)
+        if nodes:
+            return {self[link.start] for link in linkset}
+        else:
+            return linkset
+    
+    def get_label(self, rargname=None, post=None):
+        """
+        Get links, filtered according to the label
+        """
+        return filter_links(self.iter_links(), rargname=rargname, post=post)
+
+
+class PointerMixin(Dmrs):
+    """
+    Allow a DMRS class to use PointerNode
+    """
+    Node = PointerNode
+    
+    def add_node(self, node):
+        """Add a node"""
+        # Although add_node() is not defined in Dmrs,
+        # in subclasses of PointerMixin, super() looks at the Method Resolution Order,
+        # which can include other parent classes where add_node() is defined.
+        super(PointerMixin, self).add_node(node)
+        node.graph = self
+
+class ListPointDmrs(PointerMixin, ListDmrs):
+    """
+    A DMRS graph implemented with lists for nodes and links,
+    plus pointers from nodes to the graph
+    """
+
+class DictPointDmrs(PointerMixin, DictDmrs):
+    """
+    A DMRS graph implemented with dicts for nodes and links,
+    plus pointers from nodes to the graph
+    """
+
+
+def filter_links(iterable, rargname, post):
+    """
+    Filter links according to the label.
+    None specifies a wildcard.
+    """
+    if not (rargname or post):
+        raise Exception("Specify either 'rargname' or 'post'")
+    elif not rargname:
+        return {x for x in iterable if x.post == post}
+    elif not post:
+        return {x for x in iterable if x.rargname == rargname}
+    else:
+        return {x for x in iterable if x.rargname == rargname and x.post == post}
