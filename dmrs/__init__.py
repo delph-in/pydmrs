@@ -1,1 +1,1 @@
-__all__ = ['components']
+__all__ = ['core']

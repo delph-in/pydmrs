@@ -176,7 +176,7 @@ class Dmrs(object):
         Expects a bytestring; to load from a string instead, specify encoding
         """
         if encoding:
-            bytestring = bytestring.encode('utf-8')
+            bytestring = bytestring.encode(encoding)
         xml = XML(bytestring)
         
         dmrs_cfrom = int(xml.get('cfrom'))
