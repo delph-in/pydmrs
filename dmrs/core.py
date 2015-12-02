@@ -1,5 +1,6 @@
 from collections import namedtuple
 from xml.etree.ElementTree import XML
+from operator import attrgetter
 
 
 class Pred(object):
@@ -494,17 +495,17 @@ class DictDmrs(Dmrs):
     
     def iter_links(self):
         """
-        Iterate through all links.
+        Iterate through all links, ordered by start and then end id.
         """
-        for outset in self.outgoing.values():
-            for link in outset:
+        for key, outset in sorted(self.outgoing.items()):
+            for link in sorted(outset, key=attrgetter('end')):
                 yield link
     
     def iter_nodes(self):
         """
-        Iterate through all nodes.
+        Iterate through all nodes, ordered by nodeid.
         """
-        return iter(self._nodes.values())
+        return iter(self.nodes)
     
     @property
     def links(self):
@@ -512,7 +513,10 @@ class DictDmrs(Dmrs):
     
     @property
     def nodes(self):
-        return list(self._nodes.values())
+        """
+        Return a list of nodes sorted by nodeid.
+        """
+        return sorted(self._nodes.values(), key=attrgetter('nodeid'))
     
     def add_link(self, link):
         """
