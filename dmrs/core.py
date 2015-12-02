@@ -10,6 +10,9 @@ class Pred(object):
     def __str__(self):
         raise NotImplementedError
     
+    def __repr__(self):
+        raise NotImplementedError
+    
     @staticmethod
     def from_string(string):
         """
@@ -41,6 +44,15 @@ class RealPred(Pred, namedtuple('RealPred',('lemma','pos','sense'))):
             return "_{}_{}_{}_rel".format(*self)
         else:
             return "_{}_{}_rel".format(*self)
+    
+    def __repr__(self):
+        """
+        Return a string, as "RealPred(lemma, pos, sense)"
+        """
+        if self.sense:
+            return "RealPred({}, {}, {})".format(*self)
+        else:
+            return "RealPred({}, {})".format(*self)
 
 
 class GPred(Pred, namedtuple('GPred',('name'))):
@@ -52,6 +64,12 @@ class GPred(Pred, namedtuple('GPred',('name'))):
         Return a string, with trailing '_rel'
         """
         return "{}_rel".format(*self)
+    
+    def __repr__(self):
+        """
+        Return a string, as "GPred(name)"
+        """
+        return "GPred({})".format(*self)
 
 
 
@@ -61,11 +79,20 @@ class LinkLabel(namedtuple('LinkLabel',('rargname','post'))):
     """
     def __str__(self):
         return "{}/{}".format(*self)
+    
+    def __repr__(self):
+        return "LinkLabel({}, {})".format(*self)
 
 class Link(namedtuple('Link',('start','end','rargname','post'))):
     """
     A link
     """
+    def __str__(self):
+        return "({}:{}/{} -> {})".format(self.start, self.rargname, self.post, self.end)
+    
+    def __repr__(self):
+        return "Link({}, {}, {}, {})".format(*self)
+    
     @property
     def label(self):
         return LinkLabel(self.rargname, self.post)
@@ -493,28 +520,39 @@ class DictDmrs(Dmrs):
         """
         return self._nodes.__contains__(nodeid)
     
-    def iter_links(self):
+    def iter_links(self, sort=True):
         """
-        Iterate through all links, ordered by start and then end id.
+        Iterate through all links, by default ordered by start and then end id.
         """
-        for key, outset in sorted(self.outgoing.items()):
-            for link in sorted(outset, key=attrgetter('end')):
-                yield link
+        if sort:
+            for _, outset in sorted(self.outgoing.items()):
+                for link in sorted(outset, key=attrgetter('end')):
+                    yield link
+        else:
+            for outset in self.outgoing.values():
+                for link in outset:
+                    yield link
     
-    def iter_nodes(self):
+    def iter_nodes(self, sort=True):
         """
-        Iterate through all nodes, ordered by nodeid.
+        Iterate through all nodes, by default ordered by nodeid.
         """
-        return iter(self.nodes)
+        if sort:
+            return iter(self.nodes)
+        else:
+            return iter(self._nodes.values())
     
     @property
     def links(self):
+        """
+        Return a list of nodes, ordered by start and then end id.
+        """
         return list(self.iter_links())
     
     @property
     def nodes(self):
         """
-        Return a list of nodes sorted by nodeid.
+        Return a list of nodes, ordered by nodeid.
         """
         return sorted(self._nodes.values(), key=attrgetter('nodeid'))
     
