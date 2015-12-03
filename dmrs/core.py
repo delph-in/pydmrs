@@ -1,6 +1,7 @@
 from collections import namedtuple
 from xml.etree.ElementTree import XML
 from operator import attrgetter
+from warnings import warn
 
 
 class Pred(object):
@@ -88,7 +89,7 @@ class Link(namedtuple('Link',('start','end','rargname','post'))):
     A link
     """
     def __str__(self):
-        return "({}:{}/{} -> {})".format(self.start, self.rargname, self.post, self.end)
+        return "({} - {}/{} -> {})".format(self.start, self.rargname, self.post, self.end)
     
     def __repr__(self):
         return "Link({}, {}, {}, {})".format(*self)
@@ -167,6 +168,12 @@ class PointerNode(Node):
         If nodes is set to True, return nodes rather than links.
         """
         return self.graph.get_out(self.nodeid, rargname=rargname, post=post, nodes=nodes)
+    
+    def renumber(self, new_id):
+        """
+        Change the node's id to new_id
+        """
+        self.graph.renumber_node(self.nodeid, new_id)
 
 
 
@@ -325,6 +332,18 @@ class ListDmrs(Dmrs):
         for n in self.nodes:
             yield n.nodeid
     
+    def __len__(self):
+        """
+        Return the number of nodes in the graph
+        """
+        return self.nodes.__len__()
+    
+    def iter_nodes(self):
+        return self.nodes.__iter__()
+    
+    def iter_links(self):
+        return self.links.__iter__()
+    
     def add_link(self, link):
         """Add a link"""
         self.links.append(link)
@@ -451,6 +470,26 @@ class ListDmrs(Dmrs):
         Get links, filtered according to the label
         """
         return filter_links(self.links, rargname=rargname, post=post)
+    
+    def renumber_node(self, old_id, new_id):
+        """
+        Change a node's ID from old_id to new_id
+        """
+        assert not new_id in self
+        self[old_id].nodeid = new_id
+        for i, link in enumerate(self.links):
+            start, end, rargname, post = link
+            if start == old_id:
+                self.links[i] = Link(new_id, end, rargname, post)
+            elif end == old_id:
+                self.links[i] = Link(start, new_id, rargname, post)
+    
+    def sort(self):
+        """
+        Sort the lists of nodes and links by nodeids
+        """
+        self.nodes.sort(key=attrgetter('nodeid'))
+        self.links.sort()
 
 
 
@@ -520,34 +559,35 @@ class DictDmrs(Dmrs):
         """
         return self._nodes.__contains__(nodeid)
     
-    def iter_links(self, sort=True):
+    def __len__(self):
         """
-        Iterate through all links, by default ordered by start and then end id.
+        Return the number of nodes in the graph
         """
-        if sort:
-            for _, outset in sorted(self.outgoing.items()):
-                for link in sorted(outset, key=attrgetter('end')):
-                    yield link
-        else:
-            for outset in self.outgoing.values():
-                for link in outset:
-                    yield link
+        return self._nodes.__len__()
     
-    def iter_nodes(self, sort=True):
+    def iter_links(self):
         """
-        Iterate through all nodes, by default ordered by nodeid.
+        Iterate through all links (unsorted)
         """
-        if sort:
-            return iter(self.nodes)
-        else:
-            return iter(self._nodes.values())
+        for outset in self.outgoing.values():
+            for link in outset:
+                yield link
+    
+    def iter_nodes(self):
+        """
+        Iterate through all nodes (unsorted)
+        """
+        return iter(self._nodes.values())
     
     @property
     def links(self):
         """
-        Return a list of nodes, ordered by start and then end id.
+        Return a list of links, ordered by start and then end nodeid.
         """
-        return list(self.iter_links())
+        links = []
+        for _, outset in sorted(self.outgoing.items()):
+            links.extend(sorted(outset, key=attrgetter('end')))
+        return links
     
     @property
     def nodes(self):
@@ -629,6 +669,12 @@ class DictDmrs(Dmrs):
         for nodeid in iterable:
             self.remove_node(nodeid)
     
+    def iter_outgoing(self, nodeid):
+        return self.outgoing[nodeid].__iter__()
+    
+    def iter_incoming(self, nodeid):
+        return self.incoming[nodeid].__iter__()
+    
     def get_out(self, nodeid, rargname=None, post=None, nodes=False):
         """
         Get links going from a node.
@@ -662,6 +708,27 @@ class DictDmrs(Dmrs):
         Get links, filtered according to the label
         """
         return filter_links(self.iter_links(), rargname=rargname, post=post)
+    
+    def renumber_node(self, old_id, new_id):
+        """
+        Change a node's ID from old_id to new_id
+        """
+        assert not new_id in self
+        node = self._nodes.pop(old_id)
+        node.nodeid = new_id
+        self._nodes[new_id] = node
+        for link in self.outgoing.pop(old_id, set()):
+            _, end, rargname, post = link
+            self.incoming[end].remove(link)
+            newlink = Link(new_id, end, rargname, post)
+            self.outgoing.add(new_id, newlink)
+            self.incoming.add(end, newlink)
+        for link in self.incoming.pop(old_id, set()):
+            start, _, rargname, post = link
+            self.outgoing[start].remove(link)
+            newlink = Link(start, new_id, rargname, post)
+            self.outgoing.add(start, newlink)
+            self.incoming.add(new_id, newlink)
 
 
 class PointerMixin(Dmrs):
