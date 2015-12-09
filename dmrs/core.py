@@ -156,19 +156,21 @@ class PointerNode(Node):
         """
         return self.graph.get_out(self.nodeid)
     
-    def get_in(self, rargname=None, post=None, nodes=False):
+    def get_in(self, *args, **kwargs):
         """
         Incoming links, filtered by the label.
-        If nodes is set to True, return nodes rather than links. 
+        If nodes is set to True, return nodes rather than links.
+        If iter is set to True, return an iterator rather than a set.
         """
-        return self.graph.get_in(self.nodeid, rargname=rargname, post=post, nodes=nodes)
+        return self.graph.get_in(self.nodeid, *args, **kwargs)
     
-    def get_out(self, rargname=None, post=None, nodes=False):
+    def get_out(self, *args, **kwargs):
         """
         Outgoing links, filtered by the label.
         If nodes is set to True, return nodes rather than links.
+        If iter is set to True, return an iterator rather than a set.
         """
-        return self.graph.get_out(self.nodeid, rargname=rargname, post=post, nodes=nodes)
+        return self.graph.get_out(self.nodeid, *args, **kwargs)
     
     def renumber(self, new_id):
         """
@@ -239,39 +241,51 @@ class Dmrs(object):
         for nodeid in iterable:
             self.remove_node(nodeid)
     
-    def get_out(self, nodeid, rargname=None, post=None, nodes=False):
+    def get_out(self, nodeid, rargname=None, post=None, nodes=False, iter=False):
         """
         Get links going from a node.
         If rargname or post are specified, filter according to the label.
         If nodes is set to True, return nodes rather than links.
+        If iter is set to True, return an iterator rather than a set.
         """
-        linkset = self.iter_outgoing(nodeid)
-        if rargname or post:
-            linkset = filter_links(linkset, rargname=rargname, post=post)
-        if nodes:
-            return (self[link.end] for link in linkset)
+        if iter:
+            linkset = self.iter_outgoing(nodeid)
+            if rargname or post:
+                linkset = filter_links(linkset, rargname=rargname, post=post)
+            if nodes:
+                return (self[link.end] for link in linkset)
+            else:
+                return linkset
         else:
-            return linkset
+            return set(self.get_out(nodeid, rargname, post, nodes, True))
     
-    def get_in(self, nodeid, rargname=None, post=None, nodes=False):
+    def get_in(self, nodeid, rargname=None, post=None, nodes=False, iter=False):
         """
         Get links coming to a node.
         If rargname or post are specified, filter according to the label.
         If nodes is set to True, return nodes rather than links.
+        If iter is set to True, return an iterator rather than a set.
         """
-        linkset = self.iter_incoming(nodeid)
-        if rargname or post:
-            linkset = filter_links(linkset, rargname=rargname, post=post)
-        if nodes:
-            return (self[link.start] for link in linkset)
+        if iter:
+            linkset = self.iter_incoming(nodeid)
+            if rargname or post:
+                linkset = filter_links(linkset, rargname=rargname, post=post)
+            if nodes:
+                return (self[link.start] for link in linkset)
+            else:
+                return linkset
         else:
-            return linkset
+            return set(self.get_in(nodeid, rargname, post, nodes, True))
     
-    def get_label(self, rargname=None, post=None):
+    def get_label(self, rargname=None, post=None, iter=False):
         """
         Get links, filtered according to the label
+        If iter is set to True, return an iterator rather than a set.
         """
-        return filter_links(self.iter_links(), rargname=rargname, post=post)
+        if iter:
+            return filter_links(self.iter_links(), rargname=rargname, post=post)
+        else:
+            return set(self.get_label(rargname, post, True))
     
     @classmethod
     def loads_xml(cls, bytestring, encoding=None):
