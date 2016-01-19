@@ -147,14 +147,20 @@ class PointerNode(Node):
         """
         Incoming links
         """
-        return self.graph.get_in(self.nodeid)
+        if self.graph:
+            return self.graph.get_in(self.nodeid)
+        else:
+            return set()
     
     @property
     def outgoing(self):
         """
         Outgoing links
         """
-        return self.graph.get_out(self.nodeid)
+        if self.graph:
+            return self.graph.get_out(self.nodeid)
+        else:
+            return set()
     
     def get_in(self, *args, **kwargs):
         """
@@ -162,7 +168,10 @@ class PointerNode(Node):
         If nodes is set to True, return nodes rather than links.
         If itr is set to True, return an iterator rather than a set.
         """
-        return self.graph.get_in(self.nodeid, *args, **kwargs)
+        if self.graph:
+            return self.graph.get_in(self.nodeid, *args, **kwargs)
+        else:
+            return set()
     
     def get_out(self, *args, **kwargs):
         """
@@ -170,13 +179,19 @@ class PointerNode(Node):
         If nodes is set to True, return nodes rather than links.
         If itr is set to True, return an iterator rather than a set.
         """
-        return self.graph.get_out(self.nodeid, *args, **kwargs)
+        if self.graph:
+            return self.graph.get_out(self.nodeid, *args, **kwargs)
+        else:
+            return set()
     
     def renumber(self, new_id):
         """
         Change the node's id to new_id
         """
-        self.graph.renumber_node(self.nodeid, new_id)
+        if self.graph:
+            self.graph.renumber_node(self.nodeid, new_id)
+        else:
+            self.nodeid = new_id
 
 
 
@@ -211,12 +226,12 @@ class Dmrs(object):
     def add_node(self, node): raise NotImplementedError
     def add_link(self, link): raise NotImplementedError
     def remove_node(self, nodeid): raise NotImplementedError
-    def remove_link(self, node): raise NotImplementedError
+    def remove_link(self, link): raise NotImplementedError
     def iter_nodes(self): raise NotImplementedError
     def iter_links(self): raise NotImplementedError
     def iter_outgoing(self, nodeid): raise NotImplementedError
     def iter_incoming(self, nodeid): raise NotImplementedError
-    def renumber_node(self, nodeid): raise NotImplementedError
+    def renumber_node(self, old_id, new_id): raise NotImplementedError
     def __getitem__(self, nodeid): raise NotImplementedError
     def __iter__(self): raise NotImplementedError
     def __len__(self): raise NotImplementedError
