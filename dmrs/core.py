@@ -1,5 +1,5 @@
 from collections import namedtuple
-from xml.etree.ElementTree import XML
+import xml.etree.ElementTree as ET
 from operator import attrgetter
 from warnings import warn
 import bisect
@@ -307,7 +307,7 @@ class Dmrs(object):
         """
         if encoding:
             bytestring = bytestring.encode(encoding)
-        xml = XML(bytestring)
+        xml = ET.XML(bytestring)
         
         dmrs_cfrom = int(xml.get('cfrom'))
         dmrs_cto = int(xml.get('cto'))
@@ -376,9 +376,48 @@ class Dmrs(object):
         return cls.loads(filehandle.read())
     
     @classmethod
-    def dumps_xml(cls, dmrs):
-        pass
-        # Get the nodes and links, then write them out...
+    def dumps_xml(cls, dmrs, encoding=None):
+        """
+        Currently creates "<dmrs>...</dmrs>"
+        To be updated for "<dmrslist>...</dmrslist>"...
+        Returns a bytestring; to return a string instead, specify encoding
+        """
+        xdmrs = ET.Element('dmrs')
+        xdmrs.set('cfrom', str(dmrs.cfrom))
+        xdmrs.set('cto', str(dmrs.cto))
+        for node in dmrs.iter_nodes():
+            xnode = ET.SubElement(xdmrs, 'node')
+            xnode.set('nodeid', str(node.nodeid))
+            xnode.set('cfrom', str(node.cfrom))
+            xnode.set('cto', str(node.cto))
+            if node.carg:
+                xnode.set('carg', node.carg)
+            if isinstance(node.pred, GPred):
+                xpred = ET.SubElement(xnode, 'gpred')
+                xpred.text = str(node.pred)
+            elif isinstance(node.pred, RealPred):
+                xpred = ET.SubElement(xnode, 'realpred')
+                xpred.set('lemma', node.pred.lemma)
+                xpred.set('pos', node.pred.pos)
+                if node.pred.sense:
+                    xpred.set('sense', node.pred.sense)
+            else:
+                raise Exception()
+            xsortinfo = ET.SubElement(xnode, 'sortinfo')
+            for attr in node.sortinfo:
+                xsortinfo.set(attr, node.sortinfo[attr])
+        for link in dmrs.iter_links():
+            xlink = ET.SubElement(xdmrs, 'link')
+            xlink.set('from', str(link.start))
+            xlink.set('to', str(link.end))
+            xrargname = ET.SubElement(xlink, 'rargname')
+            xrargname.text = link.rargname
+            xpost = ET.SubElement(xlink, 'post')
+            xpost.text = link.post
+        bytestring = ET.tostring(xdmrs)
+        if encoding:
+            return bytestring.decode(encoding)
+        return bytestring
     
     @classmethod
     def dump_xml(cls, filehandle, dmrs):
