@@ -20,12 +20,10 @@ class Pred(object):
         """
         Instantiates a suitable type of Pred, from a string
         """
-        assert string[-4:] == '_rel'
         if string[0] != '_':
-            return GPred(string[:-4])
+            return GPred.from_string(string)
         else:
-            parts = string[1:-4].split('_')
-            return RealPred(*parts)
+            return RealPred.from_string(string)
 
 
 class RealPred(Pred, namedtuple('RealPred',('lemma','pos','sense'))):
@@ -34,8 +32,11 @@ class RealPred(Pred, namedtuple('RealPred',('lemma','pos','sense'))):
     """
     def __new__(cls, lemma, pos, sense=None):
         """
-        Create a new instance, allowing the sense to be optional
+        Create a new instance, allowing the sense to be optional,
+        and requiring non-empty lemma and pos
         """
+        assert lemma
+        assert pos
         return super(RealPred, cls).__new__(cls, lemma, pos, sense)
     
     def __str__(self):
@@ -55,12 +56,31 @@ class RealPred(Pred, namedtuple('RealPred',('lemma','pos','sense'))):
             return "RealPred({}, {}, {})".format(*self)
         else:
             return "RealPred({}, {})".format(*self)
+    
+    @staticmethod
+    def from_string(string):
+        """
+        Create a new instance from a string,
+        stripping a trailing _rel if it exists.
+        """
+        assert string[0] == '_'
+        if string[-4:] == '_rel':
+            string = string[:-4]
+        parts = string[1:].rsplit('_', maxsplit=2)
+        return RealPred(*parts)
 
 
 class GPred(Pred, namedtuple('GPred',('name'))):
     """
     Grammar predicate, with a rel name
     """
+    def __new__(cls, name):
+        """
+        Create a new instance, requiring non-empty name
+        """
+        assert name
+        return super(GPred, cls).__new__(cls, name)
+    
     def __str__(self):
         """
         Return a string, with trailing '_rel'
@@ -72,6 +92,17 @@ class GPred(Pred, namedtuple('GPred',('name'))):
         Return a string, as "GPred(name)"
         """
         return "GPred({})".format(*self)
+    
+    @staticmethod
+    def from_string(string):
+        """
+        Create a new instance from a string,
+        stripping a trailing '_rel' if it exists.
+        """
+        if string[-4:] == '_rel':
+            return GPred(string[:-4])
+        else:
+            return GPred(string)
 
 
 
@@ -334,9 +365,13 @@ class Dmrs(object):
                 sortinfo = None
                 for sub in elem:
                     if sub.tag == 'realpred':
-                        pred = RealPred(sub.get('lemma'),sub.get('pos'),sub.get('sense'))
+                        try:
+                            pred = RealPred(sub.get('lemma'),sub.get('pos'),sub.get('sense'))
+                        except AssertionError:
+                            # If the whole pred name is under 'lemma', rather than split between 'lemma', 'pos', 'sense'
+                            pred = RealPred.from_string(sub.get('lemma'))
                     elif sub.tag == 'gpred':
-                        pred = GPred(sub.text[:-4])
+                        pred = GPred.from_string(sub.text)
                     elif sub.tag == 'sortinfo':
                         sortinfo = sub.items()
                     else:
