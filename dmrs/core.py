@@ -336,71 +336,8 @@ class Dmrs(object):
         To be updated for "<dmrslist>...</dmrslist>"...
         Expects a bytestring; to load from a string instead, specify encoding
         """
-        if encoding:
-            bytestring = bytestring.encode(encoding)
-        xml = ET.XML(bytestring)
-        
-        dmrs_cfrom = int(xml.get('cfrom'))
-        dmrs_cto = int(xml.get('cto'))
-        dmrs_surface = xml.get('surface')
-        ident = xml.get('ident')
-        index = xml.get('index')
-        if ident: ident = int(ident)
-        if index: index = int(index)
-        top = None
-        
-        nodes = []
-        links = []
-        
-        for elem in xml:
-            if elem.tag == 'node':
-                nodeid = int(elem.get('nodeid'))
-                cfrom = int(elem.get('cfrom'))
-                cto = int(elem.get('cto'))
-                surface = elem.get('surface')
-                base = elem.get('base')
-                carg = elem.get('carg')
-                
-                pred = None
-                sortinfo = None
-                for sub in elem:
-                    if sub.tag == 'realpred':
-                        try:
-                            pred = RealPred(sub.get('lemma'),sub.get('pos'),sub.get('sense'))
-                        except AssertionError:
-                            # If the whole pred name is under 'lemma', rather than split between 'lemma', 'pos', 'sense'
-                            pred = RealPred.from_string(sub.get('lemma'))
-                    elif sub.tag == 'gpred':
-                        pred = GPred.from_string(sub.text)
-                    elif sub.tag == 'sortinfo':
-                        sortinfo = sub.items()
-                    else:
-                        raise ValueError(sub.tag)
-                
-                nodes.append(cls.Node(nodeid, pred, sortinfo, cfrom, cto, surface, base, carg))
-            
-            elif elem.tag == 'link':
-                start = int(elem.get('from'))
-                end = int(elem.get('to'))
-                
-                if start == 0:
-                    top = end
-                
-                else:
-                    rargname = None
-                    post = None
-                    for sub in elem:
-                        if sub.tag == 'rargname':
-                            rargname = sub.text
-                        elif sub.tag == 'post':
-                            post = sub.text
-                        else:
-                            raise ValueError(sub.tag)
-                    links.append(Link(start, end, rargname, post))
-            else:
-                raise ValueError(elem.tag)
-        
-        return cls(nodes, links, dmrs_cfrom, dmrs_cto, dmrs_surface, ident, index, top)
+        from dmrs.serial import loads_xml
+        return loads_xml(bytestring, encoding=encoding, cls=cls)
     
     @classmethod
     def load_xml(cls, filehandle):
@@ -408,59 +345,23 @@ class Dmrs(object):
         Load a DMRS from a file
         NB: read file as bytes!
         """
-        return cls.loads(filehandle.read())
+        return cls.loads_xml(filehandle.read())
     
-    @classmethod
-    def dumps_xml(cls, dmrs, encoding=None):
+    def dumps_xml(self, encoding=None):
         """
         Currently creates "<dmrs>...</dmrs>"
         To be updated for "<dmrslist>...</dmrslist>"...
         Returns a bytestring; to return a string instead, specify encoding
         """
-        xdmrs = ET.Element('dmrs')
-        xdmrs.set('cfrom', str(dmrs.cfrom))
-        xdmrs.set('cto', str(dmrs.cto))
-        for node in dmrs.iter_nodes():
-            xnode = ET.SubElement(xdmrs, 'node')
-            xnode.set('nodeid', str(node.nodeid))
-            xnode.set('cfrom', str(node.cfrom))
-            xnode.set('cto', str(node.cto))
-            if node.carg:
-                xnode.set('carg', node.carg)
-            if isinstance(node.pred, GPred):
-                xpred = ET.SubElement(xnode, 'gpred')
-                xpred.text = str(node.pred)
-            elif isinstance(node.pred, RealPred):
-                xpred = ET.SubElement(xnode, 'realpred')
-                xpred.set('lemma', node.pred.lemma)
-                xpred.set('pos', node.pred.pos)
-                if node.pred.sense:
-                    xpred.set('sense', node.pred.sense)
-            else:
-                raise Exception()
-            xsortinfo = ET.SubElement(xnode, 'sortinfo')
-            for attr in node.sortinfo:
-                xsortinfo.set(attr, node.sortinfo[attr])
-        for link in dmrs.iter_links():
-            xlink = ET.SubElement(xdmrs, 'link')
-            xlink.set('from', str(link.start))
-            xlink.set('to', str(link.end))
-            xrargname = ET.SubElement(xlink, 'rargname')
-            xrargname.text = link.rargname
-            xpost = ET.SubElement(xlink, 'post')
-            xpost.text = link.post
-        bytestring = ET.tostring(xdmrs)
-        if encoding:
-            return bytestring.decode(encoding)
-        return bytestring
+        from dmrs.serial import dumps_xml
+        return dumps_xml(self, encoding=encoding)
     
-    @classmethod
-    def dump_xml(cls, filehandle, dmrs):
+    def dump_xml(self, filehandle):
         """
         Dump a DMRS to a file
         NB: write as a bytestring!
         """
-        filehandle.write(cls.dumps(dmrs))
+        filehandle.write(self.dumps_xml())
     
     def convert_to(self, cls):
         """
