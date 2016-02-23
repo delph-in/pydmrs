@@ -1,5 +1,4 @@
 from collections import namedtuple
-import xml.etree.ElementTree as ET
 from operator import attrgetter
 from warnings import warn
 import bisect
@@ -336,7 +335,7 @@ class Dmrs(object):
         To be updated for "<dmrslist>...</dmrslist>"...
         Expects a bytestring; to load from a string instead, specify encoding
         """
-        from dmrs.serial import loads_xml
+        from pydmrs.serial import loads_xml
         return loads_xml(bytestring, encoding=encoding, cls=cls)
     
     @classmethod
@@ -353,7 +352,7 @@ class Dmrs(object):
         To be updated for "<dmrslist>...</dmrslist>"...
         Returns a bytestring; to return a string instead, specify encoding
         """
-        from dmrs.serial import dumps_xml
+        from pydmrs.serial import dumps_xml
         return dumps_xml(self, encoding=encoding)
     
     def dump_xml(self, filehandle):
