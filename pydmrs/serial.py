@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ET
-from dmrs.core import RealPred, GPred, Link, ListDmrs
+from pydmrs.core import RealPred, GPred, Link, ListDmrs
 
 def loads_xml(bytestring, encoding=None, cls=ListDmrs):
     """

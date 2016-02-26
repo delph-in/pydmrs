@@ -1,7 +1,7 @@
 import argparse
 from configparser import ConfigParser, NoSectionError, NoOptionError
 
-from serial import loads_xml, dumps_xml
+from pydmrs.serial import loads_xml, dumps_xml
 
 
 DEFAULT_CONFIG_FILE = '../configs/default_simplification.conf'

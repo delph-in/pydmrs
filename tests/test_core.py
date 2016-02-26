@@ -1,6 +1,6 @@
 import unittest
 
-from core import (
+from pydmrs.core import (
     Pred, RealPred, GPred,
     Link, LinkLabel,
     Node, PointerNode,

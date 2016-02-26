@@ -1,14 +1,17 @@
 from collections import namedtuple
-import xml.etree.ElementTree as ET
 from operator import attrgetter
 from warnings import warn
 import bisect
+from pydmrs._exceptions import *
 
 
 class Pred(object):
     """
     A superclass for all Pred classes
     """
+    
+    __slots__ = ()  # Suppress __dict__
+    
     def __str__(self):
         raise NotImplementedError
     
@@ -20,16 +23,19 @@ class Pred(object):
         """
         Instantiates a suitable type of Pred, from a string
         """
-        if string[0] != '_':
-            return GPred.from_string(string)
-        else:
+        if string[0] == '_':
             return RealPred.from_string(string)
+        else:
+            return GPred.from_string(string)
 
 
-class RealPred(Pred, namedtuple('RealPred',('lemma','pos','sense'))):
+class RealPred(Pred, namedtuple('RealPredNamedTuple',('lemma','pos','sense'))):
     """
     Real predicate, with a lemma, part of speech, and (optional) sense
     """
+    
+    __slots__ = ()  # Suppress __dict__
+    
     def __new__(cls, lemma, pos, sense=None):
         """
         Create a new instance, allowing the sense to be optional,
@@ -53,9 +59,9 @@ class RealPred(Pred, namedtuple('RealPred',('lemma','pos','sense'))):
         Return a string, as "RealPred(lemma, pos, sense)"
         """
         if self.sense:
-            return "RealPred({}, {}, {})".format(*self)
+            return "RealPred({}, {}, {})".format(*(repr(x) for x in self))
         else:
-            return "RealPred({}, {})".format(*self)
+            return "RealPred({}, {})".format(*(repr(x) for x in self))
     
     @staticmethod
     def from_string(string):
@@ -63,17 +69,23 @@ class RealPred(Pred, namedtuple('RealPred',('lemma','pos','sense'))):
         Create a new instance from a string,
         stripping a trailing _rel if it exists.
         """
-        assert string[0] == '_'
+        if string[0] != '_':
+            raise PydmrsValueError("RealPred strings must begin with an underscore")
         if string[-4:] == '_rel':
             string = string[:-4]
         parts = string[1:].rsplit('_', maxsplit=2)
+        if len(parts) < 2:
+            raise PydmrsValueError("RealPreds require both lemma and pos")
         return RealPred(*parts)
 
 
-class GPred(Pred, namedtuple('GPred',('name'))):
+class GPred(Pred, namedtuple('GPredNamedTuple',('name'))):
     """
     Grammar predicate, with a rel name
     """
+    
+    __slots__ = ()  # Suppress __dict__
+    
     def __new__(cls, name):
         """
         Create a new instance, requiring non-empty name
@@ -85,13 +97,13 @@ class GPred(Pred, namedtuple('GPred',('name'))):
         """
         Return a string, with trailing '_rel'
         """
-        return "{}_rel".format(*self)
+        return "{}_rel".format(self.name)
     
     def __repr__(self):
         """
         Return a string, as "GPred(name)"
         """
-        return "GPred({})".format(*self)
+        return "GPred({})".format(repr(self.name))
     
     @staticmethod
     def from_string(string):
@@ -99,6 +111,8 @@ class GPred(Pred, namedtuple('GPred',('name'))):
         Create a new instance from a string,
         stripping a trailing '_rel' if it exists.
         """
+        if string[0] == '_':
+            raise PydmrsValueError("GPred strings must not begin with an underscore")
         if string[-4:] == '_rel':
             return GPred(string[:-4])
         else:
@@ -336,7 +350,7 @@ class Dmrs(object):
         To be updated for "<dmrslist>...</dmrslist>"...
         Expects a bytestring; to load from a string instead, specify encoding
         """
-        from dmrs.serial import loads_xml
+        from pydmrs.serial import loads_xml
         return loads_xml(bytestring, encoding=encoding, cls=cls)
     
     @classmethod
@@ -353,7 +367,7 @@ class Dmrs(object):
         To be updated for "<dmrslist>...</dmrslist>"...
         Returns a bytestring; to return a string instead, specify encoding
         """
-        from dmrs.serial import dumps_xml
+        from pydmrs.serial import dumps_xml
         return dumps_xml(self, encoding=encoding)
     
     def dump_xml(self, filehandle):
