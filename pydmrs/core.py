@@ -180,6 +180,10 @@ class Node(object):
     @property
     def span(self):
         return self.cfrom, self.cto
+
+    @property
+    def is_gpred_node(self):
+        return isinstance(self.pred, GPred)
     
     def convert_to(self, cls):
         return cls(self.nodeid, self.pred, self.sortinfo, self.cfrom, self.cto, self.surface, self.base, self.carg)

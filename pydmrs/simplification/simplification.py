@@ -2,6 +2,7 @@ import argparse
 from configparser import ConfigParser, NoSectionError, NoOptionError
 
 from pydmrs.serial import loads_xml, dumps_xml
+from pydmrs.simplification.gpred_filtering import gpred_filtering
 
 
 DEFAULT_CONFIG_FILE = '../configs/default_simplification.conf'
@@ -69,73 +70,6 @@ def split_dmrs_string(content):
     return content_fixed
 
 
-def gpred_filtering(dmrs, gpred_filter):
-    '''
-    Remove general predicate nodes on the filter list from the DMRS.
-    :param dmrs_xml: Input DMRS object
-    :param gpred_filters: A list of general predicates to filter
-    :return: Output DMRS object
-    '''
-
-    print(gpred_filter)
-
-    filterable_nodes = []
-
-    # Find general predicate nodes to filter
-    for node in dmrs.iter_nodes():
-        if node.is_gpred_node and node.pred.name in gpred_filter:
-            filterable_nodes.append(node)
-
-
-    return dmrs
-    # for entity in dmrs_xml:
-    #     if entity.tag == 'node':
-    #         node = entity
-    #         node_id = node.attrib['nodeid']
-    #         gpred_rel = None
-    #
-    #         for node_info in node:
-    #             if node_info.tag == 'realpred':
-    #                 break
-    #             elif node_info.tag == 'gpred':
-    #                 gpred_rel = node_info.text
-    #                 break
-    #
-    #         if gpred_rel and gpred_rel in gpred_filter:
-    #             remove_nodes[node_id] = node
-    #
-    # # Test whether removing a node would result in a disconnected graph. Remove only the ones that do not.
-    # removed_nodes = dict()
-    # removed_node_ids = set()
-    #
-    # already_disconnected = not is_connected(dmrs_xml)
-    #
-    # for node_id, node in remove_nodes.items():
-    #     if not already_disconnected and not is_connected(dmrs_xml, removed_nodes=(removed_node_ids | {node_id}),
-    #                                                      to_remove=remove_nodes):
-    #         # print 'Removing node with id %s would result in a disconnected graph, so we are not.' % node_id
-    #         continue
-    #     else:
-    #         removed_node_ids.add(node_id)
-    #         removed_nodes[node_id] = node
-    #
-    # # Actually remove nodes
-    # for _, node in removed_nodes.items():
-    #     dmrs_xml.remove(node)
-    #
-    # # Find links to or from general predicate nodes to filter
-    # for entity in dmrs_xml:
-    #     if entity.tag == 'link':
-    #         link = entity
-    #         if link.attrib['from'] in removed_nodes or link.attrib['to'] in removed_nodes:
-    #             remove_links.add(link)
-    #
-    # for link in remove_links:
-    #     dmrs_xml.remove(link)
-    #
-    # return dmrs_xml
-
-
 def dmrs_simplification(dmrs, gpred_filter):
 
     if gpred_filter is not None:
@@ -168,5 +102,5 @@ if __name__ == '__main__':
             simplified_dmrs = dmrs_simplification(dmrs, gpred_filter)
             simplified_dmrs_string = dumps_xml(simplified_dmrs)
             fout.write('%s\n\n' % (simplified_dmrs_string.decode('utf-8'),))
-            break
+
 
