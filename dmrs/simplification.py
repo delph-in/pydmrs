@@ -76,7 +76,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--config', default=DEFAULT_CONFIG_FILE,
                         help='Path to simplifaction configuration file. By default, configuration in configs/default_simplification.conf is used.')
     parser.add_argument('input_dmrs', help='Specify input DMRS file')
-    parser.add_argument('output_dmrs', help='Specify output dmrs file. Set "-" to output to standard output.')
+    parser.add_argument('output_dmrs', help='Specify output dmrs file.')
 
     args = parser.parse_args()
 
