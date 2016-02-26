@@ -1,7 +1,8 @@
-from collections import namedtuple
-from operator import attrgetter
-from warnings import warn
 import bisect
+from warnings import warn
+from operator import attrgetter
+from collections import namedtuple
+
 from pydmrs._exceptions import *
 
 
@@ -68,14 +69,19 @@ class RealPred(Pred, namedtuple('RealPredNamedTuple',('lemma','pos','sense'))):
         """
         Create a new instance from a string,
         stripping a trailing _rel if it exists.
+        :param string: Input string
+        :return: RealPred object
         """
         if string[0] != '_':
             raise PydmrsValueError("RealPred strings must begin with an underscore")
+
         if string[-4:] == '_rel':
             string = string[:-4]
+
         parts = string[1:].rsplit('_', maxsplit=2)
         if len(parts) < 2:
             raise PydmrsValueError("RealPreds require both lemma and pos")
+
         return RealPred(*parts)
 
 
@@ -113,11 +119,11 @@ class GPred(Pred, namedtuple('GPredNamedTuple',('name'))):
         """
         if string[0] == '_':
             raise PydmrsValueError("GPred strings must not begin with an underscore")
+
         if string[-4:] == '_rel':
             return GPred(string[:-4])
         else:
             return GPred(string)
-
 
 
 class LinkLabel(namedtuple('LinkLabel',('rargname','post'))):
@@ -129,6 +135,7 @@ class LinkLabel(namedtuple('LinkLabel',('rargname','post'))):
     
     def __repr__(self):
         return "LinkLabel({}, {})".format(*self)
+
 
 class Link(namedtuple('Link',('start','end','rargname','post'))):
     """
@@ -149,7 +156,6 @@ class Link(namedtuple('Link',('start','end','rargname','post'))):
         return "{}/{}".format(self.rargname, self.post)
 
 
-
 class Node(object):
     """
     A DMRS node
@@ -162,17 +168,18 @@ class Node(object):
         self.surface = surface
         self.base = base
         self.carg = carg
+
         if sortinfo:
             if isinstance(sortinfo, dict):
                 self.sortinfo = sortinfo
             else:  # Allow initialising sortinfo from (key,value) pairs
-                self.sortinfo = {x:y for x,y in sortinfo}
+                self.sortinfo = {x: y for x, y in sortinfo}
         else:
             self.sortinfo = {}
     
     @property
     def span(self):
-        return (self.cfrom, self.cto)
+        return self.cfrom, self.cto
     
     def convert_to(self, cls):
         return cls(self.nodeid, self.pred, self.sortinfo, self.cfrom, self.cto, self.surface, self.base, self.carg)
@@ -239,7 +246,6 @@ class PointerNode(Node):
             self.nodeid = new_id
 
 
-
 class Dmrs(object):
     """
     A superclass for all DMRS classes
@@ -253,11 +259,13 @@ class Dmrs(object):
         # Initialise nodes and links
         self.add_nodes(nodes)
         self.add_links(links)
+
         # Initialise simple attributes
         self.cfrom = cfrom
         self.cto = cto
         self.surface = surface
         self.ident = ident
+
         # Initialise index and top
         if index:
             self.index = self[index]
@@ -269,18 +277,29 @@ class Dmrs(object):
             self.top = None
     
     def add_node(self, node): raise NotImplementedError
+
     def add_link(self, link): raise NotImplementedError
+
     def remove_node(self, nodeid): raise NotImplementedError
+
     def remove_link(self, link): raise NotImplementedError
+
     def iter_nodes(self): raise NotImplementedError
+
     def iter_links(self): raise NotImplementedError
+
     def iter_outgoing(self, nodeid): raise NotImplementedError
+
     def iter_incoming(self, nodeid): raise NotImplementedError
+
     def renumber_node(self, old_id, new_id): raise NotImplementedError
+
     def __getitem__(self, nodeid): raise NotImplementedError
+
     def __iter__(self): raise NotImplementedError
+
     def __len__(self): raise NotImplementedError
-    
+
     def add_nodes(self, iterable):
         """Add a number of nodes"""
         for node in iterable:
@@ -309,12 +328,16 @@ class Dmrs(object):
         If itr is set to True, return an iterator rather than a set.
         """
         linkset = self.iter_outgoing(nodeid)
+
         if rargname or post:
             linkset = filter_links(linkset, rargname=rargname, post=post)
+
         if nodes:
             linkset = (self[link.end] for link in linkset)
+
         if not itr:
             linkset = set(linkset)
+
         return linkset
     
     def get_in(self, nodeid, rargname=None, post=None, nodes=False, itr=False):
@@ -327,10 +350,13 @@ class Dmrs(object):
         linkset = self.iter_incoming(nodeid)
         if rargname or post:
             linkset = filter_links(linkset, rargname=rargname, post=post)
+
         if nodes:
             linkset = (self[link.start] for link in linkset)
+
         if not itr:
             linkset = set(linkset)
+
         return linkset
     
     def get_label(self, rargname=None, post=None, itr=False):
@@ -341,6 +367,7 @@ class Dmrs(object):
         linkset = filter_links(self.iter_links(), rargname=rargname, post=post)
         if not itr:
             linkset = set(linkset)
+
         return linkset
     
     @classmethod
@@ -385,6 +412,7 @@ class Dmrs(object):
             node_list = self.nodes
         else:
             node_list = [n.convert_to(cls.Node) for n in self.nodes]
+
         return cls(node_list, self.links, self.cfrom, self.cto, self.surface, self.ident, self.index.nodeid, self.top.nodeid)
 
 
@@ -453,18 +481,23 @@ class ListDmrs(Dmrs):
             if node.nodeid == nodeid:
                 self.nodes.pop(i)
                 break
-        else: # if nodeid never found
+
+        else:  # if nodeid never found
             raise KeyError(nodeid)
+
         # Remove links:
         remove = []
         for i, link in enumerate(self.links):
             if link.start == nodeid or link.end == nodeid:
                 remove.append(i)
+
         for i in reversed(remove):
             self.links.pop(i)
+
         # Check if the node was top or index
         if self.top and self.top.nodeid == nodeid:
             self.top = None
+
         if self.index and self.index.nodeid == nodeid:
             self.index = None
     
@@ -488,8 +521,9 @@ class ListDmrs(Dmrs):
         """
         Change a node's ID from old_id to new_id
         """
-        assert not new_id in self
+        assert new_id not in self
         self[old_id].nodeid = new_id
+
         for i, link in enumerate(self.links):
             start, end, rargname, post = link
             if start == old_id:
@@ -503,7 +537,6 @@ class ListDmrs(Dmrs):
         """
         self.nodes.sort(key=attrgetter('nodeid'))
         self.links.sort()
-
 
 
 class SetDict(dict):
@@ -594,6 +627,7 @@ class DictDmrs(Dmrs):
         links = []
         for _, outset in sorted(self.outgoing.items()):
             links.extend(sorted(outset, key=attrgetter('end')))
+
         return links
     
     @property
@@ -609,7 +643,8 @@ class DictDmrs(Dmrs):
         """
         if not (link.start in self and link.end in self):
             raise KeyError((link.start, link.end))
-        assert not link in self.outgoing.get(link.start)
+
+        assert link not in self.outgoing.get(link.start)
         self.outgoing.add(link.start, link)
         self.incoming.add(link.end, link)
     
@@ -624,7 +659,7 @@ class DictDmrs(Dmrs):
         """
         Add a node
         """
-        assert not node.nodeid in self
+        assert node.nodeid not in self
         assert type(node) == self.Node
         self._nodes[node.nodeid] = node
     
@@ -637,12 +672,15 @@ class DictDmrs(Dmrs):
             for link in self.outgoing[nodeid]:
                 self.incoming.remove(link.end, link)
             self.outgoing.pop(nodeid)
+
         if nodeid in self.incoming:
             for link in self.incoming[nodeid]:
                 self.outgoing.remove(link.start, link)
             self.incoming.pop(nodeid)
+
         # Remove the node
         self._nodes.pop(nodeid)
+
         # Check if the node was top or index
         if self.top and self.top.nodeid == nodeid:
             self.top = None
@@ -659,16 +697,19 @@ class DictDmrs(Dmrs):
         """
         Change a node's ID from old_id to new_id
         """
-        assert not new_id in self
+        assert new_id not in self
+
         node = self._nodes.pop(old_id)
         node.nodeid = new_id
         self._nodes[new_id] = node
+
         for link in self.outgoing.pop(old_id, set()):
             _, end, rargname, post = link
             self.incoming[end].remove(link)
             newlink = Link(new_id, end, rargname, post)
             self.outgoing.add(new_id, newlink)
             self.incoming.add(end, newlink)
+
         for link in self.incoming.pop(old_id, set()):
             start, _, rargname, post = link
             self.outgoing[start].remove(link)
@@ -691,11 +732,13 @@ class PointerMixin(Dmrs):
         super(PointerMixin, self).add_node(node)
         node.graph = self
 
+
 class ListPointDmrs(PointerMixin, ListDmrs):
     """
     A DMRS graph implemented with lists for nodes and links,
     plus pointers from nodes to the graph
     """
+
 
 class DictPointDmrs(PointerMixin, DictDmrs):
     """
@@ -760,31 +803,38 @@ class SortDictDmrs(DictDmrs):
     
     def remove_node(self, nodeid):
         super(SortDictDmrs, self).remove_node(nodeid)
+
         i = bisect.bisect_left(self._nodeids, nodeid)
         self._nodeids.pop(i)
         self.nodes.pop(i)
+
         remove = []
         for i, link in enumerate(self.links):
             if link.start == nodeid or link.end == nodeid:
                 remove.append(i)
+
         for i in remove:
             self.links.pop(i)
     
     def renumber_node(self, old_id, new_id):
         super(SortDictDmrs, self).renumber_node(old_id, new_id)
+
         for i, link in enumerate(self.links):
             start, end, rargname, post = link
             if start == old_id:
                 self.links[i] = Link(new_id, end, rargname, post)
             elif end == old_id:
                 self.links[i] = Link(start, new_id, rargname, post)
+
         i = bisect.bisect_left(self._nodeids, old_id)
         j = bisect.bisect_left(self._nodeids, new_id)
-        if (j == i or j == i+1):
+
+        if j == i or j == i+1:
             self._nodeids[i] = new_id
         else:
             self._nodeids.pop(i)
-            if i < j: j-=1
+            if i < j:
+                j -= 1
             self._nodeids.insert(j, new_id)
             self.nodes.insert(j, self.nodes.pop(i))
             self.links.sort()
