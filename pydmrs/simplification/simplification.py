@@ -70,10 +70,10 @@ def split_dmrs_string(content):
     return content_fixed
 
 
-def dmrs_simplification(dmrs, gpred_filter):
+def dmrs_simplification(dmrs, gpred_filter, allow_disconnected_dmrs=False):
 
     if gpred_filter is not None:
-        dmrs = gpred_filtering(dmrs, gpred_filter)
+        dmrs = gpred_filtering(dmrs, gpred_filter, allow_disconnected_dmrs=allow_disconnected_dmrs)
 
     return dmrs
 
@@ -92,6 +92,7 @@ if __name__ == '__main__':
     config.read(args.config)
 
     gpred_filter_config = get_config_option(config, 'General Predicate Filtering', 'filter')
+    gpred_filter_allow_disconnected_dmrs = get_config_option(config, 'General Predicate Filtering', 'allow_disconnected_dmrs', bool)
     gpred_filter = parse_gpred_filter_config(gpred_filter_config)
 
     with open(args.input_dmrs, 'r', encoding="utf-8") as fin, open(args.output_dmrs, 'w') as fout:
@@ -99,8 +100,7 @@ if __name__ == '__main__':
 
         for dmrs_string in split_dmrs_string(content):
             dmrs = loads_xml(dmrs_string)
-            simplified_dmrs = dmrs_simplification(dmrs, gpred_filter)
+            simplified_dmrs = dmrs_simplification(dmrs, gpred_filter,
+                                                  allow_disconnected_dmrs=gpred_filter_allow_disconnected_dmrs)
             simplified_dmrs_string = dumps_xml(simplified_dmrs)
             fout.write('%s\n\n' % (simplified_dmrs_string.decode('utf-8'),))
-
-
