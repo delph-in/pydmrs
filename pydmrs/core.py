@@ -126,26 +126,32 @@ class GPred(Pred, namedtuple('GPredNamedTuple',('name'))):
             return GPred(string)
 
 
-class LinkLabel(namedtuple('LinkLabel',('rargname','post'))):
+class LinkLabel(namedtuple('LinkLabelNamedTuple',('rargname','post'))):
     """
     A label for a link
     """
+    
+    __slots__ = ()  # Suppress __dict__
+    
     def __str__(self):
         return "{}/{}".format(*self)
     
     def __repr__(self):
-        return "LinkLabel({}, {})".format(*self)
+        return "LinkLabel({}, {})".format(*(repr(x) for x in self))
 
 
-class Link(namedtuple('Link',('start','end','rargname','post'))):
+class Link(namedtuple('LinkNamedTuple',('start','end','rargname','post'))):
     """
     A link
     """
+    
+    __slots__ = ()  # Suppress __dict__
+    
     def __str__(self):
         return "({} - {}/{} -> {})".format(self.start, self.rargname, self.post, self.end)
     
     def __repr__(self):
-        return "Link({}, {}, {}, {})".format(*self)
+        return "Link({}, {}, {}, {})".format(*(repr(x) for x in self))
     
     @property
     def label(self):
