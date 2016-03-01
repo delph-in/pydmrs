@@ -12,17 +12,16 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs):
         bytestring = bytestring.encode(encoding)
     xml = ET.XML(bytestring)
     
-    dmrs_cfrom = int(xml.get('cfrom'))
-    dmrs_cto = int(xml.get('cto'))
-    dmrs_surface = xml.get('surface')
-    ident = xml.get('ident')
-    index = xml.get('index')
-    if ident: ident = int(ident)
-    if index: index = int(index)
-    top = None
+    dmrs = cls()
     
-    nodes = []
-    links = []
+    dmrs.cfrom = int(xml.get('cfrom'))
+    dmrs.cto = int(xml.get('cto'))
+    dmrs.surface = xml.get('surface')
+    ident = xml.get('ident')
+    index_id = xml.get('index')
+    if ident: dmrs.ident = int(ident)
+    if index_id: index_id = int(index_id)
+    top_id = None
     
     for elem in xml:
         if elem.tag == 'node':
@@ -49,14 +48,14 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs):
                 else:
                     raise ValueError(sub.tag)
             
-            nodes.append(cls.Node(nodeid, pred, sortinfo, cfrom, cto, surface, base, carg))
+            dmrs.add_node(cls.Node(nodeid, pred, sortinfo, cfrom, cto, surface, base, carg))
         
         elif elem.tag == 'link':
             start = int(elem.get('from'))
             end = int(elem.get('to'))
             
             if start == 0:
-                top = end
+                top_id = end
             
             else:
                 rargname = None
@@ -68,11 +67,16 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs):
                         post = sub.text
                     else:
                         raise ValueError(sub.tag)
-                links.append(Link(start, end, rargname, post))
+                dmrs.add_link(Link(start, end, rargname, post))
         else:
             raise ValueError(elem.tag)
     
-    return cls(nodes, links, dmrs_cfrom, dmrs_cto, dmrs_surface, ident, index, top)
+    if top_id:
+        dmrs.top = dmrs[top_id]
+    if index_id:
+        dmrs.index = dmrs[index_id]
+    
+    return dmrs
 
 
 def load_xml(filehandle, cls=ListDmrs):

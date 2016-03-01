@@ -160,7 +160,7 @@ class Node(object):
     """
     A DMRS node
     """
-    def __init__(self, nodeid, pred, sortinfo=None, cfrom=None, cto=None, surface=None, base=None, carg=None):
+    def __init__(self, nodeid=None, pred=None, sortinfo=None, cfrom=None, cto=None, surface=None, base=None, carg=None):
         self.nodeid = nodeid
         self.pred = pred
         self.cfrom = cfrom
@@ -184,6 +184,10 @@ class Node(object):
     @property
     def is_gpred_node(self):
         return isinstance(self.pred, GPred)
+    
+    @property
+    def is_realpred_node(self):
+        return isinstance(self.pred, RealPred)
     
     def convert_to(self, cls):
         return cls(self.nodeid, self.pred, self.sortinfo, self.cfrom, self.cto, self.surface, self.base, self.carg)
@@ -248,6 +252,14 @@ class PointerNode(Node):
             self.graph.renumber_node(self.nodeid, new_id)
         else:
             self.nodeid = new_id
+    
+    @property
+    def is_quantifier(self):
+        """
+        Check if the node is a quantifier
+        by looking for an outgoing RSTR/H link
+        """
+        return self.graph.is_quantifier(self.nodeid)
 
 
 class Dmrs(object):
@@ -256,7 +268,7 @@ class Dmrs(object):
     """
     Node = Node
     
-    def __init__(self, nodes, links, cfrom=None, cto=None, surface=None, ident=None, index=None, top=None):
+    def __init__(self, nodes=(), links=(), cfrom=None, cto=None, surface=None, ident=None, index=None, top=None):
         """
         Initialise simple attributes, index, and top.
         """
@@ -341,6 +353,7 @@ class Dmrs(object):
         If itr is set to True, return an iterator rather than a set.
         """
         linkset = self.iter_incoming(nodeid)
+        
         if rargname or post:
             linkset = filter_links(linkset, rargname=rargname, post=post)
 
@@ -402,11 +415,20 @@ class Dmrs(object):
         Convert to a different DMRS format
         """
         if self.Node == cls.Node:
-            node_list = self.nodes
+            nodes = self.iter_nodes()
         else:
-            node_list = [n.convert_to(cls.Node) for n in self.nodes]
-
-        return cls(node_list, self.links, self.cfrom, self.cto, self.surface, self.ident, self.index.nodeid, self.top.nodeid)
+            nodes = (n.convert_to(cls.Node) for n in self.iter_nodes())
+        return cls(nodes, self.iter_links(), self.cfrom, self.cto, self.surface, self.ident, self.index.nodeid, self.top.nodeid)
+    
+    def is_quantifier(self, nodeid):
+        """
+        Check if a given node is a quantifier
+        by looking for an outgoing RSTR/H link
+        """
+        if self.get_out(nodeid, rargname='RSTR', post='H'):
+            return True
+        else:
+            return False
 
 
 class ListDmrs(Dmrs):
