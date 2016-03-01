@@ -281,27 +281,16 @@ class Dmrs(object):
             self.top = None
     
     def add_node(self, node): raise NotImplementedError
-
     def add_link(self, link): raise NotImplementedError
-
     def remove_node(self, nodeid): raise NotImplementedError
-
     def remove_link(self, link): raise NotImplementedError
-
     def iter_nodes(self): raise NotImplementedError
-
     def iter_links(self): raise NotImplementedError
-
     def iter_outgoing(self, nodeid): raise NotImplementedError
-
     def iter_incoming(self, nodeid): raise NotImplementedError
-
     def renumber_node(self, old_id, new_id): raise NotImplementedError
-
     def __getitem__(self, nodeid): raise NotImplementedError
-
     def __iter__(self): raise NotImplementedError
-
     def __len__(self): raise NotImplementedError
 
     def add_nodes(self, iterable):
