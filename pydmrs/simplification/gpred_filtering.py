@@ -36,7 +36,7 @@ def gpred_filtering(dmrs, gpred_filter, allow_disconnected_dmrs=False):
     return dmrs
 
 
-def is_dmrs_connected(dmrs, removed_nodes=None, ignored_nodes=None):
+def is_dmrs_connected(dmrs, removed_nodes=frozenset(), ignored_nodes=frozenset()):
     """
     Determine if a DMRS graph is connected.
     :param dmrs: DMRS object
@@ -47,15 +47,12 @@ def is_dmrs_connected(dmrs, removed_nodes=None, ignored_nodes=None):
     :return: True if DMRS is connected, otherwise False.
     """
 
-    if ignored_nodes is None:
-        ignored_nodes = set()
-
     disconnected_nodes = disconnected_node_bfs(dmrs, removed_nodes=removed_nodes)
 
-    return True if len(disconnected_nodes - ignored_nodes) == 0 else False
+    return len(disconnected_nodes - ignored_nodes) == 0
 
 
-def disconnected_node_bfs(dmrs, removed_nodes=None, num_max_iterations=100):
+def disconnected_node_bfs(dmrs, removed_nodes=frozenset(), num_max_iterations=100):
     """
     Breadth-first search of the DMRS for disconnected nodes.
     :param dmrs: DMRS object
@@ -65,26 +62,22 @@ def disconnected_node_bfs(dmrs, removed_nodes=None, num_max_iterations=100):
     :return: Set of disconnected node id strings
     """
 
-    if removed_nodes is None:
-        removed_nodes = set()
-
     # Initialize the set of node that have not been visited yet
-    unvisited_nodes = {node.nodeid for node in dmrs.iter_nodes() if node.nodeid not in removed_nodes}
+    unvisited_nodes = {node.nodeid for node in dmrs.iter_nodes()} - removed_nodes
 
     if len(unvisited_nodes) == 0:
         return unvisited_nodes
 
     # Select a random starting node to visit
-    start_node_id = next(iter(unvisited_nodes))
-    unvisited_nodes.remove(start_node_id)
+    start_node_id = unvisited_nodes.pop()
 
     # Start the explore set with nodes adjacent to the starting node
-    explore_set = [node_id for node_id in get_adjacent_node_ids(dmrs, start_node_id) if node_id not in removed_nodes]
+    explore_set = get_adjacent_node_ids(dmrs, start_node_id) - removed_nodes
 
     # Iteratively visit nodes in the explore set and grow new explore set from visited adjacent nodes
     # Exit the loop when no new adjacent nodes can be visited or num_max_iterations is reached
     current_iter = 0
-    while len(explore_set) > 0:
+    while explore_set:
 
         if current_iter >= num_max_iterations:
             break
@@ -94,11 +87,11 @@ def disconnected_node_bfs(dmrs, removed_nodes=None, num_max_iterations=100):
         # Visit all nodes on the explore list
         for node_id in explore_set:
             unvisited_nodes.remove(node_id)
-            adjacend_node_ids = [node_id for node_id in get_adjacent_node_ids(dmrs, node_id) if node_id not in removed_nodes]
-            new_explore_set.update(adjacend_node_ids)
+            adjacent_node_ids = get_adjacent_node_ids(dmrs, node_id) - removed_nodes
+            new_explore_set.update(adjacent_node_ids)
 
         # Explore set for the next iteration are the current explore set's adjacent nodes that have not been visited yet
-        explore_set = set(filter(lambda x: x in unvisited_nodes, new_explore_set))
+        explore_set = new_explore_set & unvisited_nodes
         current_iter += 1
 
     return unvisited_nodes
@@ -112,6 +105,5 @@ def get_adjacent_node_ids(dmrs, node_id):
     :return: Set of adjacent node id strings
     """
 
-    adjacent_node_ids = [link.end for link in dmrs.get_out(node_id)] + \
-                        [link.start for link in dmrs.get_in(node_id)]
-    return set(adjacent_node_ids)
+    return {link.end for link in dmrs.get_out(node_id, itr=True)} | \
+           {link.start for link in dmrs.get_in(node_id, itr=True)}
