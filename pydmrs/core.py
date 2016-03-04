@@ -1,7 +1,8 @@
 import bisect
-from warnings import warn
-from operator import attrgetter
 from collections import namedtuple
+from collections.abc import Mapping
+from operator import attrgetter
+from warnings import warn
 
 from pydmrs._exceptions import *
 
@@ -10,33 +11,41 @@ class Pred(object):
     """
     A superclass for all Pred classes
     """
-    
+
     __slots__ = ()  # Suppress __dict__
-    
+
     def __str__(self):
-        raise NotImplementedError
-    
+        """
+        Returns 'rel'
+        """
+        return 'rel'
+
     def __repr__(self):
-        raise NotImplementedError
-    
+        """
+        Returns a string representation
+        """
+        return 'Pred()'
+
     @staticmethod
     def from_string(string):
         """
         Instantiates a suitable type of Pred, from a string
         """
-        if string[0] == '_':
+        if string == 'rel':
+            return Pred()
+        elif string[0] == '_':
             return RealPred.from_string(string)
         else:
             return GPred.from_string(string)
 
 
-class RealPred(Pred, namedtuple('RealPredNamedTuple',('lemma','pos','sense'))):
+class RealPred(Pred, namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense'))):
     """
     Real predicate, with a lemma, part of speech, and (optional) sense
     """
-    
+
     __slots__ = ()  # Suppress __dict__
-    
+
     def __new__(cls, lemma, pos, sense=None):
         """
         Create a new instance, allowing the sense to be optional,
@@ -45,7 +54,7 @@ class RealPred(Pred, namedtuple('RealPredNamedTuple',('lemma','pos','sense'))):
         assert lemma
         assert pos
         return super(RealPred, cls).__new__(cls, lemma, pos, sense)
-    
+
     def __str__(self):
         """
         Return a string, with leading underscore, and trailing '_rel'
@@ -54,7 +63,7 @@ class RealPred(Pred, namedtuple('RealPredNamedTuple',('lemma','pos','sense'))):
             return "_{}_{}_{}_rel".format(*self)
         else:
             return "_{}_{}_rel".format(*self)
-    
+
     def __repr__(self):
         """
         Return a string, as "RealPred(lemma, pos, sense)"
@@ -63,7 +72,7 @@ class RealPred(Pred, namedtuple('RealPredNamedTuple',('lemma','pos','sense'))):
             return "RealPred({}, {}, {})".format(*(repr(x) for x in self))
         else:
             return "RealPred({}, {})".format(*(repr(x) for x in self))
-    
+
     @staticmethod
     def from_string(string):
         """
@@ -85,32 +94,32 @@ class RealPred(Pred, namedtuple('RealPredNamedTuple',('lemma','pos','sense'))):
         return RealPred(*parts)
 
 
-class GPred(Pred, namedtuple('GPredNamedTuple',('name'))):
+class GPred(Pred, namedtuple('GPredNamedTuple', ('name'))):
     """
     Grammar predicate, with a rel name
     """
-    
+
     __slots__ = ()  # Suppress __dict__
-    
+
     def __new__(cls, name):
         """
         Create a new instance, requiring non-empty name
         """
         assert name
         return super(GPred, cls).__new__(cls, name)
-    
+
     def __str__(self):
         """
         Return a string, with trailing '_rel'
         """
         return "{}_rel".format(self.name)
-    
+
     def __repr__(self):
         """
         Return a string, as "GPred(name)"
         """
         return "GPred({})".format(repr(self.name))
-    
+
     @staticmethod
     def from_string(string):
         """
@@ -126,37 +135,277 @@ class GPred(Pred, namedtuple('GPredNamedTuple',('name'))):
             return GPred(string)
 
 
-class LinkLabel(namedtuple('LinkLabelNamedTuple',('rargname','post'))):
+class Sortinfo(Mapping):
+    """
+    A superclass for all Sortinfo classes
+    """
+    __slots__ = ()
+
+    def __str__(self):
+        """
+        Returns 'i'
+        """
+        return 'i'
+
+    def __repr__(self):
+        """
+        Returns a string representation
+        """
+        return 'Sortinfo()'
+
+    def __iter__(self):
+        """
+        Returns an iterator over the properties
+        """
+        yield 'cvarsort'
+
+    def __len__(self):
+        """
+        Returns the size
+        """
+        return sum(1 for _ in self)
+
+    def __getitem__(self, key):
+        """
+        Returns the value of a property
+        """
+        key = key.lower()
+        if key == 'cvarsort':
+            return 'i'
+        else:
+            raise KeyError
+
+    def __setitem__(self, key, value):
+        """
+        Sets the value of a property
+        """
+        raise KeyError
+
+    @property
+    def cvarsort(self):
+        return 'i'
+
+    @staticmethod
+    def from_dict(dictionary):
+        """
+        Instantiates a suitable type of Sortinfo from a dictionary
+        """
+        dictionary = {key.lower(): value.lower() for key, value in dictionary.items()}
+        assert dictionary['cvarsort'] in 'eix?'
+        if dictionary['cvarsort'] in 'i?':
+            return Sortinfo()
+        elif dictionary['cvarsort'] == 'e':
+            return EventSortinfo(dictionary.get('sf', None), dictionary.get('tense', None), dictionary.get('mood', None), dictionary.get('perf', None), dictionary.get('prog', None))
+        else:
+            return InstanceSortinfo(dictionary.get('pers', None), dictionary.get('num', None), dictionary.get('gend', None), dictionary.get('ind', None), dictionary.get('pt', None))
+
+    @staticmethod
+    def from_string(string):
+        """
+        Instantiates a suitable type of Sortinfo from a string
+        """
+        if string in 'i?':
+            return Sortinfo()
+        assert string[0] in 'ex' and string[1] == '[' and string[-1] == ']'
+        values = [tuple(value.strip().split('=')) for value in string[2:-1].split(',')]
+        dictionary = {key.lower(): value.lower() for key, value in values}
+        if string[0] == 'e':
+            return EventSortinfo(dictionary.get('sf', None), dictionary.get('tense', None), dictionary.get('mood', None), dictionary.get('perf', None), dictionary.get('prog', None))
+        else:
+            return InstanceSortinfo(dictionary.get('pers', None), dictionary.get('num', None), dictionary.get('gend', None), dictionary.get('ind', None), dictionary.get('pt', None))
+
+
+class EventSortinfo(Sortinfo):
+    """
+    Event sortinfo
+    """
+    __slots__ = ('sf', 'tense', 'mood', 'perf', 'prog')
+
+    def __init__(self, sf, tense, mood, perf, prog):
+        """
+        Create a new instance
+        """
+        self.sf = sf
+        self.tense = tense
+        self.mood = mood
+        self.perf = perf
+        self.prog = prog
+
+    def __str__(self):
+        """
+        Returns '?'
+        """
+        return 'e[{}]'.format(', '.join('{}={}'.format(key, self[key]) for key in self if key != 'cvarsort'))
+
+    def __repr__(self):
+        """
+        Return a string representation
+        """
+        return "EventSortinfo({}, {}, {}, {}, {})".format(*self)
+
+    def __iter__(self):
+        """
+        Returns an iterator over the properties
+        """
+        return (attr for attr in ('cvarsort', 'sf', 'tense', 'mood', 'perf', 'prog') if self[attr])
+
+    def __getitem__(self, key):
+        """
+        Returns the value of a property
+        """
+        key = key.lower()
+        if key == 'cvarsort':
+            return 'e'
+        elif key == 'sf':
+            return self.sf
+        elif key == 'tense':
+            return self.tense
+        elif key == 'mood':
+            return self.mood
+        elif key == 'perf':
+            return self.perf
+        elif key == 'prog':
+            return self.prog
+        else:
+            raise KeyError
+
+    def __setitem__(self, key, value):
+        """
+        Sets the value of a property
+        """
+        key = key.lower()
+        if key == 'sf':
+            self.sf = value
+        elif key == 'tense':
+            self.tense = value
+        elif key == 'mood':
+            self.mood = value
+        elif key == 'perf':
+            self.perf = value
+        elif key == 'prog':
+            self.prog = value
+        else:
+            raise KeyError
+
+    @property
+    def cvarsort(self):
+        return 'e'
+
+
+class InstanceSortinfo(Sortinfo):
+    """
+    Instance sortinfo
+    """
+    __slots__ = ('pers', 'num', 'gend', 'ind', 'pt')
+
+    def __init__(self, pers, num, gend, ind, pt):
+        """
+        Create a new instance
+        """
+        self.pers = pers
+        self.num = num
+        self.gend = gend
+        self.ind = ind
+        self.pt = pt
+
+    def __str__(self):
+        """
+        Returns '?'
+        """
+        return 'x[{}]'.format(', '.join('{}={}'.format(key, self[key]) for key in self if key != 'cvarsort'))
+
+    def __repr__(self):
+        """
+        Return a string representation
+        """
+        return "InstanceSortinfo({}, {}, {}, {}, {})".format(*self)
+
+    def __iter__(self):
+        """
+        Returns an iterator over the properties
+        """
+        return (attr for attr in ('cvarsort', 'pers', 'num', 'gend', 'ind', 'pt') if self[attr])
+
+    def __getitem__(self, key):
+        """
+        Returns the value of a property
+        """
+        key = key.lower()
+        if key == 'cvarsort':
+            return 'x'
+        elif key == 'pers':
+            return self.pers
+        elif key == 'num':
+            return self.num
+        elif key == 'gend':
+            return self.gend
+        elif key == 'ind':
+            return self.ind
+        elif key == 'pt':
+            return self.pt
+        else:
+            raise KeyError
+
+    def __setitem__(self, key, value):
+        """
+        Sets the value of a property
+        """
+        key = key.lower()
+        if key == 'pers':
+            self.pers = value
+        elif key == 'num':
+            self.num = value
+        elif key == 'gend':
+            self.gend = value
+        elif key == 'ind':
+            self.ind = value
+        elif key == 'pt':
+            self.pt = value
+        else:
+            raise KeyError
+
+    @property
+    def cvarsort(self):
+        return 'x'
+
+
+class LinkLabel(namedtuple('LinkLabelNamedTuple', ('rargname', 'post'))):
     """
     A label for a link
     """
-    
+
     __slots__ = ()  # Suppress __dict__
-    
+
     def __str__(self):
         return "{}/{}".format(*self)
-    
+
     def __repr__(self):
         return "LinkLabel({}, {})".format(*(repr(x) for x in self))
 
 
-class Link(namedtuple('LinkNamedTuple',('start','end','rargname','post'))):
+class Link(namedtuple('LinkNamedTuple', ('start', 'end', 'rargname', 'post'))):
     """
     A link
     """
-    
+
     __slots__ = ()  # Suppress __dict__
-    
+
+    def __new__(cls, start, end, rargname, post):
+        """
+        Create a new instance
+        """
+        return super().__new__(cls, start, end, None if rargname is None else rargname.upper(), None if post is None else post.upper())
+
     def __str__(self):
         return "({} - {}/{} -> {})".format(self.start, self.rargname, self.post, self.end)
-    
+
     def __repr__(self):
         return "Link({}, {}, {}, {})".format(*(repr(x) for x in self))
-    
+
     @property
     def label(self):
         return LinkLabel(self.rargname, self.post)
-    
+
     @property
     def labelstring(self):
         return "{}/{}".format(self.rargname, self.post)
@@ -176,13 +425,15 @@ class Node(object):
         self.carg = carg
 
         if sortinfo:
-            if isinstance(sortinfo, dict):
+            if isinstance(sortinfo, Sortinfo):
                 self.sortinfo = sortinfo
+            elif isinstance(sortinfo, dict):
+                self.sortinfo = Sortinfo.from_dict(sortinfo)
             else:  # Allow initialising sortinfo from (key,value) pairs
-                self.sortinfo = {x: y for x, y in sortinfo}
+                self.sortinfo = Sortinfo.from_dict({x: y for x, y in sortinfo})
         else:
-            self.sortinfo = {}
-    
+            self.sortinfo = None
+
     @property
     def span(self):
         return self.cfrom, self.cto
@@ -190,11 +441,11 @@ class Node(object):
     @property
     def is_gpred_node(self):
         return isinstance(self.pred, GPred)
-    
+
     @property
     def is_realpred_node(self):
         return isinstance(self.pred, RealPred)
-    
+
     def convert_to(self, cls):
         return cls(self.nodeid, self.pred, self.sortinfo, self.cfrom, self.cto, self.surface, self.base, self.carg)
 
@@ -204,10 +455,11 @@ class PointerNode(Node):
     A DMRS node with a pointer to the whole graph,
     to allow access to links
     """
+
     def __init__(self, *args, graph=None, **kwargs):
         super(PointerNode, self).__init__(*args, **kwargs)
         self.graph = graph
-    
+
     @property
     def incoming(self):
         """
@@ -217,7 +469,7 @@ class PointerNode(Node):
             return self.graph.get_in(self.nodeid)
         else:
             return set()
-    
+
     @property
     def outgoing(self):
         """
@@ -227,7 +479,7 @@ class PointerNode(Node):
             return self.graph.get_out(self.nodeid)
         else:
             return set()
-    
+
     def get_in(self, *args, **kwargs):
         """
         Incoming links, filtered by the label.
@@ -238,7 +490,7 @@ class PointerNode(Node):
             return self.graph.get_in(self.nodeid, *args, **kwargs)
         else:
             return set()
-    
+
     def get_out(self, *args, **kwargs):
         """
         Outgoing links, filtered by the label.
@@ -249,7 +501,7 @@ class PointerNode(Node):
             return self.graph.get_out(self.nodeid, *args, **kwargs)
         else:
             return set()
-    
+
     def renumber(self, new_id):
         """
         Change the node's id to new_id
@@ -258,7 +510,7 @@ class PointerNode(Node):
             self.graph.renumber_node(self.nodeid, new_id)
         else:
             self.nodeid = new_id
-    
+
     @property
     def is_quantifier(self):
         """
@@ -273,7 +525,7 @@ class Dmrs(object):
     A superclass for all DMRS classes
     """
     Node = Node
-    
+
     def __init__(self, nodes=(), links=(), cfrom=None, cto=None, surface=None, ident=None, index=None, top=None):
         """
         Initialise simple attributes, index, and top.
@@ -289,15 +541,19 @@ class Dmrs(object):
         self.ident = ident
 
         # Initialise index and top
-        if index:
+        if isinstance(index, Node):
+            self.index = index
+        elif isinstance(index, int):
             self.index = self[index]
         else:
             self.index = None
-        if top:
+        if isinstance(top, Node):
+            self.top = top
+        elif isinstance(top, int):
             self.top = self[top]
         else:
             self.top = None
-    
+
     def add_node(self, node): raise NotImplementedError
     def add_link(self, link): raise NotImplementedError
     def remove_node(self, nodeid): raise NotImplementedError
@@ -311,26 +567,30 @@ class Dmrs(object):
     def __iter__(self): raise NotImplementedError
     def __len__(self): raise NotImplementedError
 
+    def free_nodeid(self):
+        """Returns a free nodeid"""
+        return max(self) + 1
+
     def add_nodes(self, iterable):
         """Add a number of nodes"""
         for node in iterable:
             self.add_node(node)
-    
+
     def add_links(self, iterable):
         """Add a number of links"""
         for link in iterable:
             self.add_link(link)
-    
+
     def remove_links(self, iterable):
         """Remove a number of links"""
         for link in iterable:
             self.remove_link(link)
-    
+
     def remove_nodes(self, iterable):
         """Remove a number of nodes and all associated links"""
         for nodeid in iterable:
             self.remove_node(nodeid)
-    
+
     def get_out(self, nodeid, rargname=None, post=None, nodes=False, itr=False):
         """
         Get links going from a node.
@@ -350,7 +610,7 @@ class Dmrs(object):
             linkset = set(linkset)
 
         return linkset
-    
+
     def get_in(self, nodeid, rargname=None, post=None, nodes=False, itr=False):
         """
         Get links coming to a node.
@@ -359,7 +619,7 @@ class Dmrs(object):
         If itr is set to True, return an iterator rather than a set.
         """
         linkset = self.iter_incoming(nodeid)
-        
+
         if rargname or post:
             linkset = filter_links(linkset, rargname=rargname, post=post)
 
@@ -370,7 +630,7 @@ class Dmrs(object):
             linkset = set(linkset)
 
         return linkset
-    
+
     def get_label(self, rargname=None, post=None, itr=False):
         """
         Get links, filtered according to the label
@@ -381,51 +641,7 @@ class Dmrs(object):
             linkset = set(linkset)
 
         return linkset
-    
-    @classmethod
-    def loads_xml(cls, bytestring, encoding=None):
-        """
-        Currently processes "<dmrs>...</dmrs>"
-        To be updated for "<dmrslist>...</dmrslist>"...
-        Expects a bytestring; to load from a string instead, specify encoding
-        """
-        from pydmrs.serial import loads_xml
-        return loads_xml(bytestring, encoding=encoding, cls=cls)
-    
-    @classmethod
-    def load_xml(cls, filehandle):
-        """
-        Load a DMRS from a file
-        NB: read file as bytes!
-        """
-        return cls.loads_xml(filehandle.read())
-    
-    def dumps_xml(self, encoding=None):
-        """
-        Currently creates "<dmrs>...</dmrs>"
-        To be updated for "<dmrslist>...</dmrslist>"...
-        Returns a bytestring; to return a string instead, specify encoding
-        """
-        from pydmrs.serial import dumps_xml
-        return dumps_xml(self, encoding=encoding)
-    
-    def dump_xml(self, filehandle):
-        """
-        Dump a DMRS to a file
-        NB: write as a bytestring!
-        """
-        filehandle.write(self.dumps_xml())
-    
-    def convert_to(self, cls):
-        """
-        Convert to a different DMRS format
-        """
-        if self.Node == cls.Node:
-            nodes = self.iter_nodes()
-        else:
-            nodes = (n.convert_to(cls.Node) for n in self.iter_nodes())
-        return cls(nodes, self.iter_links(), self.cfrom, self.cto, self.surface, self.ident, self.index.nodeid, self.top.nodeid)
-    
+
     def is_quantifier(self, nodeid):
         """
         Check if a given node is a quantifier
@@ -435,6 +651,65 @@ class Dmrs(object):
             return True
         else:
             return False
+
+    @classmethod
+    def loads_xml(cls, bytestring, encoding=None):
+        """
+        Currently processes "<dmrs>...</dmrs>"
+        To be updated for "<dmrslist>...</dmrslist>"...
+        Expects a bytestring; to load from a string instead, specify encoding
+        """
+        from pydmrs.serial import loads_xml
+        return loads_xml(bytestring, encoding=encoding, cls=cls)
+
+    @classmethod
+    def load_xml(cls, filehandle):
+        """
+        Load a DMRS from a file
+        NB: read file as bytes!
+        """
+        return cls.loads_xml(filehandle.read())
+
+    def dumps_xml(self, encoding=None):
+        """
+        Currently creates "<dmrs>...</dmrs>"
+        To be updated for "<dmrslist>...</dmrslist>"...
+        Returns a bytestring; to return a string instead, specify encoding
+        """
+        from pydmrs.serial import dumps_xml
+        return dumps_xml(self, encoding=encoding)
+
+    def dump_xml(self, filehandle):
+        """
+        Dump a DMRS to a file
+        NB: write as a bytestring!
+        """
+        filehandle.write(self.dumps_xml())
+
+    def convert_to(self, cls):
+        """
+        Convert to a different DMRS format
+        """
+        if self.Node == cls.Node:
+            nodes = self.iter_nodes()
+        else:
+            nodes = (n.convert_to(cls.Node) for n in self.iter_nodes())
+        return cls(nodes, self.iter_links(), self.cfrom, self.cto, self.surface, self.ident, self.index.nodeid, self.top.nodeid)
+
+    def visualise(self, format='dot', filehandle=None):
+        """
+        Returns the bytestring of the chosen visualisation representation
+        format. If filehandle is set, writes the bytestream to the respective
+        file (in binary mode!).
+        Supported formats:
+        - dot  (Cmd to convert to png: "dot -Tpng [file.dot] > [file.png]")
+        """
+        from pydmrs.serial import visualise
+        bytestring = visualise(self, format)
+        if filehandle:
+            filehandle.write(bytestring)
+        else:
+            return bytestring
 
 
 class ListDmrs(Dmrs):
@@ -448,7 +723,7 @@ class ListDmrs(Dmrs):
         self.nodes = []
         self.links = []
         super(ListDmrs, self).__init__(*args, **kwargs)
-    
+
     def __getitem__(self, nodeid):
         """
         Allow accessing nodes as self[nodeid]
@@ -456,43 +731,43 @@ class ListDmrs(Dmrs):
         for n in self.nodes:
             if n.nodeid == nodeid:
                 return n
-    
+
     def __iter__(self):
         """
         Allow iterating over nodeids using 'in'
         """
         for n in self.nodes:
             yield n.nodeid
-    
+
     def __len__(self):
         """
         Return the number of nodes in the graph
         """
         return self.nodes.__len__()
-    
+
     def iter_nodes(self):
         return self.nodes.__iter__()
-    
+
     def iter_links(self):
         return self.links.__iter__()
-    
+
     def add_link(self, link):
         """Add a link"""
         self.links.append(link)
-    
+
     def add_links(self, iterable):
         """Add a number of links"""
         self.links.extend(iterable)
-    
+
     def remove_link(self, link):
         """Remove a link"""
         self.links.remove(link)
-    
+
     def add_node(self, node):
         """Add a node"""
         assert type(node) == self.Node
         self.nodes.append(node)
-        
+
     def remove_node(self, nodeid):
         """
         Remove a node and all associated links
@@ -521,7 +796,7 @@ class ListDmrs(Dmrs):
 
         if self.index and self.index.nodeid == nodeid:
             self.index = None
-    
+
     def iter_outgoing(self, nodeid):
         """
         Iterate through links going from a given node
@@ -529,7 +804,7 @@ class ListDmrs(Dmrs):
         for link in self.links:
             if link.start == nodeid:
                 yield link
-    
+
     def iter_incoming(self, nodeid):
         """
         Iterate through links coming to a given node
@@ -537,7 +812,7 @@ class ListDmrs(Dmrs):
         for link in self.links:
             if link.end == nodeid:
                 yield link
-    
+
     def renumber_node(self, old_id, new_id):
         """
         Change a node's ID from old_id to new_id
@@ -551,7 +826,7 @@ class ListDmrs(Dmrs):
                 self.links[i] = Link(new_id, end, rargname, post)
             elif end == old_id:
                 self.links[i] = Link(start, new_id, rargname, post)
-    
+
     def sort(self):
         """
         Sort the lists of nodes and links by nodeids
@@ -573,14 +848,14 @@ class SetDict(dict):
         self[key].remove(value)
         if not self[key]:
             self.pop(key)
-    
+
     def add(self, key, value):
         """
         Add value to the set self[key],
         initialising a new set if it doesn't already exist
         """
         self.setdefault(key, set()).add(value)
-    
+
     def get(self, key):
         """
         Get a set in the dictionary,
@@ -601,31 +876,31 @@ class DictDmrs(Dmrs):
         self.outgoing = SetDict()
         self.incoming = SetDict()
         super(DictDmrs, self).__init__(*args, **kwargs)
-    
+
     def __getitem__(self, nodeid):
         """
         Allow accessing nodes as self[nodeid]
         """
         return self._nodes[nodeid]
-    
+
     def __iter__(self):
         """
         Allow iterating over nodeids using 'in'
         """
         return self._nodes.__iter__()
-    
+
     def __contains__(self, nodeid):
         """
         Allow checking if a node is in the graph
         """
         return self._nodes.__contains__(nodeid)
-    
+
     def __len__(self):
         """
         Return the number of nodes in the graph
         """
         return self._nodes.__len__()
-    
+
     def iter_links(self):
         """
         Iterate through all links
@@ -633,13 +908,13 @@ class DictDmrs(Dmrs):
         for outset in self.outgoing.values():
             for link in outset:
                 yield link
-    
+
     def iter_nodes(self):
         """
         Iterate through all nodes
         """
         return iter(self._nodes.values())
-    
+
     @property
     def links(self):
         """
@@ -650,14 +925,14 @@ class DictDmrs(Dmrs):
             links.extend(sorted(outset, key=attrgetter('end')))
 
         return links
-    
+
     @property
     def nodes(self):
         """
         Return a list of nodes
         """
         return sorted(self._nodes.values(), key=attrgetter('nodeid'))
-    
+
     def add_link(self, link):
         """
         Add a link.
@@ -668,14 +943,14 @@ class DictDmrs(Dmrs):
         assert link not in self.outgoing.get(link.start)
         self.outgoing.add(link.start, link)
         self.incoming.add(link.end, link)
-    
+
     def remove_link(self, link):
         """
         Remove a link.
         """
         self.outgoing.remove(link.start, link)
         self.incoming.remove(link.end, link)
-    
+
     def add_node(self, node):
         """
         Add a node
@@ -683,7 +958,7 @@ class DictDmrs(Dmrs):
         assert node.nodeid not in self
         assert type(node) == self.Node
         self._nodes[node.nodeid] = node
-    
+
     def remove_node(self, nodeid):
         """
         Remove a node and all associated links
@@ -707,13 +982,13 @@ class DictDmrs(Dmrs):
             self.top = None
         if self.index and self.index.nodeid == nodeid:
             self.index = None
-    
+
     def iter_outgoing(self, nodeid):
         return self.outgoing.get(nodeid).__iter__()
-    
+
     def iter_incoming(self, nodeid):
         return self.incoming.get(nodeid).__iter__()
-    
+
     def renumber_node(self, old_id, new_id):
         """
         Change a node's ID from old_id to new_id
@@ -744,7 +1019,7 @@ class PointerMixin(Dmrs):
     Allow a DMRS class to use PointerNode
     """
     Node = PointerNode
-    
+
     def add_node(self, node):
         """Add a node"""
         # Although add_node() is not defined in Dmrs,
@@ -791,37 +1066,37 @@ class SortDictDmrs(DictDmrs):
     # To override @property binding from DictDmrs
     nodes = None
     links = None
-    
+
     def __init__(self, nodes, links, *args, **kwargs):
         self.links = []
         self.nodes = []
         self._nodeids = []
         super(SortDictDmrs, self).__init__(nodes, links, *args, **kwargs)
-    
+
     def __iter__(self):
         return self._nodeids.__iter__()
-    
+
     def iter_nodes(self):
         return self.nodes.__iter__()
-    
+
     def iter_links(self):
         return self.links.__iter__()
-    
+
     def add_link(self, link):
         super(SortDictDmrs, self).add_link(link)
         bisect.insort(self.links, link)
-    
+
     def remove_link(self, link):
         super(SortDictDmrs, self).remove_link(link)
         i = bisect.bisect_left(self.links, link)
         self.links.pop(i)
-    
+
     def add_node(self, node):
         super(SortDictDmrs, self).add_node(node)
         i = bisect.bisect(self._nodeids, node.nodeid)
         self._nodeids.insert(i, node.nodeid)
         self.nodes.insert(i, node)
-    
+
     def remove_node(self, nodeid):
         super(SortDictDmrs, self).remove_node(nodeid)
 
@@ -836,7 +1111,7 @@ class SortDictDmrs(DictDmrs):
 
         for i in remove:
             self.links.pop(i)
-    
+
     def renumber_node(self, old_id, new_id):
         super(SortDictDmrs, self).renumber_node(old_id, new_id)
 
