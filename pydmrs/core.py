@@ -669,7 +669,7 @@ class Dmrs(object):
          This is to prevent nodes that are going to be filtered out later from affecting results of connectivity test.
         :return: True if DMRS is connected, otherwise False.
         """
-        disconnected = disconnected_nodeids(dmrs, removed_nodeids=removed_nodeids)
+        disconnected = self. disconnected_nodeids(removed_nodeids=removed_nodeids)
         return len(disconnected - ignored_nodeids) == 0
 
     def disconnected_nodeids(self, start_id=None, removed_nodeids=frozenset()):
@@ -682,16 +682,16 @@ class Dmrs(object):
         """
 
         # Initialize the set of node that have not been visited yet
-        unvisited_nodeids = set(dmrs) - removed_nodeids
+        unvisited_nodeids = set(self) - removed_nodeids
         if not unvisited_nodeids:
             return unvisited_nodeids
 
         # Select top/index or a random starting node, if others are None
         if start_id is None:
-            if dmrs.top is not None and dmrs.top.nodeid in unvisited_nodeids:
-                start_id = dmrs.top.nodeid
-            elif dmrs.index is not None and dmrs.index.nodeid in unvisited_nodeids:
-                start_id = dmrs.index.nodeid
+            if self.top is not None and self.top.nodeid in unvisited_nodeids:
+                start_id = self.top.nodeid
+            elif self.index is not None and self.index.nodeid in unvisited_nodeids:
+                start_id = self.index.nodeid
             else:
                 start_id = unvisited_nodeids.pop()
         else:
@@ -705,7 +705,7 @@ class Dmrs(object):
         while explore_set:
             nodeid = explore_set.pop()
             unvisited_nodeids.remove(nodeid)
-            queue.update(self.iter_neighbour_nodeids(nodeid) & unvisited_nodeids)
+            explore_set.update(self.iter_neighbour_nodeids(nodeid) & unvisited_nodeids)
         return unvisited_nodeids
 
     @classmethod
