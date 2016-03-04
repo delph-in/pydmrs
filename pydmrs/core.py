@@ -631,6 +631,13 @@ class Dmrs(object):
 
         return linkset
 
+    def iter_neighbour_nodeids(self, nodeid):
+        """
+        Retrieve adjacent node ids (regardless of link direction) from the dmrs for given node id
+        """
+        assert nodeid in self, 'Invalid node id.'
+        return {link.end for link in self.get_out(nodeid, itr=True)} | {link.start for link in self.get_in(nodeid, itr=True)}
+
     def get_label(self, rargname=None, post=None, itr=False):
         """
         Get links, filtered according to the label
@@ -651,6 +658,55 @@ class Dmrs(object):
             return True
         else:
             return False
+
+    def is_connected(self, removed_nodeids=frozenset(), ignored_nodeids=frozenset()):
+        """
+        Determine if a DMRS graph is connected.
+        :param dmrs: DMRS object
+        :param removed_nodeids: Set of node ids that should be considered as already removed.
+         This is to prevent the need for excessive copying of DMRS graphs for hypothetical node removals.
+        :param ignored_nodeids: Set of node ids that should not be considered as disconnected if found as such.
+         This is to prevent nodes that are going to be filtered out later from affecting results of connectivity test.
+        :return: True if DMRS is connected, otherwise False.
+        """
+        disconnected = disconnected_nodeids(dmrs, removed_nodeids=removed_nodeids)
+        return len(disconnected - ignored_nodeids) == 0
+
+    def disconnected_nodeids(self, start_id=None, removed_nodeids=frozenset()):
+        """
+        Search for disconnected nodes.
+        :param start_id: Node id to start search. If None, top/index or random node id.
+        :param removed_nodeids: Set of node ids that should be considered as already removed.
+         This is to prevent the need for excessive copying of DMRS graphs for hypothetical node removals.
+        :return: Set of disconnected node ids
+        """
+
+        # Initialize the set of node that have not been visited yet
+        unvisited_nodeids = set(dmrs) - removed_nodeids
+        if not unvisited_nodeids:
+            return unvisited_nodeids
+
+        # Select top/index or a random starting node, if others are None
+        if start_id is None:
+            if dmrs.top is not None and dmrs.top.nodeid in unvisited_nodeids:
+                start_id = dmrs.top.nodeid
+            elif dmrs.index is not None and dmrs.index.nodeid in unvisited_nodeids:
+                start_id = dmrs.index.nodeid
+            else:
+                start_id = unvisited_nodeids.pop()
+        else:
+            assert start_id in unvisited_nodeids, 'Start nodeid not a valid node id.'
+
+        # Start the explore set with nodes adjacent to the starting node
+        explore_set = self.iter_neighbour_nodeids(start_id) & unvisited_nodeids
+        unvisited_nodeids.remove(start_id)
+
+        # Iteratively visit a node and update the explore set with neighbouring nodes until explore set empty
+        while explore_set:
+            nodeid = explore_set.pop()
+            unvisited_nodeids.remove(nodeid)
+            queue.update(self.iter_neighbour_nodeids(nodeid) & unvisited_nodeids)
+        return unvisited_nodeids
 
     @classmethod
     def loads_xml(cls, bytestring, encoding=None):
@@ -765,7 +821,7 @@ class ListDmrs(Dmrs):
 
     def add_node(self, node):
         """Add a node"""
-        assert type(node) == self.Node
+        assert isinstance(node, self.Node)
         self.nodes.append(node)
 
     def remove_node(self, nodeid):
@@ -956,7 +1012,7 @@ class DictDmrs(Dmrs):
         Add a node
         """
         assert node.nodeid not in self
-        assert type(node) == self.Node
+        assert isinstance(node, self.Node)
         self._nodes[node.nodeid] = node
 
     def remove_node(self, nodeid):

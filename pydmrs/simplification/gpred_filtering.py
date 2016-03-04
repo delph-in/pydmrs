@@ -17,13 +17,13 @@ def gpred_filtering(dmrs, gpred_filter, allow_disconnected_dmrs=False):
         if node.is_gpred_node and node.pred.name in gpred_filter:
             filterable_nodes.add(node.nodeid)
 
-    test_connectedness = not allow_disconnected_dmrs and is_dmrs_connected(dmrs, ignored_nodes=filterable_nodes)
+    test_connectedness = not allow_disconnected_dmrs and dmrs.is_connected(ignored_nodes=filterable_nodes)
 
     # If DMRS should remain connected, check that removing filterable nodes will not result in a disconnected DMRS
     if test_connectedness:
         filtered_node_ids = set()
         for node_id in filterable_nodes:
-            if is_dmrs_connected(dmrs, removed_nodes=filtered_node_ids | {node_id}, ignored_nodes=filterable_nodes):
+            if dmrs.is_connected(removed_nodes=filtered_node_ids | {node_id}, ignored_nodes=filterable_nodes):
                 filtered_node_ids.add(node_id)
 
     else:
