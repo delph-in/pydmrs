@@ -59,7 +59,7 @@ class Pred(object):
             return GPred.from_string(string)
 
 
-class RealPred(Pred, namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense'))):
+class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred):
     """
     Real predicate, with a lemma, part of speech, and (optional) sense
     """
@@ -137,7 +137,7 @@ class RealPred(Pred, namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense'))
         return RealPred(*parts)
 
 
-class GPred(Pred, namedtuple('GPredNamedTuple', ('name'))):
+class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
     """
     Grammar predicate, with a rel name
     """
