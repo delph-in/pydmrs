@@ -1,372 +1,9 @@
 import bisect
 from collections import namedtuple
-from collections.abc import Mapping
+from functools import total_ordering
 from operator import attrgetter
-from warnings import warn
-
+from pydmrs.components import Pred, Sortinfo
 from pydmrs._exceptions import *
-
-
-class Pred(object):
-    """
-    A superclass for all Pred classes
-    """
-
-    __slots__ = ()  # Suppress __dict__
-
-    def __str__(self):
-        """
-        Returns 'rel'
-        """
-        return 'rel'
-
-    def __repr__(self):
-        """
-        Returns a string representation
-        """
-        return 'Pred()'
-
-    @staticmethod
-    def from_string(string):
-        """
-        Instantiates a suitable type of Pred, from a string
-        """
-        if string == 'rel':
-            return Pred()
-        elif string[0] == '_':
-            return RealPred.from_string(string)
-        else:
-            return GPred.from_string(string)
-
-
-class RealPred(Pred, namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense'))):
-    """
-    Real predicate, with a lemma, part of speech, and (optional) sense
-    """
-
-    __slots__ = ()  # Suppress __dict__
-
-    def __new__(cls, lemma, pos, sense=None):
-        """
-        Create a new instance, allowing the sense to be optional,
-        and requiring non-empty lemma and pos
-        """
-        assert lemma
-        assert pos
-        return super(RealPred, cls).__new__(cls, lemma, pos, sense)
-
-    def __str__(self):
-        """
-        Return a string, with leading underscore, and trailing '_rel'
-        """
-        if self.sense:
-            return "_{}_{}_{}_rel".format(*self)
-        else:
-            return "_{}_{}_rel".format(*self)
-
-    def __repr__(self):
-        """
-        Return a string, as "RealPred(lemma, pos, sense)"
-        """
-        if self.sense:
-            return "RealPred({}, {}, {})".format(*(repr(x) for x in self))
-        else:
-            return "RealPred({}, {})".format(*(repr(x) for x in self))
-
-    @staticmethod
-    def from_string(string):
-        """
-        Create a new instance from a string,
-        stripping a trailing _rel if it exists.
-        :param string: Input string
-        :return: RealPred object
-        """
-        if string[0] != '_':
-            raise PydmrsValueError("RealPred strings must begin with an underscore")
-
-        if string[-4:] == '_rel':
-            string = string[:-4]
-
-        parts = string[1:].rsplit('_', maxsplit=2)
-        if len(parts) < 2:
-            raise PydmrsValueError("RealPreds require both lemma and pos")
-
-        return RealPred(*parts)
-
-
-class GPred(Pred, namedtuple('GPredNamedTuple', ('name'))):
-    """
-    Grammar predicate, with a rel name
-    """
-
-    __slots__ = ()  # Suppress __dict__
-
-    def __new__(cls, name):
-        """
-        Create a new instance, requiring non-empty name
-        """
-        assert name
-        return super(GPred, cls).__new__(cls, name)
-
-    def __str__(self):
-        """
-        Return a string, with trailing '_rel'
-        """
-        return "{}_rel".format(self.name)
-
-    def __repr__(self):
-        """
-        Return a string, as "GPred(name)"
-        """
-        return "GPred({})".format(repr(self.name))
-
-    @staticmethod
-    def from_string(string):
-        """
-        Create a new instance from a string,
-        stripping a trailing '_rel' if it exists.
-        """
-        if string[0] == '_':
-            raise PydmrsValueError("GPred strings must not begin with an underscore")
-
-        if string[-4:] == '_rel':
-            return GPred(string[:-4])
-        else:
-            return GPred(string)
-
-
-class Sortinfo(Mapping):
-    """
-    A superclass for all Sortinfo classes
-    """
-    __slots__ = ()
-
-    def __str__(self):
-        """
-        Returns 'i'
-        """
-        return 'i'
-
-    def __repr__(self):
-        """
-        Returns a string representation
-        """
-        return 'Sortinfo()'
-
-    def __iter__(self):
-        """
-        Returns an iterator over the properties
-        """
-        yield 'cvarsort'
-
-    def __len__(self):
-        """
-        Returns the size
-        """
-        return sum(1 for _ in self)
-
-    def __getitem__(self, key):
-        """
-        Returns the value of a property
-        """
-        key = key.lower()
-        if key == 'cvarsort':
-            return 'i'
-        else:
-            raise KeyError
-
-    def __setitem__(self, key, value):
-        """
-        Sets the value of a property
-        """
-        raise KeyError
-
-    @property
-    def cvarsort(self):
-        return 'i'
-
-    @staticmethod
-    def from_dict(dictionary):
-        """
-        Instantiates a suitable type of Sortinfo from a dictionary
-        """
-        dictionary = {key.lower(): value.lower() for key, value in dictionary.items()}
-        assert dictionary['cvarsort'] in 'eix?'
-        if dictionary['cvarsort'] in 'i?':
-            return Sortinfo()
-        elif dictionary['cvarsort'] == 'e':
-            return EventSortinfo(dictionary.get('sf', None), dictionary.get('tense', None), dictionary.get('mood', None), dictionary.get('perf', None), dictionary.get('prog', None))
-        else:
-            return InstanceSortinfo(dictionary.get('pers', None), dictionary.get('num', None), dictionary.get('gend', None), dictionary.get('ind', None), dictionary.get('pt', None))
-
-    @staticmethod
-    def from_string(string):
-        """
-        Instantiates a suitable type of Sortinfo from a string
-        """
-        if string in 'i?':
-            return Sortinfo()
-        assert string[0] in 'ex' and string[1] == '[' and string[-1] == ']'
-        values = [tuple(value.strip().split('=')) for value in string[2:-1].split(',')]
-        dictionary = {key.lower(): value.lower() for key, value in values}
-        if string[0] == 'e':
-            return EventSortinfo(dictionary.get('sf', None), dictionary.get('tense', None), dictionary.get('mood', None), dictionary.get('perf', None), dictionary.get('prog', None))
-        else:
-            return InstanceSortinfo(dictionary.get('pers', None), dictionary.get('num', None), dictionary.get('gend', None), dictionary.get('ind', None), dictionary.get('pt', None))
-
-
-class EventSortinfo(Sortinfo):
-    """
-    Event sortinfo
-    """
-    __slots__ = ('sf', 'tense', 'mood', 'perf', 'prog')
-
-    def __init__(self, sf, tense, mood, perf, prog):
-        """
-        Create a new instance
-        """
-        self.sf = sf
-        self.tense = tense
-        self.mood = mood
-        self.perf = perf
-        self.prog = prog
-
-    def __str__(self):
-        """
-        Returns '?'
-        """
-        return 'e[{}]'.format(', '.join('{}={}'.format(key, self[key]) for key in self if key != 'cvarsort'))
-
-    def __repr__(self):
-        """
-        Return a string representation
-        """
-        return "EventSortinfo({}, {}, {}, {}, {})".format(*self)
-
-    def __iter__(self):
-        """
-        Returns an iterator over the properties
-        """
-        return (attr for attr in ('cvarsort', 'sf', 'tense', 'mood', 'perf', 'prog') if self[attr])
-
-    def __getitem__(self, key):
-        """
-        Returns the value of a property
-        """
-        key = key.lower()
-        if key == 'cvarsort':
-            return 'e'
-        elif key == 'sf':
-            return self.sf
-        elif key == 'tense':
-            return self.tense
-        elif key == 'mood':
-            return self.mood
-        elif key == 'perf':
-            return self.perf
-        elif key == 'prog':
-            return self.prog
-        else:
-            raise KeyError
-
-    def __setitem__(self, key, value):
-        """
-        Sets the value of a property
-        """
-        key = key.lower()
-        if key == 'sf':
-            self.sf = value
-        elif key == 'tense':
-            self.tense = value
-        elif key == 'mood':
-            self.mood = value
-        elif key == 'perf':
-            self.perf = value
-        elif key == 'prog':
-            self.prog = value
-        else:
-            raise KeyError
-
-    @property
-    def cvarsort(self):
-        return 'e'
-
-
-class InstanceSortinfo(Sortinfo):
-    """
-    Instance sortinfo
-    """
-    __slots__ = ('pers', 'num', 'gend', 'ind', 'pt')
-
-    def __init__(self, pers, num, gend, ind, pt):
-        """
-        Create a new instance
-        """
-        self.pers = pers
-        self.num = num
-        self.gend = gend
-        self.ind = ind
-        self.pt = pt
-
-    def __str__(self):
-        """
-        Returns '?'
-        """
-        return 'x[{}]'.format(', '.join('{}={}'.format(key, self[key]) for key in self if key != 'cvarsort'))
-
-    def __repr__(self):
-        """
-        Return a string representation
-        """
-        return "InstanceSortinfo({}, {}, {}, {}, {})".format(*self)
-
-    def __iter__(self):
-        """
-        Returns an iterator over the properties
-        """
-        return (attr for attr in ('cvarsort', 'pers', 'num', 'gend', 'ind', 'pt') if self[attr])
-
-    def __getitem__(self, key):
-        """
-        Returns the value of a property
-        """
-        key = key.lower()
-        if key == 'cvarsort':
-            return 'x'
-        elif key == 'pers':
-            return self.pers
-        elif key == 'num':
-            return self.num
-        elif key == 'gend':
-            return self.gend
-        elif key == 'ind':
-            return self.ind
-        elif key == 'pt':
-            return self.pt
-        else:
-            raise KeyError
-
-    def __setitem__(self, key, value):
-        """
-        Sets the value of a property
-        """
-        key = key.lower()
-        if key == 'pers':
-            self.pers = value
-        elif key == 'num':
-            self.num = value
-        elif key == 'gend':
-            self.gend = value
-        elif key == 'ind':
-            self.ind = value
-        elif key == 'pt':
-            self.pt = value
-        else:
-            raise KeyError
-
-    @property
-    def cvarsort(self):
-        return 'x'
 
 
 class LinkLabel(namedtuple('LinkLabelNamedTuple', ('rargname', 'post'))):
@@ -411,17 +48,27 @@ class Link(namedtuple('LinkNamedTuple', ('start', 'end', 'rargname', 'post'))):
         return "{}/{}".format(self.rargname, self.post)
 
 
+@total_ordering
 class Node(object):
     """
     A DMRS node
     """
     def __init__(self, nodeid=None, pred=None, sortinfo=None, cfrom=None, cto=None, surface=None, base=None, carg=None):
         self.nodeid = nodeid
-        self.pred = pred
         self.cfrom = cfrom
         self.cto = cto
         self.surface = surface
         self.base = base
+
+        if isinstance(pred, Pred):
+            self.pred = pred
+        else:
+            self.pred = Pred.from_string(pred)
+
+        if carg and carg[0] == '"' and carg[-1] == '"':
+            carg = carg[1:-1]
+        if carg and '"' in carg:
+            raise PydmrsValueError('Cargs must not contain quotes.')
         self.carg = carg
 
         if sortinfo:
@@ -433,6 +80,29 @@ class Node(object):
                 self.sortinfo = Sortinfo.from_dict({x: y for x, y in sortinfo})
         else:
             self.sortinfo = None
+
+    def __str__(self):
+        if self.carg:
+            if self.sortinfo:
+                return '{}({}) {}'.format(self.pred, self.carg, self.sortinfo)
+            else:
+                return '{}({})'.format(self.pred, self.carg)
+        elif self.sortinfo:
+            return '{} {}'.format(self.pred, self.sortinfo)
+        else:
+            return str(self.pred)
+
+    def __eq__(self, other):
+        """
+        Checks two nodes for equality (predicate, carg, sortinfo)
+        """
+        return isinstance(other, Node) and self.pred == other.pred and self.carg == other.carg and self.sortinfo == other.sortinfo
+
+    def __le__(self, other):
+        """
+        Checks whether this node underspecifies or equals the other node (predicate, carg, sortinfo)
+        """
+        return isinstance(other, Node) and ((self.pred is None and other.pred is None) or (self.pred <= other.pred)) and (not self.carg or self.carg == other.carg) and ((self.sortinfo is None and other.sortinfo is None) or (self.sortinfo <= other.sortinfo))
 
     @property
     def span(self):

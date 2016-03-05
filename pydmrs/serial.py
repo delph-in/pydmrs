@@ -1,5 +1,6 @@
 import xml.etree.ElementTree as ET
-from pydmrs.core import RealPred, GPred, Link, ListDmrs
+from pydmrs.components import RealPred, GPred
+from pydmrs.core import Link, ListDmrs
 
 
 def loads_xml(bytestring, encoding=None, cls=ListDmrs):
@@ -51,7 +52,7 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs):
                 else:
                     raise ValueError(sub.tag)
 
-            dmrs.add_node(cls.Node(nodeid, pred, sortinfo, cfrom, cto, surface, base, carg))
+            dmrs.add_node(cls.Node(nodeid=nodeid, pred=pred, carg=carg, sortinfo=sortinfo, cfrom=cfrom, cto=cto, surface=surface, base=base))
 
         elif elem.tag == 'link':
             start = int(elem.get('from'))
@@ -108,8 +109,8 @@ def dumps_xml(dmrs, encoding=None):
         if node.cfrom is not None and node.cto is not None:
             xnode.set('cfrom', str(node.cfrom))
             xnode.set('cto', str(node.cto))
-        if node.carg is not None:
-            xnode.set('carg', node.carg)
+        if node.carg:
+            xnode.set('carg', '"{}"'.format(node.carg))
         if isinstance(node.pred, GPred):
             xpred = ET.SubElement(xnode, 'gpred')
             xpred.text = str(node.pred)
