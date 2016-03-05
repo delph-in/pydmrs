@@ -239,7 +239,10 @@ class Dmrs(object):
 
     def free_nodeid(self):
         """Returns a free nodeid"""
-        return max(self) + 1
+        if len(self):
+            return max(self) + 1
+        else:
+            return 1
 
     def add_nodes(self, iterable):
         """Add a number of nodes"""
@@ -491,7 +494,10 @@ class ListDmrs(Dmrs):
 
     def add_node(self, node):
         """Add a node"""
+        assert node.nodeid not in self
         assert isinstance(node, self.Node)
+        if node.nodeid is None:
+            node.nodeid = self.free_nodeid()
         self.nodes.append(node)
 
     def remove_node(self, nodeid):
@@ -683,6 +689,8 @@ class DictDmrs(Dmrs):
         """
         assert node.nodeid not in self
         assert isinstance(node, self.Node)
+        if node.nodeid is None:
+            node.nodeid = self.free_nodeid()
         self._nodes[node.nodeid] = node
 
     def remove_node(self, nodeid):
