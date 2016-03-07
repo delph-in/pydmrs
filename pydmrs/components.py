@@ -36,12 +36,18 @@ class Pred(object):
         """
         return isinstance(other, Pred)
 
+    def is_underspecified(self):
+        """
+        Checks whether this Pred is underspecified.
+        """
+        return True
+
     @staticmethod
     def from_string(string):
         """
         Instantiates a suitable type of Pred, from a string
         """
-        if string != string.lower():
+        if not string.islower():
             raise PydmrsValueError('Predicates must be lower-case.')
         if ' ' in string:
             raise PydmrsValueError('Predicates must not contain spaces.')
@@ -117,6 +123,12 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         """
         return self <= other and self != other
 
+    def is_underspecified(self):
+        """
+        Checks whether this RealPred is underspecified.
+        """
+        return self.lemma == '?' or self.pos == 'u'
+
     @staticmethod
     def from_string(string):
         """
@@ -186,6 +198,12 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         Checks whether the other GPred underspecifies this GPred
         """
         return self <= other and self != other
+
+    def is_underspecified(self):
+        """
+        Checks whether this GPred is underspecified.
+        """
+        return self.name == '?'
 
     @staticmethod
     def from_string(string):
@@ -264,14 +282,20 @@ class Sortinfo(Mapping):
     def cvarsort(self):
         return 'i'
 
+    def is_underspecified(self):
+        """
+        Checks whether this Sortinfo is underspecified.
+        """
+        return self.cvarsort == 'i' or any(self[key] == 'u' for key in self)
+
     @staticmethod
     def from_dict(dictionary):
         """
         Instantiates a suitable type of Sortinfo from a dictionary
         """
         dictionary = {key.lower(): value.lower() for key, value in dictionary.items()}
-        assert dictionary['cvarsort'] in 'eix?'
-        if dictionary['cvarsort'] in 'i?':
+        assert dictionary['cvarsort'] in 'eix'
+        if dictionary['cvarsort'] == 'i':
             return Sortinfo()
         elif dictionary['cvarsort'] == 'e':
             return EventSortinfo(dictionary.get('sf', None), dictionary.get('tense', None), dictionary.get('mood', None), dictionary.get('perf', None), dictionary.get('prog', None))
@@ -283,7 +307,7 @@ class Sortinfo(Mapping):
         """
         Instantiates a suitable type of Sortinfo from a string
         """
-        if string in 'i?':
+        if string == 'i':
             return Sortinfo()
         assert string[0] in 'ex' and string[1] == '[' and string[-1] == ']'
         values = [tuple(value.strip().split('=')) for value in string[2:-1].split(',')]

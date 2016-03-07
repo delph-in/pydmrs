@@ -47,6 +47,12 @@ class Link(namedtuple('LinkNamedTuple', ('start', 'end', 'rargname', 'post'))):
     def labelstring(self):
         return "{}/{}".format(self.rargname, self.post)
 
+    def is_underspecified(self):
+        """
+        Checks whether this Link is underspecified.
+        """
+        return self.rargname == '?' or self.post == '?'
+
 
 @total_ordering
 class Node(object):
@@ -115,6 +121,12 @@ class Node(object):
     @property
     def is_realpred_node(self):
         return isinstance(self.pred, RealPred)
+
+    def is_underspecified(self):
+        """
+        Checks whether this Node is underspecified.
+        """
+        return (self.pred and self.pred.is_underspecified()) or (self.sortinfo and self.sortinfo.is_underspecified())
 
     def convert_to(self, cls):
         return cls(self.nodeid, self.pred, self.sortinfo, self.cfrom, self.cto, self.surface, self.base, self.carg)
@@ -236,6 +248,7 @@ class Dmrs(object):
     def __getitem__(self, nodeid): raise NotImplementedError
     def __iter__(self): raise NotImplementedError
     def __len__(self): raise NotImplementedError
+    def count_links(self): raise NotImplementedError
 
     def free_nodeid(self):
         """Returns a free nodeid"""
@@ -474,6 +487,12 @@ class ListDmrs(Dmrs):
         """
         return self.nodes.__len__()
 
+    def count_links(self):
+        """
+        Return the number of links in the graph
+        """
+        return self.links.__len__()
+
     def iter_nodes(self):
         return self.nodes.__iter__()
 
@@ -633,6 +652,12 @@ class DictDmrs(Dmrs):
         """
         return self._nodes.__len__()
 
+    def count_links(self):
+        """
+        Return the number of links in the graph
+        """
+        return sum(len(links) for links in self.outgoing.values())
+
     def iter_links(self):
         """
         Iterate through all links
@@ -653,9 +678,8 @@ class DictDmrs(Dmrs):
         Return a list of links
         """
         links = []
-        for _, outset in sorted(self.outgoing.items()):
+        for outset in sorted(self.outgoing.values()):
             links.extend(sorted(outset, key=attrgetter('end')))
-
         return links
 
     @property

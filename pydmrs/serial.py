@@ -16,22 +16,18 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs):
 
     dmrs = cls()
 
-    dmrs.cfrom = int(xml.get('cfrom'))
-    dmrs.cto = int(xml.get('cto'))
+    dmrs.cfrom = int(xml.get('cfrom')) if 'cfrom' in xml.attrib else None
+    dmrs.cto = int(xml.get('cto')) if 'cto' in xml.attrib else None
     dmrs.surface = xml.get('surface')
-    ident = xml.get('ident')
-    index_id = xml.get('index')
-    if ident:
-        dmrs.ident = int(ident)
-    if index_id:
-        index_id = int(index_id)
+    ident = int(xml.get('ident')) if 'ident' in xml.attrib else None
+    index_id = int(xml.get('index')) if 'index' in xml.attrib else None
     top_id = None
 
     for elem in xml:
         if elem.tag == 'node':
-            nodeid = int(elem.get('nodeid'))
-            cfrom = int(elem.get('cfrom'))
-            cto = int(elem.get('cto'))
+            nodeid = int(elem.get('nodeid')) if 'nodeid' in elem.attrib else None
+            cfrom = int(elem.get('cfrom')) if 'cfrom' in elem.attrib else None
+            cto = int(elem.get('cto')) if 'cto' in elem.attrib else None
             surface = elem.get('surface')
             base = elem.get('base')
             carg = elem.get('carg')
