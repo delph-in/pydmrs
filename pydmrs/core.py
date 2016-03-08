@@ -1,5 +1,6 @@
 import bisect
 from collections import namedtuple
+import copy
 from functools import total_ordering
 from operator import attrgetter
 from pydmrs.components import Pred, Sortinfo
@@ -242,13 +243,27 @@ class Dmrs(object):
     def remove_link(self, link): raise NotImplementedError
     def iter_nodes(self): raise NotImplementedError
     def iter_links(self): raise NotImplementedError
-    def iter_outgoing(self, nodeid): raise NotImplementedError
-    def iter_incoming(self, nodeid): raise NotImplementedError
     def renumber_node(self, old_id, new_id): raise NotImplementedError
     def __getitem__(self, nodeid): raise NotImplementedError
     def __iter__(self): raise NotImplementedError
     def __len__(self): raise NotImplementedError
     def count_links(self): raise NotImplementedError
+
+    def iter_outgoing(self, nodeid):
+        """
+        Iterate through links going from a given node
+        """
+        for link in self.iter_links():
+            if link.start == nodeid:
+                yield link
+
+    def iter_incoming(self, nodeid):
+        """
+        Iterate through links coming to a given node
+        """
+        for link in self.iter_links():
+            if link.end == nodeid:
+                yield link
 
     def free_nodeid(self):
         """Returns a free nodeid"""
@@ -428,15 +443,18 @@ class Dmrs(object):
         """
         filehandle.write(self.dumps_xml())
 
-    def convert_to(self, cls):
+    def convert_to(self, cls, copy_nodes=False):
         """
-        Convert to a different DMRS format
+        Convert to a different DMRS format, optionally copying the nodes
+        instead of keeping the same instances.
         """
-        if self.Node == cls.Node:
+        if copy_nodes:
+            nodes = (copy.deepcopy(node) for node in self.iter_nodes())
+        elif self.Node == cls.Node:
             nodes = self.iter_nodes()
         else:
-            nodes = (n.convert_to(cls.Node) for n in self.iter_nodes())
-        return cls(nodes, self.iter_links(), self.cfrom, self.cto, self.surface, self.ident, self.index.nodeid, self.top.nodeid)
+            nodes = (node.convert_to(cls.Node) for node in self.iter_nodes())
+        return cls(nodes, self.iter_links(), self.cfrom, self.cto, self.surface, self.ident, self.index.nodeid if self.index else None, self.top.nodeid if self.top else None)
 
     def visualise(self, format='dot', filehandle=None):
         """
@@ -458,6 +476,7 @@ class ListDmrs(Dmrs):
     """
     A DMRS graph implemented with lists for nodes and links
     """
+
     def __init__(self, *args, **kwargs):
         """
         Initialise the graph
@@ -548,22 +567,6 @@ class ListDmrs(Dmrs):
         if self.index and self.index.nodeid == nodeid:
             self.index = None
 
-    def iter_outgoing(self, nodeid):
-        """
-        Iterate through links going from a given node
-        """
-        for link in self.links:
-            if link.start == nodeid:
-                yield link
-
-    def iter_incoming(self, nodeid):
-        """
-        Iterate through links coming to a given node
-        """
-        for link in self.links:
-            if link.end == nodeid:
-                yield link
-
     def renumber_node(self, old_id, new_id):
         """
         Change a node's ID from old_id to new_id
@@ -591,6 +594,7 @@ class SetDict(dict):
     A dict of sets.
     Used to store links in DictDmrs.
     """
+
     def remove(self, key, value):
         """
         Remove value from the set self[key],

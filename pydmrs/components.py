@@ -328,11 +328,11 @@ class EventSortinfo(Sortinfo):
         """
         Create a new instance
         """
-        self.sf = sf
-        self.tense = tense
-        self.mood = mood
-        self.perf = perf
-        self.prog = prog
+        self.sf = sf.lower() if sf else sf
+        self.tense = tense.lower() if tense else tense
+        self.mood = mood.lower() if mood else mood
+        self.perf = perf.lower() if perf else perf
+        self.prog = prog.lower() if prog else prog
 
     def __str__(self):
         """
@@ -377,7 +377,7 @@ class EventSortinfo(Sortinfo):
         Sets the value of a property
         """
         key = key.lower()
-        value = value.lower()
+        value = value.lower() if value else value
         if key == 'sf':
             self.sf = value
         elif key == 'tense':
@@ -406,11 +406,11 @@ class InstanceSortinfo(Sortinfo):
         """
         Create a new instance
         """
-        self.pers = pers
-        self.num = num
-        self.gend = gend
-        self.ind = ind
-        self.pt = pt
+        self.pers = pers.lower() if pers else pers
+        self.num = num.lower() if num else num
+        self.gend = gend.lower() if gend else gend
+        self.ind = ind.lower() if ind else ind
+        self.pt = pt.lower() if pt else pt
 
     def __str__(self):
         """
@@ -455,7 +455,7 @@ class InstanceSortinfo(Sortinfo):
         Sets the value of a property
         """
         key = key.lower()
-        value = value.lower()
+        value = value.lower() if value else value
         if key == 'pers':
             self.pers = value
         elif key == 'num':
