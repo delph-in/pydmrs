@@ -72,6 +72,23 @@ class TestLink(unittest.TestCase):
         labelstring = 'RSTR/H'
         self.assertEqual(link.labelstring, labelstring)
     
+    def test_Link_copy(self):
+        """
+        copy.copy should return an equal Link
+        copy.deepcopy should also return an equal Link
+        """
+        from copy import copy, deepcopy
+        link = Link(0, 1, 'RSTR', 'H')
+        link_copy = copy(link)
+        link_deep = deepcopy(link)
+        self.assertEqual(link, link_copy)
+        self.assertEqual(link, link_deep)
+        self.assertIsNot(link, link_copy)
+        self.assertIsNot(link, link_deep)
+        # Note that it doesn't make sense to check
+        # if link.end is not link_deep.end,
+        # because identical strings and ints are considered to be the same
+    
     def test_LinkLabel_new(self):
         """
         LinkLabels should have exactly two slots (rargname, post).
@@ -108,3 +125,20 @@ class TestLink(unittest.TestCase):
         """
         label = LinkLabel('RSTR', 'H')
         self.assertEqual(label, eval(repr(label)))
+    
+    def test_LinkLabel_copy(self):
+        """
+        copy.copy should return an equal LinkLabel
+        copy.deepcopy should also return an equal LinkLabel
+        """
+        from copy import copy, deepcopy
+        label = LinkLabel('RSTR', 'H')
+        label_copy = copy(label)
+        label_deep = deepcopy(label)
+        self.assertEqual(label, label_copy)
+        self.assertEqual(label, label_deep)
+        self.assertIsNot(label, label_copy)
+        self.assertIsNot(label, label_deep)
+        # Note that it doesn't make sense to check
+        # if label.post is not label_deep.post,
+        # because identical strings are considered to be the same
