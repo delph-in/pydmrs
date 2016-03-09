@@ -36,12 +36,6 @@ class Pred(object):
         """
         return isinstance(other, Pred)
 
-    def is_underspecified(self):
-        """
-        Checks whether this Pred is underspecified.
-        """
-        return True
-
     @staticmethod
     def from_string(string):
         """
@@ -123,12 +117,6 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         """
         return self <= other and self != other
 
-    def is_underspecified(self):
-        """
-        Checks whether this RealPred is underspecified.
-        """
-        return self.lemma == '?' or self.pos == 'u'
-
     @staticmethod
     def from_string(string):
         """
@@ -198,12 +186,6 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         Checks whether the other GPred underspecifies this GPred
         """
         return self <= other and self != other
-
-    def is_underspecified(self):
-        """
-        Checks whether this GPred is underspecified.
-        """
-        return self.name == '?'
 
     @staticmethod
     def from_string(string):
@@ -281,12 +263,6 @@ class Sortinfo(Mapping):
     @property
     def cvarsort(self):
         return 'i'
-
-    def is_underspecified(self):
-        """
-        Checks whether this Sortinfo is underspecified.
-        """
-        return self.cvarsort == 'i' or any(self[key] == 'u' for key in self)
 
     @staticmethod
     def from_dict(dictionary):
