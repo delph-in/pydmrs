@@ -148,7 +148,31 @@ class TestPred(unittest.TestCase):
         cat = RealPred('cat','n','1')
         self.assertEqual(the, eval(repr(the)))
         self.assertEqual(cat, eval(repr(cat)))
-
+    
+    def test_RealPred_copy(self):
+        """
+        copy.copy should return an equal RealPred
+        copy.deepcopy should also return an equal RealPred
+        """
+        from copy import copy, deepcopy
+        the = RealPred('the','q')
+        cat = RealPred('cat','n','1')
+        the_copy = copy(the)
+        the_deep = deepcopy(the)
+        cat_copy = copy(cat)
+        cat_deep = deepcopy(cat)
+        self.assertEqual(the, the_copy)
+        self.assertEqual(the, the_deep)
+        self.assertEqual(cat, cat_copy)
+        self.assertEqual(cat, cat_deep)
+        self.assertIsNot(the, the_copy)
+        self.assertIsNot(the, the_deep)
+        self.assertIsNot(cat, cat_copy)
+        self.assertIsNot(cat, cat_deep)
+        # Note that it doesn't make sense to check
+        # if the.lemma is not the_deep.lemma,
+        # because identical strings are considered to be the same
+    
     def test_GPred_new(self):
         """
         GPreds should require exactly one slot (name).
@@ -228,3 +252,20 @@ class TestPred(unittest.TestCase):
         """
         pron_pred = GPred('pron')
         self.assertEqual(pron_pred, eval(repr(pron_pred)))
+    
+    def test_GPred_copy(self):
+        """
+        copy.copy should return an equal GPred
+        copy.deepcopy should also return an equal GPred
+        """
+        from copy import copy, deepcopy
+        pron = GPred('pron')
+        pron_copy = copy(pron)
+        pron_deep = deepcopy(pron)
+        self.assertEqual(pron, pron_copy)
+        self.assertEqual(pron, pron_deep)
+        self.assertIsNot(pron, pron_copy)
+        self.assertIsNot(pron, pron_deep)
+        # Note that it doesn't make sense to check
+        # if pron.name is not pron_deep.name,
+        # because identical strings are considered to be the same
