@@ -3,7 +3,7 @@ from collections import namedtuple
 import copy
 from functools import total_ordering
 from operator import attrgetter
-from pydmrs.components import Pred, Sortinfo
+from pydmrs.components import *
 from pydmrs._exceptions import *
 
 
@@ -370,7 +370,7 @@ class Dmrs(object):
          This is to prevent nodes that are going to be filtered out later from affecting results of connectivity test.
         :return: True if DMRS is connected, otherwise False.
         """
-        disconnected = self. disconnected_nodeids(removed_nodeids=removed_nodeids)
+        disconnected = self.disconnected_nodeids(removed_nodeids=removed_nodeids)
         return len(disconnected - ignored_nodeids) == 0
 
     def disconnected_nodeids(self, start_id=None, removed_nodeids=frozenset()):
@@ -761,14 +761,14 @@ class DictDmrs(Dmrs):
         node.nodeid = new_id
         self._nodes[new_id] = node
 
-        for link in self.outgoing.pop(old_id, set()):
+        for link in self.outgoing.pop(old_id, ()):
             _, end, rargname, post = link
             self.incoming[end].remove(link)
             newlink = Link(new_id, end, rargname, post)
             self.outgoing.add(new_id, newlink)
             self.incoming.add(end, newlink)
 
-        for link in self.incoming.pop(old_id, set()):
+        for link in self.incoming.pop(old_id, ()):
             start, _, rargname, post = link
             self.outgoing[start].remove(link)
             newlink = Link(start, new_id, rargname, post)
@@ -829,7 +829,7 @@ class SortDictDmrs(DictDmrs):
     nodes = None
     links = None
 
-    def __init__(self, nodes, links, *args, **kwargs):
+    def __init__(self, nodes=(), links=(), *args, **kwargs):
         self.links = []
         self.nodes = []
         self._nodeids = []
