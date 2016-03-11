@@ -48,12 +48,6 @@ class Link(namedtuple('LinkNamedTuple', ('start', 'end', 'rargname', 'post'))):
     def labelstring(self):
         return "{}/{}".format(self.rargname, self.post)
 
-    def is_underspecified(self):
-        """
-        Checks whether this Link is underspecified.
-        """
-        return self.rargname == '?' or self.post == '?'
-
 
 @total_ordering
 class Node(object):
@@ -122,12 +116,6 @@ class Node(object):
     @property
     def is_realpred_node(self):
         return isinstance(self.pred, RealPred)
-
-    def is_underspecified(self):
-        """
-        Checks whether this Node is underspecified.
-        """
-        return (self.pred and self.pred.is_underspecified()) or (self.sortinfo and self.sortinfo.is_underspecified())
 
     def convert_to(self, cls):
         return cls(self.nodeid, self.pred, self.sortinfo, self.cfrom, self.cto, self.surface, self.base, self.carg)
