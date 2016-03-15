@@ -13,6 +13,16 @@ class LinkLabel(namedtuple('LinkLabelNamedTuple', ('rargname', 'post'))):
     """
 
     __slots__ = ()  # Suppress __dict__
+    
+    def __new__(cls, rargname, post):
+        """
+        Create new instance, forcing strings to be uppercase
+        """
+        if isinstance(rargname, str):
+            rargname = rargname.upper()
+        if isinstance(post, str):
+            post = post.upper()
+        return super().__new__(cls, rargname, post)
 
     def __str__(self):
         return "{}/{}".format(*self)
@@ -30,9 +40,13 @@ class Link(namedtuple('LinkNamedTuple', ('start', 'end', 'rargname', 'post'))):
 
     def __new__(cls, start, end, rargname, post):
         """
-        Create a new instance
+        Create a new instance, forcing strings to be uppercase
         """
-        return super().__new__(cls, start, end, None if rargname is None else rargname.upper(), None if post is None else post.upper())
+        if isinstance(rargname, str):
+            rargname = rargname.upper()
+        if isinstance(post, str):
+            post = post.upper()
+        return super().__new__(cls, start, end, rargname, post)
 
     def __str__(self):
         return "({} - {}/{} -> {})".format(self.start, self.rargname, self.post, self.end)
@@ -61,10 +75,10 @@ class Node(object):
         self.surface = surface
         self.base = base
 
-        if isinstance(pred, Pred):
-            self.pred = pred
-        else:
+        if isinstance(pred, str):
             self.pred = Pred.from_string(pred)
+        else:
+            self.pred = pred
 
         if carg and carg[0] == '"' and carg[-1] == '"':
             carg = carg[1:-1]
@@ -128,7 +142,7 @@ class PointerNode(Node):
     """
 
     def __init__(self, *args, graph=None, **kwargs):
-        super(PointerNode, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.graph = graph
 
     @property
@@ -471,7 +485,7 @@ class ListDmrs(Dmrs):
         """
         self.nodes = []
         self.links = []
-        super(ListDmrs, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def __getitem__(self, nodeid):
         """
@@ -604,7 +618,7 @@ class SetDict(dict):
         Get a set in the dictionary,
         defaulting to the empty set if not found
         """
-        return super(SetDict, self).get(key, set())
+        return super().get(key, set())
 
 
 class DictDmrs(Dmrs):
@@ -618,7 +632,7 @@ class DictDmrs(Dmrs):
         self._nodes = {}
         self.outgoing = SetDict()
         self.incoming = SetDict()
-        super(DictDmrs, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def __getitem__(self, nodeid):
         """
@@ -775,7 +789,7 @@ class PointerMixin(Dmrs):
         # Although add_node() is not defined in Dmrs,
         # in subclasses of PointerMixin, super() looks at the Method Resolution Order,
         # which can include other parent classes where add_node() is defined.
-        super(PointerMixin, self).add_node(node)
+        super().add_node(node)
         node.graph = self
 
 
@@ -821,7 +835,7 @@ class SortDictDmrs(DictDmrs):
         self.links = []
         self.nodes = []
         self._nodeids = []
-        super(SortDictDmrs, self).__init__(nodes, links, *args, **kwargs)
+        super().__init__(nodes, links, *args, **kwargs)
 
     def __iter__(self):
         return self._nodeids.__iter__()
@@ -833,22 +847,22 @@ class SortDictDmrs(DictDmrs):
         return self.links.__iter__()
 
     def add_link(self, link):
-        super(SortDictDmrs, self).add_link(link)
+        super().add_link(link)
         bisect.insort(self.links, link)
 
     def remove_link(self, link):
-        super(SortDictDmrs, self).remove_link(link)
+        super().remove_link(link)
         i = bisect.bisect_left(self.links, link)
         self.links.pop(i)
 
     def add_node(self, node):
-        super(SortDictDmrs, self).add_node(node)
+        super().add_node(node)
         i = bisect.bisect(self._nodeids, node.nodeid)
         self._nodeids.insert(i, node.nodeid)
         self.nodes.insert(i, node)
 
     def remove_node(self, nodeid):
-        super(SortDictDmrs, self).remove_node(nodeid)
+        super().remove_node(nodeid)
 
         i = bisect.bisect_left(self._nodeids, nodeid)
         self._nodeids.pop(i)
@@ -863,7 +877,7 @@ class SortDictDmrs(DictDmrs):
             self.links.pop(i)
 
     def renumber_node(self, old_id, new_id):
-        super(SortDictDmrs, self).renumber_node(old_id, new_id)
+        super().renumber_node(old_id, new_id)
 
         for i, link in enumerate(self.links):
             start, end, rargname, post = link
