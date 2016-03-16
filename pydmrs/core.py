@@ -303,7 +303,6 @@ class Dmrs(object):
         """
         Get links going from a node.
         If rargname or post are specified, filter according to the label.
-        If nodes is set to True, return nodes rather than links.
         If itr is set to True, return an iterator rather than a set.
         """
         linkset = self.iter_outgoing(nodeid)
@@ -320,7 +319,6 @@ class Dmrs(object):
         """
         Get links coming to a node.
         If rargname or post are specified, filter according to the label.
-        If nodes is set to True, return nodes rather than links.
         If itr is set to True, return an iterator rather than a set.
         """
         linkset = self.iter_incoming(nodeid)
@@ -339,7 +337,7 @@ class Dmrs(object):
         If rargname or post are specified, filter according to the label.
         If itr is set to True, return an iterator rather than a list.
         """
-        links = get_out(nodeid, rargname, post, itr=True)
+        links = self.get_out(nodeid, rargname, post, itr=True)
         nodes = (self[link.end] for link in links)
         if not itr:
             nodes = list(nodes)
@@ -351,18 +349,19 @@ class Dmrs(object):
         If rargname or post are specified, filter according to the label.
         If itr is set to True, return an iterator rather than a list.
         """
-        links = get_out(nodeid, rargname, post, itr=True)
+        links = self.get_in(nodeid, rargname, post, itr=True)
         nodes = (self[link.start] for link in links)
         if not itr:
             nodes = list(nodes)
         return nodes
 
-    def iter_neighbour_nodeids(self, nodeid):
+    def get_neighbour_nodeids(self, nodeid):
         """
         Retrieve adjacent node ids (regardless of link direction) from the dmrs for given node id
         """
         assert nodeid in self, 'Invalid node id.'
-        return {link.end for link in self.get_out(nodeid, itr=True)} | {link.start for link in self.get_in(nodeid, itr=True)}
+        return {link.end for link in self.get_out(nodeid, itr=True)} \
+            | {link.start for link in self.get_in(nodeid, itr=True)}
 
     def get_label(self, rargname=None, post=None, itr=False):
         """
@@ -419,19 +418,18 @@ class Dmrs(object):
             elif self.index is not None and self.index.nodeid in unvisited_nodeids:
                 start_id = self.index.nodeid
             else:
-                start_id = next(iter(unvisited_nodeids))
+                start_id = unvisited_nodeids.pop()
         else:
             assert start_id in unvisited_nodeids, 'Start nodeid not a valid node id.'
 
         # Start the explore set with nodes adjacent to the starting node
-        explore_set = self.iter_neighbour_nodeids(start_id) & unvisited_nodeids
-        unvisited_nodeids.remove(start_id)
+        explore_set = self.get_neighbour_nodeids(start_id) & unvisited_nodeids
 
         # Iteratively visit a node and update the explore set with neighbouring nodes until explore set empty
         while explore_set:
             nodeid = explore_set.pop()
             unvisited_nodeids.remove(nodeid)
-            explore_set.update(self.iter_neighbour_nodeids(nodeid) & unvisited_nodeids)
+            explore_set.update(self.get_neighbour_nodeids(nodeid) & unvisited_nodeids)
         return unvisited_nodeids
 
     @classmethod
@@ -845,23 +843,46 @@ def filter_links(iterable, rargname, post):
         return (x for x in iterable if x.rargname == rargname and x.post == post)
 
 
+def span_pred_key(node):
+    return (node.cfrom, -node.cto, str(node.pred))
+
 class SortDictDmrs(DictDmrs):
     """
     A DMRS graph implemented with both dicts and lists for nodes and links,
-    with lists sorted according to nodeid
+    with lists sorted according to some key.
+    By default, nodes and links are sorted by nodeid.
     """
     # To override @property binding from DictDmrs
     nodes = None
     links = None
 
-    def __init__(self, nodes=(), links=(), *args, **kwargs):
-        self.links = []
+    def __init__(self, *args, node_key=None, link_key=None, **kwargs):
+        # Sorted lists
         self.nodes = []
-        self._nodeids = []
-        super().__init__(nodes, links, *args, **kwargs)
+        self.links = []
+        # Sorted lists of keys
+        self._node_keys = []
+        self._link_keys = []
+
+        if node_key is not None:
+            self.node_key = node_key
+        # If node_key not specified, sort by nodeid
+        else:
+            self.node_key = attrgetter('nodeid')
+
+        if link_key is not None:
+            self.link_key = link_key
+        # If link_key not specified but node_key specified, sort according to start and end keys
+        elif node_key is not None:
+            self.link_key = lambda x:(node_key(self[x.start]), node_key(self[x.end]), x.rargname, x.post)
+        # If link_key not specified and node_key not specified, we don't need to look up the node to find the nodeid
+        else:
+            self.link_key = lambda x:x
+
+        super().__init__(*args, **kwargs)
 
     def __iter__(self):
-        return self._nodeids.__iter__()
+        return (n.nodeid for n in self.nodes)
 
     def iter_nodes(self):
         return self.nodes.__iter__()
@@ -870,54 +891,71 @@ class SortDictDmrs(DictDmrs):
         return self.links.__iter__()
 
     def add_link(self, link):
+        # Add link to dictionaries
         super().add_link(link)
-        bisect.insort(self.links, link)
+        # Find where the link should be placed in order
+        key = self.link_key(link)
+        i = bisect.bisect_right(self._link_keys, key)
+        # Insert the link accordingly
+        self._link_keys.insert(i, key)
+        self.links.insert(i, link)
 
     def remove_link(self, link):
+        # Remove the link from dictionaries
         super().remove_link(link)
-        i = bisect.bisect_left(self.links, link)
+        # Remove the link from the sorted lists
+        i = bisect.bisect_left(self._link_keys, self.link_key(link))
         self.links.pop(i)
+        self._link_keys.pop(i)
 
     def add_node(self, node):
+        # Add node to dictionary
         super().add_node(node)
-        i = bisect.bisect(self._nodeids, node.nodeid)
-        self._nodeids.insert(i, node.nodeid)
+        # Find where the node should be placed in order
+        key = self.node_key(node)
+        i = bisect.bisect_right(self._node_keys, key)
+        # Insert the node accordingly
+        self._node_keys.insert(i, key)
         self.nodes.insert(i, node)
 
     def remove_node(self, nodeid):
+        node = self[nodeid]
+        
+        # Remove the node and associated links from dictionaries
         super().remove_node(nodeid)
-
-        i = bisect.bisect_left(self._nodeids, nodeid)
-        self._nodeids.pop(i)
+        
+        # Remove the node and key from the sorted lists
+        i = bisect.bisect_left(self._node_keys, self.node_key(node))
+        self._node_keys.pop(i)
         self.nodes.pop(i)
 
+        # Remove all associated links from the sorted lists
         remove = []
         for i, link in enumerate(self.links):
             if link.start == nodeid or link.end == nodeid:
                 remove.append(i)
-
-        for i in remove:
+        for i in reversed(remove):
             self.links.pop(i)
+            self._link_keys.pop(i)
 
     def renumber_node(self, old_id, new_id):
-        super().renumber_node(old_id, new_id)
-
-        for i, link in enumerate(self.links):
-            start, end, rargname, post = link
-            if start == old_id:
-                self.links[i] = Link(new_id, end, rargname, post)
-            elif end == old_id:
-                self.links[i] = Link(start, new_id, rargname, post)
-
-        i = bisect.bisect_left(self._nodeids, old_id)
-        j = bisect.bisect_left(self._nodeids, new_id)
-
-        if j == i or j == i+1:
-            self._nodeids[i] = new_id
-        else:
-            self._nodeids.pop(i)
-            if i < j:
-                j -= 1
-            self._nodeids.insert(j, new_id)
-            self.nodes.insert(j, self.nodes.pop(i))
-            self.links.sort()
+        # As we have a lot of things to change,
+        # the easiest option is to remove everything and add it again
+        node = self[old_id]
+        new_out = (Link(new_id, link.end, link.rargname, link.post) \
+                   for link in self.get_out(old_id, itr=True))
+        new_in = (Link(link.start, new_id, link.rargname, link.post) \
+                  for link in self.get_in(old_id, itr=True))
+        
+        # Remove the node and all associated links
+        self.remove_node(old_id)
+        
+        # Change the id of the node and add it
+        node.nodeid = new_id
+        self.add_node(node)
+        
+        # Add all the links
+        for link in new_out:
+            self.add_link(link)
+        for link in new_in:
+            self.add_link(link)
