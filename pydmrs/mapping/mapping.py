@@ -18,11 +18,13 @@ class AnchorNode(Node):
 
     def mapping(self, dmrs, nodeid):
         """
-        Overrides the values of the target node that are not underspecified.
+        Overrides the values of the target node if they are not underspecified in this anchor node.
         :param dmrs Target DMRS graph.
         :param nodeid Target node id.
         """
         node = dmrs[nodeid]
+        if self <= node:
+            return
         if isinstance(self.pred, RealPred):
             if isinstance(node.pred, RealPred):
                 node.pred = RealPred(node.pred.lemma if self.pred.lemma == '?' else self.pred.lemma, node.pred.pos if self.pred.pos == 'u' else self.pred.pos, node.pred.sense if not self.pred.sense else self.pred.sense)
@@ -122,6 +124,12 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=True, iterative=True
             node.nodeid = result_dmrs.free_nodeid()
             result_dmrs.add_node(node)
             replace_matching[nodeid] = node.nodeid
+
+        # set top/index if specified in replace_dmrs
+        if replace_dmrs.top is not None:
+            result_dmrs.top = result_dmrs[replace_matching[replace_dmrs.top.nodeid]]
+        if replace_dmrs.index is not None:
+            result_dmrs.index = result_dmrs[replace_matching[replace_dmrs.index.nodeid]]
 
         # remove all links in the matched search_dmrs
         links = []

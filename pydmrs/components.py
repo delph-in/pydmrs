@@ -32,7 +32,7 @@ class Pred(object):
 
     def __le__(self, other):
         """
-        Checks whether the other object is an instance of Pred
+        Checks whether this Pred underspecifies or equals the other Pred
         """
         return isinstance(other, Pred)
 
@@ -269,20 +269,38 @@ class Sortinfo(Mapping):
         """
         Instantiates a suitable type of Sortinfo from a dictionary
         """
+        if not dictionary:
+            return None
         dictionary = {key.lower(): value.lower() for key, value in dictionary.items()}
-        assert dictionary['cvarsort'] in 'eix'
-        if dictionary['cvarsort'] == 'i':
+        assert 'cvarsort' in dictionary
+        # correcting cvarsort if specification evidence given
+        cvarsort = dictionary['cvarsort']
+        if cvarsort not in 'eix' or (cvarsort == 'i' and len(dictionary) > 1):
+            if any(key in dictionary for key in ('sf', 'tense', 'mood', 'perf', 'prog')):  # event evidence
+                cvarsort = 'e'
+            elif any(key in dictionary for key in ('pers', 'num', 'gend', 'ind', 'pt', 'prontype')):  # instance evidence
+                cvarsort = 'x'
+            else:  # no evidence
+                cvarsort = 'i'
+        if cvarsort == 'i':
+            assert len(dictionary) == 1
             return Sortinfo()
-        elif dictionary['cvarsort'] == 'e':
+        elif cvarsort == 'e':
+            assert all(key in ('cvarsort', 'sf', 'tense', 'mood', 'perf', 'prog') for key in dictionary)
             return EventSortinfo(dictionary.get('sf', None), dictionary.get('tense', None), dictionary.get('mood', None), dictionary.get('perf', None), dictionary.get('prog', None))
+        elif cvarsort == 'x':
+            assert all(key in ('cvarsort', 'pers', 'num', 'gend', 'ind', 'pt', 'prontype') for key in dictionary)
+            return InstanceSortinfo(dictionary.get('pers', None), dictionary.get('num', None), dictionary.get('gend', None), dictionary.get('ind', None), dictionary.get('pt', None) or dictionary.get('prontype', None))
         else:
-            return InstanceSortinfo(dictionary.get('pers', None), dictionary.get('num', None), dictionary.get('gend', None), dictionary.get('ind', None), dictionary.get('pt', None))
+            assert PyDmrsValueError('Invalid sortinfo dictionary.')
 
     @staticmethod
     def from_string(string):
         """
         Instantiates a suitable type of Sortinfo from a string
         """
+        if not string:
+            return None
         if string == 'i':
             return Sortinfo()
         assert string[0] in 'ex' and string[1] == '[' and string[-1] == ']'
@@ -320,7 +338,7 @@ class EventSortinfo(Sortinfo):
         """
         Return a string representation
         """
-        return "EventSortinfo({}, {}, {}, {}, {})".format(*self)
+        return "EventSortinfo({}, {}, {}, {}, {})".format(repr(self.sf), repr(self.tense), repr(self.mood), repr(self.perf), repr(self.prog))
 
     def __iter__(self):
         """
@@ -398,7 +416,7 @@ class InstanceSortinfo(Sortinfo):
         """
         Return a string representation
         """
-        return "InstanceSortinfo({}, {}, {}, {}, {})".format(*self)
+        return "InstanceSortinfo({}, {}, {}, {}, {})".format(repr(self.pers), repr(self.num), repr(self.gend), repr(self.ind), repr(self.pt))
 
     def __iter__(self):
         """

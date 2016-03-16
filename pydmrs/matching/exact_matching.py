@@ -113,7 +113,7 @@ def dmrs_exact_matching(sub_dmrs, dmrs):
             if l1.start not in matching_values or l1.end not in matching_values:
                 continue
             for l2 in sub_dmrs.iter_links():
-                if matching[l2.start] == l1.start and matching[l2.end] == l1.end and (l1.rargname == '?' or l1.rargname == l2.rargname) and (l1.post == '?' or l1.post == l2.post):
+                if matching[l2.start] == l1.start and matching[l2.end] == l1.end and (l2.rargname == '?' or l2.rargname == l1.rargname or l2.rargname == l1.rargname[:3] == 'ARG') and (l2.post == '?' or l2.post == l1.post):
                     count += 1
                     break
             else:

@@ -50,7 +50,8 @@ def parse_graphlang(string, cls=ListDmrs, queries={}):
                     assert ref in ref_names, 'Invalid reference name.'
                     current_id = ref_names[ref]
             else:
-                if line[m] == '*':
+                # TODO: index node?
+                if line[m] == '*':  # top node
                     top = nodeid
                     node, ref_id, ref_name = _parse_node(line[m+1:r], nodeid, queries)
                 else:
@@ -63,7 +64,7 @@ def parse_graphlang(string, cls=ListDmrs, queries={}):
                 ref_names[ref_name] = current_id
             if m > l:
                 m = line.index(' ', l, m)
-                link = _parse_link(line[l:m], last_id, current_id)
+                link = _parse_link(line[l:m], last_id, current_id, queries)
                 links.append(link)
             last_id = current_id
     return cls(nodes=nodes, links=links, index=index, top=top)
@@ -89,7 +90,7 @@ def _parse_node(string, nodeid, queries):
         carg, query_key = _parse_value(string[m+1:r], None)
         if query_key:
             assert query_key not in queries
-            queries[query_key] = lambda matching: matching[nodeid].carg
+            queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].carg
         r += 1
     else:
         r = string.find(' ')
@@ -105,15 +106,15 @@ def _parse_node(string, nodeid, queries):
     pred = string[l:m]
     if pred[:4] == 'node':
         value, query_key = _parse_value(pred[4:], None)
+        assert not value
         if query_key:
             assert query_key not in queries
-            queries[query_key] = lambda matching: matching[nodeid]
-        assert not value
+            queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]]
         pred = Pred()
+        ref_name = 'node'
         sortinfo = Sortinfo()
     else:
-        pred = _parse_pred(pred, nodeid, queries)
-    ref_name = str(pred)
+        pred, ref_name = _parse_pred(pred, nodeid, queries)
     if r < len(string):
         l = r
         while string[l] == ' ':
@@ -138,38 +139,50 @@ def _parse_pred(string, nodeid, queries):
         string = string[1:-1]
     assert '"' not in string, 'Predicates must not contain quotes.'
     assert string[0] != '\'', 'Predicates with opening single-quote have been deprecated.'
-    if string[:3] == 'rel':
+    if string[:3] == 'rel' and (len(string) == 3 or string[3] == '?'):
         value, query_key = _parse_value(string[3:], None)
+        assert not value
         if query_key:
             assert query_key not in queries
-            queries[query_key] = lambda matching: matching[nodeid].pred
-        assert not value
-        return Pred()
-    assert string[-4:] == '_rel', 'Predicates must end with "_rel".'
-    string = string[:-4]
+            queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred
+        return Pred(), 'rel'
+    rel_suffix = ''
+    if string[-4:] == '_rel':
+        string = string[:-4]
+        rel_suffix = '_rel'
     if string[0] != '_':
         name, query_key = _parse_value(string, '?')
         if query_key:
             assert query_key not in queries
-            queries[query_key] = lambda matching: matching[nodeid].pred.name
-        return GPred(string)
+            queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred.name
+        return GPred(name), name + rel_suffix
     values = string[1:].split('_')
-    assert len(values) == 2 or len(values) == 3, 'Invalid number of arguments for RealPred.'
-    if len(values) == 2:
+    assert values and len(values) <= 3, 'Invalid number of arguments for RealPred.'
+    count = len(values)
+    if count == 1:
+        values.insert(0, '?')
+        values.append(None)
+    elif count == 2:
         values.append(None)
     lemma, query_key = _parse_value(values[0], '?')
     if query_key:
         assert query_key not in queries
-        queries[query_key] = lambda matching: matching[nodeid].pred.lemma
+        queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred.lemma
     pos, query_key = _parse_value(values[1], 'u')
     if query_key:
         assert query_key not in queries
-        queries[query_key] = lambda matching: matching[nodeid].pred.pos
+        queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred.pos
     sense, query_key = _parse_value(values[2], None)
     if query_key:
         assert query_key not in queries
-        queries[query_key] = lambda matching: matching[nodeid].pred.sense
-    return RealPred(lemma, pos, sense)
+        queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred.sense
+    if count == 1:
+        ref_name = '_{}{}'.format(pos, rel_suffix)
+    elif count == 2:
+        ref_name = '_{}_{}{}'.format(lemma, pos, rel_suffix)
+    else:
+        ref_name = '_{}_{}_{}{}'.format(lemma, pos, sense, rel_suffix)
+    return RealPred(lemma, pos, sense), ref_name
 
 
 _parse_instance_shorthand = {
@@ -198,10 +211,10 @@ def _parse_sortinfo(string, nodeid, queries):
             return Sortinfo()
     if string[1] == '?':
         value, query_key = _parse_value(string[2:], None)
+        assert not value
         if query_key:
             assert query_key not in queries
-            queries[query_key] = lambda matching: matching[nodeid].sortinfo
-        assert not value
+            queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].sortinfo
         if string[0] == 'e':
             return EventSortinfo('u', 'u', 'u', 'u', 'u')
         elif string[0] == 'x':
@@ -237,23 +250,24 @@ def _parse_sortinfo(string, nodeid, queries):
         for kv in string[2:-1].split(','):
             key, value = kv.split('=')
             key, values = shorthand[key]
-            value, query_key = _parse_value(values[value], 'u')
+            sortinfo[key], query_key = _parse_value(values[value], 'u')
             if query_key:
                 assert query_key not in queries
-                queries[query_key] = lambda matching: matching[nodeid].sortinfo[key]
-            sortinfo[key] = value
+                queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].sortinfo[key]
     else:
         return Sortinfo.from_string(string)
 
 
-def _parse_link(string, left_nodeid, right_nodeid):
+def _parse_link(string, left_nodeid, right_nodeid, queries):
     l = 0
     r = len(string) - 1
     if string[l] == '<':  # pointing left
-        link_left = True
+        start = right_nodeid
+        end = left_nodeid
         l += 1
     elif string[r] == '>':  # pointing right
-        link_left = False
+        start = left_nodeid
+        end = right_nodeid
         r -= 1
     else:  # invalid link
         assert False, 'Link must have a direction.'
@@ -276,12 +290,15 @@ def _parse_link(string, left_nodeid, right_nodeid):
             if l == m or string[l:m].lower() == 'none':  # None/EQ link
                 rargname = None
             else:
-                rargname = string[l:m]
-            post = string[m+1:r+1]
-        if link_left:
-            return Link(right_nodeid, left_nodeid, rargname, post)
-        else:
-            return Link(left_nodeid, right_nodeid, rargname, post)
+                rargname, rargname_query_key = _parse_value(string[l:m], '?')
+            post, post_query_key = _parse_value(string[m+1:r+1], '?')
+            if rargname_query_key:
+                assert rargname_query_key not in queries
+                queries[rargname_query_key] = lambda matching, dmrs: ','.join(link.rargname for link in dmrs.get_out(matching[start], post=(None if post_query_key else post), itr=True) if link.end == matching[end])
+            if post_query_key:
+                assert post_query_key not in queries
+                queries[post_query_key] = lambda matching, dmrs: ','.join(link.post for link in dmrs.get_out(matching[start], rargname=(None if rargname_query_key else rargname), itr=True) if link.end == matching[end])
+        return Link(start, end, rargname, post)
     if l > r:  # no specification symbol
         if link_char == '=':
             rargname = None
@@ -290,7 +307,15 @@ def _parse_link(string, left_nodeid, right_nodeid):
             rargname = 'rstr'
             post = 'h'
     else:
-        if l == r:  # one specification symbol, i.e. variable link
+        if string[l] == '?':
+            rargname = '?'
+            post = '?'
+            value, query_key = _parse_value(string[l:r+1], None)
+            assert not value
+            if query_key:
+                assert query_key not in queries
+                queries[query_key] = lambda matching, dmrs: ','.join(link.labelstring for link in dmrs.get_out(matching[start], itr=True) if link.end == matching[end])
+        elif l == r:  # one specification symbol, i.e. variable link
             if link_char == '=':
                 post = 'eq'
             else:
@@ -303,7 +328,7 @@ def _parse_link(string, left_nodeid, right_nodeid):
                 post = 'h'
         else:
             assert False  # never reached
-        if string[l] in '?n':  # ARG/ARGN/ARG? (underspecified ARG)
+        if string[l] == 'n':  # ARG/ARGN (underspecified ARG)
             rargname = 'arg'
         elif string[l] in '123':  # ARG{1,2,3}
             rargname = 'arg' + string[l]
@@ -312,16 +337,13 @@ def _parse_link(string, left_nodeid, right_nodeid):
                 rargname = string[l].upper() + '-index'
             else:
                 rargname = string[l].upper() + '-hndl'
-        elif l <= r:
+        elif l <= r and string[l] != '?':
             assert False, 'Invalid link specification symbol.'
-    if link_left:
-        return Link(right_nodeid, left_nodeid, rargname, post)
-    else:
-        return Link(left_nodeid, right_nodeid, rargname, post)
+    return Link(start, end, rargname, post)
 
 
 if __name__ == '__main__':
     import sys
     dmrs_str = ' '.join(sys.argv[1:])
-    dmrs = parse(dmrs_str)
+    dmrs = parse_graphlang(dmrs_str)
     print(dmrs.dumps_xml())

@@ -24,12 +24,11 @@ def dmrs_query(dmrs_iter, search_dmrs_str, results_as_dict=False, results_per_dm
         if results_per_dmrs:
             results = []
         for matching in matchings:
-            matching = {sub_nodeid: dmrs[nodeid] for sub_nodeid, nodeid in matching.items()}  # map to nodes instead of node ids
             # extract matched values
             if results_as_dict:
-                result = {key: query(matching) for key, query in queries}
+                result = {key: query(matching, dmrs) for key, query in queries}
             else:
-                result = tuple(query(matching) for _, query in queries)
+                result = tuple(query(matching, dmrs) for _, query in queries)
             if results_per_dmrs:
                 results.append(result)
             else:

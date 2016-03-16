@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as ET
 from pydmrs.components import RealPred, GPred
 from pydmrs.core import Link, ListDmrs
+from pydmrs._exceptions import *
 
 
 def loads_xml(bytestring, encoding=None, cls=ListDmrs):
@@ -38,13 +39,16 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs):
                 if sub.tag == 'realpred':
                     try:
                         pred = RealPred(sub.get('lemma'), sub.get('pos'), sub.get('sense'))
-                    except AssertionError:
+                    except PydmrsValueError:
                         # If the whole pred name is under 'lemma', rather than split between 'lemma', 'pos', 'sense'
                         pred = RealPred.from_string(sub.get('lemma'))
                 elif sub.tag == 'gpred':
-                    pred = GPred.from_string(sub.text)
+                    try:
+                        pred = GPred.from_string(sub.text)
+                    except PydmrsValueError:
+                        pred = RealPred.from_string(sub.text)
                 elif sub.tag == 'sortinfo':
-                    sortinfo = sub.items()
+                    sortinfo = sub.attrib
                 else:
                     raise ValueError(sub.tag)
 

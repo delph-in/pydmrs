@@ -63,8 +63,10 @@ class Node(object):
 
         if isinstance(pred, Pred):
             self.pred = pred
-        else:
+        elif isinstance(pred, str):
             self.pred = Pred.from_string(pred)
+        else:
+            self.pred = None
 
         if carg and carg[0] == '"' and carg[-1] == '"':
             carg = carg[1:-1]
@@ -72,13 +74,12 @@ class Node(object):
             raise PydmrsValueError('Cargs must not contain quotes.')
         self.carg = carg
 
-        if sortinfo:
-            if isinstance(sortinfo, Sortinfo):
-                self.sortinfo = sortinfo
-            elif isinstance(sortinfo, dict):
-                self.sortinfo = Sortinfo.from_dict(sortinfo)
-            else:  # Allow initialising sortinfo from (key,value) pairs
-                self.sortinfo = Sortinfo.from_dict({x: y for x, y in sortinfo})
+        if isinstance(sortinfo, Sortinfo):
+            self.sortinfo = sortinfo
+        elif isinstance(sortinfo, dict):
+            self.sortinfo = Sortinfo.from_dict(sortinfo)
+        elif isinstance(sortinfo, list):  # Allow initialising sortinfo from (key,value) pairs
+            self.sortinfo = Sortinfo.from_dict({x: y for x, y in sortinfo})
         else:
             self.sortinfo = None
 
@@ -237,6 +238,12 @@ class Dmrs(object):
     def __len__(self): raise NotImplementedError
     def count_links(self): raise NotImplementedError
 
+    def __contains__(self, nodeid):
+        """
+        Checks whether a node id is in the DMRS graph
+        """
+        return any(n == nodeid for n in self)
+
     def iter_outgoing(self, nodeid):
         """
         Iterate through links going from a given node
@@ -382,7 +389,7 @@ class Dmrs(object):
             elif self.index is not None and self.index.nodeid in unvisited_nodeids:
                 start_id = self.index.nodeid
             else:
-                start_id = unvisited_nodeids.pop()
+                start_id = next(iter(unvisited_nodeids))
         else:
             assert start_id in unvisited_nodeids, 'Start nodeid not a valid node id.'
 
