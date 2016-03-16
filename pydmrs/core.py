@@ -337,7 +337,7 @@ class Dmrs(object):
         If rargname or post are specified, filter according to the label.
         If itr is set to True, return an iterator rather than a list.
         """
-        links = self.get_out(nodeid, rargname, post, itr=True)
+        links = self.get_out(nodeid, rargname=rargname, post=post, itr=True)
         nodes = (self[link.end] for link in links)
         if not itr:
             nodes = list(nodes)
@@ -349,7 +349,7 @@ class Dmrs(object):
         If rargname or post are specified, filter according to the label.
         If itr is set to True, return an iterator rather than a list.
         """
-        links = self.get_in(nodeid, rargname, post, itr=True)
+        links = self.get_in(nodeid, rargname=rargname, post=post, itr=True)
         nodes = (self[link.start] for link in links)
         if not itr:
             nodes = list(nodes)
