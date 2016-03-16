@@ -13,7 +13,7 @@ class LinkLabel(namedtuple('LinkLabelNamedTuple', ('rargname', 'post'))):
     """
 
     __slots__ = ()  # Suppress __dict__
-    
+
     def __new__(cls, rargname, post):
         """
         Create new instance, forcing strings to be uppercase
@@ -294,7 +294,7 @@ class Dmrs(object):
         for nodeid in iterable:
             self.remove_node(nodeid)
 
-    def get_out(self, nodeid, rargname=None, post=None, nodes=False, itr=False):
+    def get_out(self, nodeid, rargname=None, post=None, itr=False):
         """
         Get links going from a node.
         If rargname or post are specified, filter according to the label.
@@ -306,15 +306,12 @@ class Dmrs(object):
         if rargname or post:
             linkset = filter_links(linkset, rargname=rargname, post=post)
 
-        if nodes:
-            linkset = (self[link.end] for link in linkset)
-
         if not itr:
             linkset = set(linkset)
 
         return linkset
 
-    def get_in(self, nodeid, rargname=None, post=None, nodes=False, itr=False):
+    def get_in(self, nodeid, rargname=None, post=None, itr=False):
         """
         Get links coming to a node.
         If rargname or post are specified, filter according to the label.
@@ -326,13 +323,34 @@ class Dmrs(object):
         if rargname or post:
             linkset = filter_links(linkset, rargname=rargname, post=post)
 
-        if nodes:
-            linkset = (self[link.start] for link in linkset)
-
         if not itr:
             linkset = set(linkset)
 
         return linkset
+
+    def get_out_nodes(self, nodeid, rargname=None, post=None, itr=False):
+        """
+        Get end nodes of links going from a node.
+        If rargname or post are specified, filter according to the label.
+        If itr is set to True, return an iterator rather than a list.
+        """
+        links = get_out(nodeid, rargname, post, itr=True)
+        nodes = (self[link.end] for link in links)
+        if not itr:
+            nodes = list(nodes)
+        return nodes
+
+    def get_in_nodes(self, nodeid, rargname=None, post=None, itr=False):
+        """
+        Get start nodes of links coming to a node.
+        If rargname or post are specified, filter according to the label.
+        If itr is set to True, return an iterator rather than a list.
+        """
+        links = get_out(nodeid, rargname, post, itr=True)
+        nodes = (self[link.start] for link in links)
+        if not itr:
+            nodes = list(nodes)
+        return nodes
 
     def iter_neighbour_nodeids(self, nodeid):
         """
