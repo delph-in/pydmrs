@@ -73,7 +73,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         """
         assert lemma
         assert pos
-        return super(RealPred, cls).__new__(cls, lemma, pos, sense)
+        return super().__new__(cls, lemma, pos, sense)
 
     def __str__(self):
         """
@@ -149,7 +149,7 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         Create a new instance, requiring non-empty name
         """
         assert name
-        return super(GPred, cls).__new__(cls, name)
+        return super().__new__(cls, name)
 
     def __str__(self):
         """
