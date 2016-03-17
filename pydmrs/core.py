@@ -939,8 +939,10 @@ class SortDictDmrs(DictDmrs):
             self._link_keys.pop(i)
 
     def renumber_node(self, old_id, new_id):
-        # As we have a lot of things to change,
+        # As we potentially have a lot of things to change,
         # the easiest option is to remove everything and add it again
+        # (We could first check whether changing the nodeid changes the keys...)
+        # (If link keys don't change, we could just replace them in place...)
         node = self[old_id]
         new_out = (Link(new_id, link.end, link.rargname, link.post) \
                    for link in self.get_out(old_id, itr=True))
