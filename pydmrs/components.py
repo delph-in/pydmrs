@@ -71,8 +71,10 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         Create a new instance, allowing the sense to be optional,
         and requiring non-empty lemma and pos
         """
-        assert lemma
-        assert pos
+        if not lemma:
+            raise PydmrsValueError('a RealPred must have non-empty lemma')
+        if not pos:
+            raise PydmrsValueError('a RealPred must have non-empty pos')
         return super().__new__(cls, lemma, pos, sense)
 
     def __str__(self):
@@ -151,7 +153,8 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         """
         Create a new instance, requiring non-empty name
         """
-        assert name
+        if not name:
+            raise PydmrsValueError('a GPred must have non-empty name')
         return super().__new__(cls, name)
 
     def __str__(self):
@@ -276,8 +279,6 @@ class Sortinfo(Mapping):
         """
         Instantiates a suitable type of Sortinfo from a dictionary
         """
-        if not dictionary:
-            return None
         dictionary = {key.lower(): value.lower() for key, value in dictionary.items()}
         if 'cvarsort' not in dictionary:
             raise PydmrsValueError('Sortinfo must have cvarsort')
@@ -294,7 +295,7 @@ class Sortinfo(Mapping):
                                  dictionary.get('mood', None),
                                  dictionary.get('perf', None),
                                  dictionary.get('prog', None))
-        if cvarsort == 'x':
+        elif cvarsort == 'x':
             return InstanceSortinfo(dictionary.get('pers', None),
                                     dictionary.get('num', None),
                                     dictionary.get('gend', None),
@@ -309,11 +310,10 @@ class Sortinfo(Mapping):
         """
         Instantiates a suitable type of Sortinfo from a string
         """
-        if not string:
-            return None
         if string == 'i':
             return Sortinfo()
-        assert string[0] in 'ex' and string[1] == '[' and string[-1] == ']'
+        if not (string[1] == '[' and string[-1] == ']'):
+            raise PydmrsValueError('Sortinfo string must include features in square brackets')
         values = [tuple(value.strip().split('=')) for value in string[2:-1].split(',')]
         dictionary = {key.lower(): value.lower() for key, value in values}
         if string[0] == 'e':

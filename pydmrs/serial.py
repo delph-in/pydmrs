@@ -1,4 +1,5 @@
 import xml.etree.ElementTree as ET
+from warnings import warn
 from pydmrs.components import RealPred, GPred
 from pydmrs.core import Link, ListDmrs
 from pydmrs._exceptions import *
@@ -42,15 +43,19 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs):
                     except PydmrsValueError:
                         # If the whole pred name is under 'lemma', rather than split between 'lemma', 'pos', 'sense'
                         pred = RealPred.from_string(sub.get('lemma'))
+                        warn("RealPred given as string rather than lemma, pos, sense", PydmrsWarning)
                 elif sub.tag == 'gpred':
                     try:
                         pred = GPred.from_string(sub.text)
                     except PydmrsValueError:
+                        # If the string is actually for a RealPred, not a GPred
                         pred = RealPred.from_string(sub.text)
+                        warn("RealPred string found in a <gpred> tag", PydmrsWarning)
                 elif sub.tag == 'sortinfo':
-                    sortinfo = sub.attrib
+                    if sub.attrib:
+                        sortinfo = sub.attrib
                 else:
-                    raise ValueError(sub.tag)
+                    raise PydmrsValueError(sub.tag)
 
             dmrs.add_node(cls.Node(nodeid=nodeid, pred=pred, carg=carg, sortinfo=sortinfo, cfrom=cfrom, cto=cto, surface=surface, base=base))
 
@@ -69,10 +74,10 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs):
                     elif sub.tag == 'post':
                         post = sub.text
                     else:
-                        raise ValueError(sub.tag)
+                        raise PydmrsValueError(sub.tag)
                 dmrs.add_link(Link(start, end, rargname, post))
         else:
-            raise ValueError(elem.tag)
+            raise PydmrsValueError(elem.tag)
 
     if top_id:
         dmrs.top = dmrs[top_id]
@@ -121,7 +126,7 @@ def dumps_xml(dmrs, encoding=None):
             if node.pred.sense:
                 xpred.set('sense', node.pred.sense)
         else:
-            raise Exception("predicates must be RealPred or GPred objects")
+            raise PydmrsTypeError("predicates must be RealPred or GPred objects")
         xsortinfo = ET.SubElement(xnode, 'sortinfo')
         if node.sortinfo:
             for attr in node.sortinfo:

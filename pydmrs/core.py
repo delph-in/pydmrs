@@ -87,25 +87,24 @@ class Node(object):
             raise PydmrsValueError('Cargs must not contain quotes.')
         self.carg = carg
 
-        if isinstance(sortinfo, Sortinfo):
+        if sortinfo is None:  # Allow no sortinfo
+            self.sortinfo = None
+        elif isinstance(sortinfo, Sortinfo):  # Allow Sortinfo instances
             self.sortinfo = sortinfo
-        elif isinstance(sortinfo, dict):
+        elif isinstance(sortinfo, dict):  # Allow initialising sortinfo from a dict 
             self.sortinfo = Sortinfo.from_dict(sortinfo)
         elif isinstance(sortinfo, list):  # Allow initialising sortinfo from (key,value) pairs
             self.sortinfo = Sortinfo.from_dict({x: y for x, y in sortinfo})
         else:
-            self.sortinfo = None
+            raise PydmrsTypeError("unsupported type for sortinfo")
 
     def __str__(self):
+        string = str(self.pred)
         if self.carg:
-            if self.sortinfo:
-                return '{}({}) {}'.format(self.pred, self.carg, self.sortinfo)
-            else:
-                return '{}({})'.format(self.pred, self.carg)
-        elif self.sortinfo:
-            return '{} {}'.format(self.pred, self.sortinfo)
-        else:
-            return str(self.pred)
+            string += '({})'.format(self.carg)
+        if self.sortinfo:
+            string += ' {}'.format(self.sortinfo)
+        return string
 
     def __eq__(self, other):
         """

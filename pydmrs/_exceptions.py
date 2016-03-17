@@ -9,3 +9,6 @@ class PydmrsValueError(PydmrsError, ValueError):
 
 class PydmrsKeyError(PydmrsError, KeyError):
     pass
+
+class PydmrsWarning(PydmrsError, Warning):
+    pass
