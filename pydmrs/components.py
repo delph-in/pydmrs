@@ -97,7 +97,10 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         """
         Checks whether this RealPred underspecifies or equals the other RealPred
         """
-        return isinstance(other, RealPred) and (self.lemma == '?' or self.lemma == other.lemma) and (self.pos in 'u' or self.pos == other.pos) and (not self.sense or self.sense == other.sense)
+        return isinstance(other, RealPred) \
+            and (self.lemma == '?' or self.lemma == other.lemma) \
+            and (self.pos in 'u' or self.pos == other.pos) \
+            and (not self.sense or self.sense == other.sense)
 
     def __lt__(self, other):
         """
@@ -224,13 +227,17 @@ class Sortinfo(Mapping):
         """
         Checks two Sortinfos for equality
         """
-        return isinstance(other, type(self)) and len(self) == len(other) and all(key in other and self[key] == other[key] for key in self)
+        return isinstance(other, type(self)) and len(self) == len(other) \
+            and all(key in other and self[key] == other[key] for key in self)
 
     def __le__(self, other):
         """
         Checks whether this Sortinfo underspecifies or equals the other Sortinfo
         """
-        return isinstance(other, type(self)) and (self.cvarsort == 'i' or self.cvarsort == other.cvarsort) and all(self[key] == 'u' or (key in other and self[key] == other[key]) for key in self if key != 'cvarsort')
+        return isinstance(other, type(self)) \
+            and (self.cvarsort == 'i' or self.cvarsort == other.cvarsort) \
+            and all(self[key] == 'u' or (key in other and self[key] == other[key]) \
+                    for key in self if key != 'cvarsort')
 
     def __iter__(self):
         """
@@ -252,13 +259,13 @@ class Sortinfo(Mapping):
         if key == 'cvarsort':
             return 'i'
         else:
-            raise KeyError
+            raise PydmrsKeyError
 
     def __setitem__(self, key, value):
         """
         Sets the value of a property
         """
-        raise KeyError
+        raise PydmrsKeyError
 
     @property
     def cvarsort(self):
@@ -272,27 +279,30 @@ class Sortinfo(Mapping):
         if not dictionary:
             return None
         dictionary = {key.lower(): value.lower() for key, value in dictionary.items()}
-        assert 'cvarsort' in dictionary
-        # correcting cvarsort if specification evidence given
+        if 'cvarsort' not in dictionary:
+            raise PydmrsValueError('Sortinfo must have cvarsort')
         cvarsort = dictionary['cvarsort']
-        if cvarsort not in 'eix' or (cvarsort == 'i' and len(dictionary) > 1):
+        # Correct cvarsort if features are evidence for 'x' or 'e':
+        if cvarsort not in 'ex' and len(dictionary) > 1:
             if any(key in dictionary for key in ('sf', 'tense', 'mood', 'perf', 'prog')):  # event evidence
                 cvarsort = 'e'
             elif any(key in dictionary for key in ('pers', 'num', 'gend', 'ind', 'pt', 'prontype')):  # instance evidence
                 cvarsort = 'x'
-            else:  # no evidence
-                cvarsort = 'i'
-        if cvarsort == 'i':
-            assert len(dictionary) == 1
-            return Sortinfo()
-        elif cvarsort == 'e':
-            assert all(key in ('cvarsort', 'sf', 'tense', 'mood', 'perf', 'prog') for key in dictionary)
-            return EventSortinfo(dictionary.get('sf', None), dictionary.get('tense', None), dictionary.get('mood', None), dictionary.get('perf', None), dictionary.get('prog', None))
-        elif cvarsort == 'x':
-            assert all(key in ('cvarsort', 'pers', 'num', 'gend', 'ind', 'pt', 'prontype') for key in dictionary)
-            return InstanceSortinfo(dictionary.get('pers', None), dictionary.get('num', None), dictionary.get('gend', None), dictionary.get('ind', None), dictionary.get('pt', None) or dictionary.get('prontype', None))
+        if cvarsort == 'e':
+            return EventSortinfo(dictionary.get('sf', None),
+                                 dictionary.get('tense', None),
+                                 dictionary.get('mood', None),
+                                 dictionary.get('perf', None),
+                                 dictionary.get('prog', None))
+        if cvarsort == 'x':
+            return InstanceSortinfo(dictionary.get('pers', None),
+                                    dictionary.get('num', None),
+                                    dictionary.get('gend', None),
+                                    dictionary.get('ind', None),
+                                    dictionary.get('pt', None))
         else:
-            raise PydmrsValueError('Invalid sortinfo dictionary.')
+            # This needs to be updated so that the underspecified cvarsorts i, u, and p are distinguished
+            return Sortinfo()
 
     @staticmethod
     def from_string(string):
@@ -307,9 +317,20 @@ class Sortinfo(Mapping):
         values = [tuple(value.strip().split('=')) for value in string[2:-1].split(',')]
         dictionary = {key.lower(): value.lower() for key, value in values}
         if string[0] == 'e':
-            return EventSortinfo(dictionary.get('sf', None), dictionary.get('tense', None), dictionary.get('mood', None), dictionary.get('perf', None), dictionary.get('prog', None))
+            return EventSortinfo(dictionary.get('sf', None),
+                                 dictionary.get('tense', None),
+                                 dictionary.get('mood', None),
+                                 dictionary.get('perf', None),
+                                 dictionary.get('prog', None))
+        elif string[0] == 'x':
+            return InstanceSortinfo(dictionary.get('pers', None),
+                                    dictionary.get('num', None),
+                                    dictionary.get('gend', None),
+                                    dictionary.get('ind', None),
+                                    dictionary.get('pt', None))
         else:
-            return InstanceSortinfo(dictionary.get('pers', None), dictionary.get('num', None), dictionary.get('gend', None), dictionary.get('ind', None), dictionary.get('pt', None))
+            # This needs to be updated to deal with the underspecified cvarsorts u and p.
+            raise PydmrsValueError('Unrecognised cvarsort')
 
 
 class EventSortinfo(Sortinfo):
@@ -338,7 +359,11 @@ class EventSortinfo(Sortinfo):
         """
         Return a string representation
         """
-        return "EventSortinfo({}, {}, {}, {}, {})".format(repr(self.sf), repr(self.tense), repr(self.mood), repr(self.perf), repr(self.prog))
+        return "EventSortinfo({}, {}, {}, {}, {})".format(repr(self.sf),
+                                                          repr(self.tense),
+                                                          repr(self.mood),
+                                                          repr(self.perf),
+                                                          repr(self.prog))
 
     def __iter__(self):
         """
@@ -364,7 +389,7 @@ class EventSortinfo(Sortinfo):
         elif key == 'prog':
             return self.prog
         else:
-            raise KeyError
+            raise PydmrsKeyError
 
     def __setitem__(self, key, value):
         """
@@ -383,7 +408,7 @@ class EventSortinfo(Sortinfo):
         elif key == 'prog':
             self.prog = value
         else:
-            raise KeyError
+            raise PydmrsKeyError
 
     @property
     def cvarsort(self):
@@ -416,7 +441,11 @@ class InstanceSortinfo(Sortinfo):
         """
         Return a string representation
         """
-        return "InstanceSortinfo({}, {}, {}, {}, {})".format(repr(self.pers), repr(self.num), repr(self.gend), repr(self.ind), repr(self.pt))
+        return "InstanceSortinfo({}, {}, {}, {}, {})".format(repr(self.pers),
+                                                             repr(self.num),
+                                                             repr(self.gend),
+                                                             repr(self.ind),
+                                                             repr(self.pt))
 
     def __iter__(self):
         """
@@ -442,7 +471,7 @@ class InstanceSortinfo(Sortinfo):
         elif key == 'pt':
             return self.pt
         else:
-            raise KeyError
+            raise PydmrsKeyError
 
     def __setitem__(self, key, value):
         """
@@ -461,7 +490,7 @@ class InstanceSortinfo(Sortinfo):
         elif key == 'pt':
             self.pt = value
         else:
-            raise KeyError
+            raise PydmrsKeyError
 
     @property
     def cvarsort(self):
