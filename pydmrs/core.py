@@ -947,12 +947,15 @@ class SortDictDmrs(DictDmrs):
         elif node_key is not None:
             self.link_key = lambda x : (node_key(self[x.start]),
                                         node_key(self[x.end]),
-                                        x.rargname,
+                                        x.rargname if x.rargname else '',  # in case None
                                         x.post)
         # If link_key not specified and node_key not specified,
         # we don't need to look up the node to find the nodeid
         else:
-            self.link_key = lambda x:x
+            self.link_key = lambda x : (x.start,
+                                        x.end,
+                                        x.rargname if x.rargname else '',  # in case None
+                                        x.post)
 
         super().__init__(*args, **kwargs)
 
