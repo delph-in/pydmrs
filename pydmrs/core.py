@@ -418,12 +418,13 @@ class Dmrs(object):
             elif self.index is not None and self.index.nodeid in unvisited_nodeids:
                 start_id = self.index.nodeid
             else:
-                start_id = unvisited_nodeids.pop()
+                start_id = next(iter(unvisited_nodeids))
         else:
             assert start_id in unvisited_nodeids, 'Start nodeid not a valid node id.'
 
         # Start the explore set with nodes adjacent to the starting node
-        explore_set = self.get_neighbour_nodeids(start_id) & unvisited_nodeids
+        explore_set = self.iter_neighbour_nodeids(start_id) & unvisited_nodeids
+        unvisited_nodeids.remove(start_id)
 
         # Iteratively visit a node and update the explore set with neighbouring nodes until explore set empty
         while explore_set:
