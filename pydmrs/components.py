@@ -292,7 +292,7 @@ class Sortinfo(Mapping):
             assert all(key in ('cvarsort', 'pers', 'num', 'gend', 'ind', 'pt', 'prontype') for key in dictionary)
             return InstanceSortinfo(dictionary.get('pers', None), dictionary.get('num', None), dictionary.get('gend', None), dictionary.get('ind', None), dictionary.get('pt', None) or dictionary.get('prontype', None))
         else:
-            assert PyDmrsValueError('Invalid sortinfo dictionary.')
+            raise PydmrsValueError('Invalid sortinfo dictionary.')
 
     @staticmethod
     def from_string(string):
