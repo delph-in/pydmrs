@@ -110,13 +110,21 @@ class Node(object):
         """
         Checks two nodes for equality (predicate, carg, sortinfo)
         """
-        return isinstance(other, Node) and self.pred == other.pred and self.carg == other.carg and self.sortinfo == other.sortinfo
+        return isinstance(other, Node) \
+            and self.pred == other.pred \
+            and self.carg == other.carg \
+            and self.sortinfo == other.sortinfo
 
     def __le__(self, other):
         """
         Checks whether this node underspecifies or equals the other node (predicate, carg, sortinfo)
         """
-        return isinstance(other, Node) and ((self.pred is None and other.pred is None) or (self.pred <= other.pred)) and (not self.carg or self.carg == other.carg) and ((self.sortinfo is None and other.sortinfo is None) or (self.sortinfo <= other.sortinfo))
+        return isinstance(other, Node) \
+            and ((self.pred is None and other.pred is None) \
+                 or (self.pred <= other.pred)) \
+            and (not self.carg or self.carg == other.carg) \
+            and ((self.sortinfo is None and other.sortinfo is None) \
+                 or (self.sortinfo <= other.sortinfo))
 
     @property
     def span(self):
@@ -131,7 +139,14 @@ class Node(object):
         return isinstance(self.pred, RealPred)
 
     def convert_to(self, cls):
-        return cls(self.nodeid, self.pred, self.sortinfo, self.cfrom, self.cto, self.surface, self.base, self.carg)
+        return cls(self.nodeid,
+                   self.pred,
+                   self.sortinfo,
+                   self.cfrom,
+                   self.cto,
+                   self.surface,
+                   self.base,
+                   self.carg)
 
 
 class PointerNode(Node):
@@ -478,7 +493,14 @@ class Dmrs(object):
             nodes = self.iter_nodes()
         else:
             nodes = (node.convert_to(cls.Node) for node in self.iter_nodes())
-        return cls(nodes, self.iter_links(), self.cfrom, self.cto, self.surface, self.ident, self.index.nodeid if self.index else None, self.top.nodeid if self.top else None)
+        return cls(nodes,
+                   self.iter_links(),
+                   self.cfrom,
+                   self.cto,
+                   self.surface,
+                   self.ident,
+                   self.index.nodeid if self.index else None,
+                   self.top.nodeid if self.top else None)
 
     def visualise(self, format='dot', filehandle=None):
         """
@@ -873,10 +895,15 @@ class SortDictDmrs(DictDmrs):
 
         if link_key is not None:
             self.link_key = link_key
-        # If link_key not specified but node_key specified, sort according to start and end keys
+        # If link_key not specified but node_key specified,
+        # sort according to start and end keys
         elif node_key is not None:
-            self.link_key = lambda x:(node_key(self[x.start]), node_key(self[x.end]), x.rargname, x.post)
-        # If link_key not specified and node_key not specified, we don't need to look up the node to find the nodeid
+            self.link_key = lambda x : (node_key(self[x.start]),
+                                        node_key(self[x.end]),
+                                        x.rargname,
+                                        x.post)
+        # If link_key not specified and node_key not specified,
+        # we don't need to look up the node to find the nodeid
         else:
             self.link_key = lambda x:x
 
