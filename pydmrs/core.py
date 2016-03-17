@@ -3,6 +3,7 @@ from collections import namedtuple
 import copy
 from functools import total_ordering
 from operator import attrgetter
+from itertools import chain
 from pydmrs.components import *
 from pydmrs._exceptions import *
 
@@ -275,6 +276,8 @@ class Dmrs(object):
         """
         Iterate through links going from a given node
         """
+        if nodeid not in self:
+            raise PydmrsValueError('{} not a valid nodeid'.format(nodeid))
         for link in self.iter_links():
             if link.start == nodeid:
                 yield link
@@ -283,6 +286,8 @@ class Dmrs(object):
         """
         Iterate through links coming to a given node
         """
+        if nodeid not in self:
+            raise PydmrsValueError('{} not a valid nodeid'.format(nodeid))
         for link in self.iter_links():
             if link.end == nodeid:
                 yield link
@@ -345,38 +350,77 @@ class Dmrs(object):
             linkset = set(linkset)
 
         return linkset
+    
+    def get_links(self, nodeid, rargname=None, post=None, itr=False):
+        """
+        Get links going from or coming to a node.
+        If rargname or post are specified, filter according to the label.
+        If itr is set to True, return an iterator rather than a set.
+        """
+        in_links = self.get_in(nodeid, rargname, post, itr)
+        out_links = self.get_out(nodeid, rargname, post, itr)
+        if itr:
+            return chain(in_links, out_links)
+        else:
+            return in_links | out_links
 
-    def get_out_nodes(self, nodeid, rargname=None, post=None, itr=False):
+    def get_out_nodes(self, nodeid, rargname=None, post=None, nodeids=False, itr=False):
         """
         Get end nodes of links going from a node.
         If rargname or post are specified, filter according to the label.
-        If itr is set to True, return an iterator rather than a list.
+        If nodeids is set to True, return nodeids rather than nodes.
+        If itr is set to True, return an iterator rather than a list (of nodes) or set (of nodeids).
         """
         links = self.get_out(nodeid, rargname=rargname, post=post, itr=True)
-        nodes = (self[link.end] for link in links)
+        # Get nodeids:
+        nodes = (link.end for link in links)
+        # Get nodes, if requested:
+        if not nodeids:
+            nodes = (self[nid] for nid in nodes)
+        # Convert to a list/set if requested:
         if not itr:
-            nodes = list(nodes)
+            if nodeids:
+                nodes = set(nodes)
+            else:
+                nodes = list(nodes)
         return nodes
 
-    def get_in_nodes(self, nodeid, rargname=None, post=None, itr=False):
+    def get_in_nodes(self, nodeid, rargname=None, post=None, nodeids=False, itr=False):
         """
         Get start nodes of links coming to a node.
         If rargname or post are specified, filter according to the label.
-        If itr is set to True, return an iterator rather than a list.
+        If nodeids is set to True, return nodeids rather than nodes.
+        If itr is set to True, return an iterator rather than a list (of nodes) or set (of nodeids).
         """
         links = self.get_in(nodeid, rargname=rargname, post=post, itr=True)
-        nodes = (self[link.start] for link in links)
+        # Get nodeids:
+        nodes = (link.start for link in links)
+        # Get nodes, if requested:
+        if not nodeids:
+            nodes = (self[nid] for nid in nodes)
+        # Convert to a list/set if requested:
         if not itr:
-            nodes = list(nodes)
+            if nodeids:
+                nodes = set(nodes)
+            else:
+                nodes = list(nodes)
         return nodes
 
-    def get_neighbour_nodeids(self, nodeid):
+    def get_neighbours(self, nodeid, rargname=None, post=None, nodeids=False, itr=False):
         """
-        Retrieve adjacent node ids (regardless of link direction) from the dmrs for given node id
+        Get adjacent nodes (regardless of link direction)
+        If rargname or post are specified, filter according to the label.
+        If nodeids is set to True, return nodeids rather than nodes.
+        If itr is set to True, return an iterator rather than a list (of nodes) or set (of nodeids).
         """
-        assert nodeid in self, 'Invalid node id.'
-        return {link.end for link in self.get_out(nodeid, itr=True)} \
-            | {link.start for link in self.get_in(nodeid, itr=True)}
+        in_nodes = self.get_in_nodes(nodeid, rargname, post, nodeids, itr)
+        out_nodes = self.get_out_nodes(nodeid, rargname, post, nodeids, itr)
+        if itr:
+            return chain(in_nodes, out_nodes)
+        elif nodeids:
+            return in_nodes | out_nodes
+        else:
+            return in_nodes + out_nodes
 
     def get_label(self, rargname=None, post=None, itr=False):
         """
@@ -438,14 +482,14 @@ class Dmrs(object):
             assert start_id in unvisited_nodeids, 'Start nodeid not a valid node id.'
 
         # Start the explore set with nodes adjacent to the starting node
-        explore_set = self.iter_neighbour_nodeids(start_id) & unvisited_nodeids
+        explore_set = self.get_neighbours(start_id, nodeids=True) & unvisited_nodeids
         unvisited_nodeids.remove(start_id)
 
         # Iteratively visit a node and update the explore set with neighbouring nodes until explore set empty
         while explore_set:
             nodeid = explore_set.pop()
             unvisited_nodeids.remove(nodeid)
-            explore_set.update(self.get_neighbour_nodeids(nodeid) & unvisited_nodeids)
+            explore_set.update(self.get_neighbours(nodeid, nodeids=True) & unvisited_nodeids)
         return unvisited_nodeids
 
     @classmethod
@@ -792,9 +836,13 @@ class DictDmrs(Dmrs):
             self.index = None
 
     def iter_outgoing(self, nodeid):
+        if nodeid not in self:
+            raise PydmrsValueError('{} not a valid nodeid'.format(nodeid))
         return self.outgoing.get(nodeid).__iter__()
 
     def iter_incoming(self, nodeid):
+        if nodeid not in self:
+            raise PydmrsValueError('{} not a valid nodeid'.format(nodeid))
         return self.incoming.get(nodeid).__iter__()
 
     def renumber_node(self, old_id, new_id):
