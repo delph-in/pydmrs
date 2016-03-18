@@ -978,6 +978,13 @@ class SortDictDmrs(DictDmrs):
                                         x.post)
 
         super().__init__(*args, **kwargs)
+        
+        # To allow this instance to use the loads_xml method,
+        # while keeping the same node_key and link_key
+        def loads_xml_wrapper(*args, **kwargs):
+            from pydmrs.serial import loads_xml
+            return loads_xml(*args, cls=abstractSortDictDmrs(self.node_key, self.link_key), **kwargs)
+        self.loads_xml = loads_xml_wrapper
 
     def __iter__(self):
         return (n.nodeid for n in self.nodes)
