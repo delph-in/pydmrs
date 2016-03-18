@@ -1,6 +1,6 @@
 from pydmrs.components import Pred, RealPred, GPred, Sortinfo, EventSortinfo, InstanceSortinfo
 from pydmrs.core import Link, Node, ListDmrs
-from pydmrs.mapping.mapping import AnchorNode
+from pydmrs.mapping.mapping import AnchorNode, SubgraphNode
 
 
 def parse_graphlang(string, cls=ListDmrs, queries={}):
@@ -87,7 +87,7 @@ def _parse_node(string, nodeid, queries):
     m = string.find('(', 1)
     if m >= 0:
         r = string.index(')', m)
-        carg, query_key = _parse_value(string[m+1:r], None)
+        carg, query_key = _parse_value(string[m+1:r], '?')
         if query_key:
             assert query_key not in queries
             queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].carg
@@ -104,15 +104,16 @@ def _parse_node(string, nodeid, queries):
     while string[l] == ' ':
         l += 1
     pred = string[l:m]
-    if pred[:4] == 'node':
+    if pred[:4] == 'pred':
         value, query_key = _parse_value(pred[4:], None)
         assert not value
         if query_key:
             assert query_key not in queries
             queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]]
         pred = Pred()
-        ref_name = 'node'
+        carg = '?'
         sortinfo = Sortinfo()
+        ref_name = 'pred'
     else:
         pred, ref_name = _parse_pred(pred, nodeid, queries)
     if r < len(string):
@@ -126,6 +127,9 @@ def _parse_node(string, nodeid, queries):
     elif ref_id[0] == '[' and ref_id[-1] == ']':
         ref_id = int(ref_id[1:-1])
         node = AnchorNode(ref_id, nodeid, pred, sortinfo=sortinfo, carg=carg)
+    elif ref_id[0] == '{' and ref_id[-1] == '}':
+        ref_id = int(ref_id[1:-1])
+        node = SubgraphNode(ref_id, nodeid, pred, sortinfo=sortinfo, carg=carg)
     else:
         ref_id = int(ref_id)
         node = Node(nodeid, pred, sortinfo=sortinfo, carg=carg)
@@ -161,7 +165,7 @@ def _parse_pred(string, nodeid, queries):
     count = len(values)
     if count == 1:
         values.insert(0, '?')
-        values.append(None)
+        values.append('?')
     elif count == 2:
         values.append(None)
     lemma, query_key = _parse_value(values[0], '?')
@@ -172,7 +176,7 @@ def _parse_pred(string, nodeid, queries):
     if query_key:
         assert query_key not in queries
         queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred.pos
-    sense, query_key = _parse_value(values[2], None)
+    sense, query_key = _parse_value(values[2], '?')
     if query_key:
         assert query_key not in queries
         queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred.sense

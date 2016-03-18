@@ -62,7 +62,7 @@ def dmrs_exact_matching(sub_dmrs, dmrs):
     # optimisation for nodes with uniquely matching neighbour nodes
     for sub_nodeid, match in list(matches.items()):
         neighbours = []
-        for n in sub_dmrs.iter_neighbour_nodeids(sub_nodeid):
+        for n in sub_dmrs.get_neighbours(sub_nodeid, nodeids=True):
             if n not in matching:
                 break
             neighbours.append(matching[n])
@@ -72,7 +72,7 @@ def dmrs_exact_matching(sub_dmrs, dmrs):
                 if nodeid is None:  # not possible if an optional node is present
                     candidate = None
                     break
-                if nodeid in matching_values or any(n not in dmrs.iter_neighbour_nodeids(nodeid) for n in neighbours):  # node is already assigned or has invalid neighbourhood
+                if nodeid in matching_values or any(n not in dmrs.get_neighbours(nodeid, nodeids=True) for n in neighbours):  # node is already assigned or has invalid neighbourhood
                     continue
                 if candidate is not None:  # can't optimise in case of more than one candidate
                     break
@@ -113,7 +113,11 @@ def dmrs_exact_matching(sub_dmrs, dmrs):
             if l1.start not in matching_values or l1.end not in matching_values:
                 continue
             for l2 in sub_dmrs.iter_links():
-                if matching[l2.start] == l1.start and matching[l2.end] == l1.end and (l2.rargname == '?' or l2.rargname == l1.rargname or l2.rargname == l1.rargname[:3] == 'ARG') and (l2.post == '?' or l2.post == l1.post):
+                if (l2.rargname == '?' or l2.rargname == l1.rargname or (l1.rargname and l2.rargname == l1.rargname[:3] == 'ARG')) and (l2.post == '?' or l2.post == l1.post) and matching[l2.start] == l1.start and matching[l2.end] == l1.end:
+                    count += 1
+                    break
+                # reversed directionality for None/EQ links which (so far) are undirected
+                if l1.rargname is l2.rargname is None and l1.post == l2.post == 'EQ' and matching[l2.start] == l1.end and matching[l2.end] == l1.start:
                     count += 1
                     break
             else:

@@ -27,7 +27,7 @@ class AnchorNode(Node):
             return
         if isinstance(self.pred, RealPred):
             if isinstance(node.pred, RealPred):
-                node.pred = RealPred(node.pred.lemma if self.pred.lemma == '?' else self.pred.lemma, node.pred.pos if self.pred.pos == 'u' else self.pred.pos, node.pred.sense if not self.pred.sense else self.pred.sense)
+                node.pred = RealPred(node.pred.lemma if self.pred.lemma == '?' else self.pred.lemma, node.pred.pos if self.pred.pos == 'u' else self.pred.pos, node.pred.sense if self.pred.sense == '?' else self.pred.sense)
             else:
                 node.pred = copy.deepcopy(self.pred)
         elif isinstance(self.pred, GPred):
@@ -49,8 +49,34 @@ class AnchorNode(Node):
                 node.sortinfo = copy.deepcopy(self.sortinfo)
         elif not isinstance(self.sortinfo, Sortinfo):
             node.sortinfo = None
-        if self.carg:
+        if self.carg != '?':
             node.carg = self.carg
+
+
+class SubgraphNode(AnchorNode):
+    """
+    A DMRS anchor node which comprises the subgraph attached to it.
+    The attached subgraph consists of the nodes which are connected only via this node to the top node of the graph, and would be disconnected if the subgraph node was removed.
+    """
+
+    def __init__(self, anchor, nodeid, pred, sortinfo=None, carg=None):
+        """
+        Create a new subgraph node instance.
+        """
+        super().__init__(anchor, nodeid, pred, sortinfo=sortinfo, carg=carg)
+
+    def mapping(self, dmrs, nodeid):
+        """
+        Overrides the values of the target node if they are not underspecified in this subgraph node, and removes the subgraph attached to it.
+        :param dmrs Target DMRS graph (requires the top node specified).
+        :param nodeid Target node id.
+        """
+        assert dmrs.top is not None, 'Top node has to be specified for subgraph node to map.'
+        super().mapping(dmrs, nodeid)
+        node = dmrs[nodeid]
+        dmrs.remove_node(nodeid)
+        dmrs.remove_nodes(dmrs.disconnected_nodeids(start_id=dmrs.top.nodeid))
+        dmrs.add_node(node)
 
 
 def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=True, iterative=True, all_matches=True, require_connected=True):
