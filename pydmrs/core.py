@@ -914,7 +914,27 @@ def filter_links(iterable, rargname, post):
 
 
 def span_pred_key(node):
+    """
+    For use as a node_key in SortDictDmrs.
+    This sorts nodes by: cfrom (ascending), cto (descending), predstring (ascending)
+    """
     return (node.cfrom, -node.cto, str(node.pred))
+
+def abstractSortDictDmrs(node_key=None, link_key=None):
+    """
+    For constructing SortDictDmrs objects with the same node_key and link_key functions.
+    :param node_key: function to get keys for nodes
+        (default: nodeid)
+    :param link_key: function to get keys for links
+        (default: start key, end key, rargname, post)
+    :return: a factory function that constructs SortDictDmrs instances with these keys
+    """
+    def wrapper(*args, **kwargs):
+        """
+        A factory function that constructs SortDictDmrs instances with specific keys.
+        """
+        return SortDictDmrs(*args, node_key=node_key, link_key=link_key, **kwargs)
+    return wrapper
 
 class SortDictDmrs(DictDmrs):
     """
