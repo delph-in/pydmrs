@@ -120,10 +120,10 @@ class Node(object):
         Checks whether this node underspecifies or equals the other node (predicate, carg, sortinfo)
         """
         return isinstance(other, Node) \
-            and ((self.pred is None and other.pred is None) \
+            and ((self.pred is other.pred is None) \
                  or (self.pred <= other.pred)) \
-            and (not self.carg or self.carg == other.carg) \
-            and ((self.sortinfo is None and other.sortinfo is None) \
+            and (self.carg == '?' or self.carg == other.carg) \
+            and ((self.sortinfo is other.sortinfo is None) \
                  or (self.sortinfo <= other.sortinfo))
 
     @property

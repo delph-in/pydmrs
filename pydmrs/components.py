@@ -102,7 +102,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         return isinstance(other, RealPred) \
             and (self.lemma == '?' or self.lemma == other.lemma) \
             and (self.pos in 'u' or self.pos == other.pos) \
-            and (not self.sense or self.sense == other.sense)
+            and (self.sense == '?' or self.sense == other.sense)
 
     def __lt__(self, other):
         """
