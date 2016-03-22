@@ -79,12 +79,12 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
 
     def __str__(self):
         """
-        Return a string, with leading underscore, and trailing '_rel'
+        Return a string, with leading underscore
         """
         if self.sense:
-            return "_{}_{}_{}_rel".format(*self)
+            return "_{}_{}_{}".format(*self)
         else:
-            return "_{}_{}_rel".format(*self)
+            return "_{}_{}".format(*self)
 
     def __repr__(self):
         """
@@ -159,9 +159,9 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
 
     def __str__(self):
         """
-        Return a string, with trailing '_rel'
+        Return a string
         """
-        return "{}_rel".format(self.name)
+        return str(self.name)
 
     def __repr__(self):
         """

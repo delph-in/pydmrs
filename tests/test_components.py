@@ -134,8 +134,8 @@ class TestPred(unittest.TestCase):
         The 'informal' string representation of a RealPred
         should have a leading underscore and trailing _rel
         """
-        thestring = '_the_q_rel'
-        catstring = '_cat_n_1_rel'
+        thestring = '_the_q'
+        catstring = '_cat_n_1'
         self.assertEqual(str(RealPred.from_string(thestring)), thestring)
         self.assertEqual(str(RealPred.from_string(catstring)), catstring)
 
@@ -242,7 +242,7 @@ class TestPred(unittest.TestCase):
         The 'informal' string representation of a GPred
         should have a trailing _rel
         """
-        pronstring = 'pron_rel'
+        pronstring = 'pron'
         self.assertEqual(str(GPred.from_string(pronstring)), pronstring)
 
     def test_GPred_repr(self):
