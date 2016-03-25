@@ -21,7 +21,7 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs):
     dmrs.cfrom = int(xml.get('cfrom')) if 'cfrom' in xml.attrib else None
     dmrs.cto = int(xml.get('cto')) if 'cto' in xml.attrib else None
     dmrs.surface = xml.get('surface')
-    ident = int(xml.get('ident')) if 'ident' in xml.attrib else None
+    dmrs.ident = int(xml.get('ident')) if 'ident' in xml.attrib else None
     index_id = int(xml.get('index')) if 'index' in xml.attrib else None
     top_id = None
 

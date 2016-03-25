@@ -1,6 +1,10 @@
 from collections import namedtuple
-from collections.abc import Mapping
+try:
+    from collections.abc import Mapping
+except ImportError:  # Python v3.2 or less
+    from collections import Mapping
 from functools import total_ordering
+from warnings import warn
 from pydmrs._exceptions import *
 
 
@@ -14,9 +18,9 @@ class Pred(object):
 
     def __str__(self):
         """
-        Returns 'rel'
+        Returns 'predsort', the type name for predicates in Delph-in grammars
         """
-        return 'rel'
+        return 'predsort'
 
     def __repr__(self):
         """
@@ -35,28 +39,50 @@ class Pred(object):
         Checks whether this Pred underspecifies or equals the other Pred
         """
         return isinstance(other, Pred)
+    
+    @staticmethod
+    def normalise_string(string):
+        """
+        Normalises a predicate string
+        """
+        # Disallow spaces
+        if ' ' in string:
+            raise PydmrsValueError('Predicates must not contain spaces')
+        # Strip surrounding quotes and disallow other quotes
+        if string[0] == '"' and string[-1] == '"':
+            string = string[1:-1]
+        if string[0] == "'":
+            warn('Predicates with opening single-quote have been deprecated', PydmrsWarning)
+            string = string[1:]
+        if '"' in string or "'" in string:
+            raise PydmrsValueError('Predicates must not contain quotes')
+        # Force lower case
+        if not string.islower():
+            warn('Predicates must be lower-case', PydmrsWarning)
+            string = string.lower()
+        # Strip trailing '_rel'
+        if string[-4:] == '_rel':
+            string = string[:-4]
+        
+        return string
+    
+    @classmethod
+    def from_string(cls, string):
+        """
+        Instantiates a pred from a string, normalising as necessary
+        """
+        normalised = cls.normalise_string(string)
+        return cls.from_normalised_string(normalised)
 
     @staticmethod
-    def from_string(string):
+    def from_normalised_string(string):
         """
         Instantiates a suitable type of Pred, from a string
         """
-        if not string.islower():
-            raise PydmrsValueError('Predicates must be lower-case.')
-        if ' ' in string:
-            raise PydmrsValueError('Predicates must not contain spaces.')
-        if string[0] == '"' and string[-1] == '"':
-            string = string[1:-1]
-        if '"' in string:
-            raise PydmrsValueError('Predicates must not contain quotes.')
-        if string[0] == '\'':
-            raise PydmrsValueError('Predicates with opening single-quote have been deprecated.')
-        if string == 'rel':
-            return Pred()
-        elif string[0] == '_':
-            return RealPred.from_string(string)
+        if string[0] == '_':
+            return RealPred.from_normalised_string(string)
         else:
-            return GPred.from_string(string)
+            return GPred.from_normalised_string(string)
 
 
 class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred):
@@ -123,22 +149,21 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         return self <= other and self != other
 
     @staticmethod
-    def from_string(string):
+    def from_normalised_string(string):
         """
-        Create a new instance from a string,
-        stripping a trailing _rel if it exists.
+        Create a new instance from a normalised string.
         :param string: Input string
         :return: RealPred object
         """
+        # Require initial underscore
         if string[0] != '_':
             raise PydmrsValueError("RealPred strings must begin with an underscore")
-        if string[-4:] == '_rel':
-            string = string[:-4]
-        parts = string[1:].rsplit('_', maxsplit=2)
-        if len(parts) < 2 or len(parts) > 3:
-            raise PydmrsValueError("Invalid number of arguments for RealPred.")
-        if parts[1] == '?':
-            parts[1] == 'u'
+        # Split into 2 or 3 parts
+        # This allows the lemma to contain underscores, which sometimes happens in the ERG
+        parts = string[1:].rsplit('_', 2)
+        # Require at least 2 parts
+        if len(parts) < 2:
+            raise PydmrsValueError("RealPred strings must have a part of speech separated by an underscore")
         return RealPred(*parts)
 
 
@@ -194,15 +219,12 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         return self <= other and self != other
 
     @staticmethod
-    def from_string(string):
+    def from_normalised_string(string):
         """
-        Create a new instance from a string,
-        stripping a trailing '_rel' if it exists.
+        Create a new instance from a normalised string.
         """
         if string[0] == '_':
             raise PydmrsValueError("GPred strings must not begin with an underscore")
-        if string[-4:] == '_rel':
-            return GPred(string[:-4])
         else:
             return GPred(string)
 
