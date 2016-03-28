@@ -12,3 +12,6 @@ class PydmrsKeyError(PydmrsError, KeyError):
 
 class PydmrsWarning(PydmrsError, Warning):
     pass
+
+class PydmrsDeprecationWarning(PydmrsWarning, DeprecationWarning):
+    pass

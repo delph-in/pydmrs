@@ -1,28 +1,87 @@
-import unittest
-from pydmrs.components import Pred, RealPred, GPred
+import unittest, warnings
 
+from pydmrs.components import (
+    Pred, RealPred, GPred,
+    Sortinfo, EventSortinfo, InstanceSortinfo
+)
 
 class TestPred(unittest.TestCase):
     """
     Test methods of Pred class and subclasses
     """
-
-    def test_Pred_from_string(self):
+    def test_Pred_new(self):
         """
-        Pred.from_string should instantiate RealPreds or GPreds
+        Pred() instances denote underpecified preds,
+        and should not take any arguments
+        """
+        with self.assertRaises(TypeError):
+            Pred('name')
+    
+    def test_Pred_str(self):
+        """
+        The 'informal' string representation of a Pred should be
+        'predsort', the type name for predicates in Delph-in grammars
+        """
+        self.assertEqual(str(Pred()), 'predsort')
+    
+    def test_Pred_repr(self):
+        """
+        The 'official' string representation of Pred()
+        should evaluate to Pred()
+        """
+        self.assertEqual(eval(repr(Pred())), Pred())
+    
+    def test_Pred_normalise_string(self):
+        """
+        Pred strings should be normalised - see comments below
+        """
+        # Remove quotes from quoted preds
+        self.assertEqual(Pred.normalise_string('"pron"'), 'pron')
+        with self.assertRaises(DeprecationWarning):
+            warnings.simplefilter('error')
+            self.assertEqual(Pred.normalise_string("'pron"), "pron")
+        warnings.resetwarnings()
+        
+        # No internal spaces or quotes
+        with self.assertRaises(ValueError):
+            Pred.normalise_string('pred name')
+        with self.assertRaises(ValueError):
+            Pred.normalise_string('pred"name')
+        # Force lower case
+        self.assertEqual(Pred.normalise_string('PRON'), 'pron')
+        # Strip trailing _rel
+        self.assertEqual(Pred.normalise_string('pron_rel'), 'pron')
+    
+    def test_Pred_from_normalised_string(self):
+        """
+        Pred.from_normalised_string should instantiate RealPreds or GPreds
         depending on whether there is a leading underscore
         """
         # Check the preds are of the right type
-        cat_pred = Pred.from_string('_cat_n_1_rel')
-        the_pred = Pred.from_string('the_q_rel')
+        cat_pred = Pred.from_normalised_string('_cat_n_1')
+        the_pred = Pred.from_normalised_string('the_q')
         self.assertIsInstance(cat_pred, RealPred)
         self.assertIsInstance(the_pred, GPred)
 
         # Check the preds are the equivalent to initialising directly 
-        cat_realpred = RealPred.from_string('_cat_n_1_rel')
-        the_gpred = GPred.from_string('the_q_rel')
+        cat_realpred = RealPred.from_normalised_string('_cat_n_1')
+        the_gpred = GPred.from_normalised_string('the_q')
         self.assertEqual(cat_pred, cat_realpred)
         self.assertEqual(the_pred, the_gpred)
+    
+    def test_Pred_from_string(self):
+        """
+        Pred.from_string should normalise the string as necessary
+        """
+        cat_pred = RealPred.from_normalised_string('_cat_n_1')
+        self.assertEqual(Pred.from_string('_cat_n_1_rel'), cat_pred)
+        self.assertEqual(Pred.from_string('"_cat_n_1_rel"'), cat_pred)
+        self.assertEqual(Pred.from_string('_CAT_N_1_REL'), cat_pred)
+        
+        the_pred = GPred.from_normalised_string('the')
+        self.assertEqual(Pred.from_string('the_rel'), the_pred)
+        self.assertEqual(Pred.from_string('"the_rel"'), the_pred)
+        self.assertEqual(Pred.from_string('THE_REL'), the_pred)
 
     def test_Pred_subclasses(self):
         """
@@ -132,7 +191,7 @@ class TestPred(unittest.TestCase):
     def test_RealPred_str(self):
         """
         The 'informal' string representation of a RealPred
-        should have a leading underscore and trailing _rel
+        should have a leading underscore
         """
         thestring = '_the_q'
         catstring = '_cat_n_1'
@@ -240,7 +299,6 @@ class TestPred(unittest.TestCase):
     def test_GPred_str(self):
         """
         The 'informal' string representation of a GPred
-        should have a trailing _rel
         """
         pronstring = 'pron'
         self.assertEqual(str(GPred.from_string(pronstring)), pronstring)
@@ -269,3 +327,74 @@ class TestPred(unittest.TestCase):
         # Note that it doesn't make sense to check
         # if pron.name is not pron_deep.name,
         # because identical strings are considered to be the same
+
+
+class TestSortinfo(unittest.TestCase):
+    """
+    Test methods of SortInfo and subclasses
+    """
+    def test_Sortinfo_basic(self):
+        """
+        Basic properties
+        """
+        sortinfo = Sortinfo()
+        self.assertEqual(str(sortinfo), 'i')
+        self.assertEqual(eval(repr(sortinfo)), sortinfo)
+        self.assertEqual(sortinfo.cvarsort, 'i')
+        self.assertEqual(sortinfo['cvarsort'], 'i')
+        with self.assertRaises(KeyError):
+            sortinfo['tense']
+        with self.assertRaises(AttributeError):
+            sortinfo.num
+        with self.assertRaises(TypeError):
+            Sortinfo('info')
+    
+    def test_Sortinfo_from_string(self):
+        """
+        Initialise EventSortinfo or InstanceSortinfo as appropriate
+        """
+        event_string = "e[tense=past]"
+        self.assertEqual(Sortinfo.from_string(event_string),
+                         EventSortinfo.from_string(event_string))
+        instance_string = "x[num=pl]"
+        self.assertEqual(Sortinfo.from_string(instance_string),
+                         InstanceSortinfo.from_string(instance_string))
+    
+    def test_Sortinfo_from_dict(self):
+        """
+        Initialise EventSortinfo or InstanceSortinfo as appropriate
+        """
+        event_dict = {'cvarsort':'e', 'tense':'past'}
+        self.assertEqual(Sortinfo.from_dict(event_dict),
+                         EventSortinfo.from_dict(event_dict))
+        instance_dict = {'cvarsort':'x', 'num':'pl'}
+        self.assertEqual(Sortinfo.from_dict(instance_dict),
+                         InstanceSortinfo.from_dict(instance_dict))
+    
+    def test_EventSortinfo_init(self):
+        """
+        Events have five features:
+        'sf', 'tense', 'mood', 'perf', 'prog'
+        """
+        event = EventSortinfo('prop', 'past', 'indicative', '-', '-')
+        self.assertEqual(event.cvarsort, 'e')
+        self.assertEqual(event.sf, 'prop')
+        self.assertEqual(event.tense, 'past')
+        self.assertEqual(event.mood, 'indicative')
+        self.assertEqual(event.perf, '-')
+        self.assertEqual(event.prog, '-')
+        self.assertEqual(event['cvarsort'], 'e')
+        self.assertEqual(event['sf'], 'prop')
+        self.assertEqual(event['tense'], 'past')
+        self.assertEqual(event['mood'], 'indicative')
+        self.assertEqual(event['perf'], '-')
+        self.assertEqual(event['prog'], '-')
+        event.tense = 'present'
+        event['perf'] = '+'
+        with self.assertRaises(KeyError):
+            event['num']
+        with self.assertRaises(AttributeError):
+            event.num
+        with self.assertRaises(TypeError):
+            EventSortinfo(1,2,3,4,5,6)
+    

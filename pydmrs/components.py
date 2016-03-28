@@ -11,7 +11,8 @@ from pydmrs._exceptions import *
 @total_ordering
 class Pred(object):
     """
-    A superclass for all Pred classes
+    A superclass for all Pred classes.
+    Instances of Pred denote a completely underspecified predicate.
     """
 
     __slots__ = ()  # Suppress __dict__
@@ -52,7 +53,7 @@ class Pred(object):
         if string[0] == '"' and string[-1] == '"':
             string = string[1:-1]
         if string[0] == "'":
-            warn('Predicates with opening single-quote have been deprecated', PydmrsWarning)
+            warn('Predicates with opening single-quote have been deprecated', PydmrsDeprecationWarning)
             string = string[1:]
         if '"' in string or "'" in string:
             raise PydmrsValueError('Predicates must not contain quotes')
@@ -232,7 +233,8 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
 @total_ordering
 class Sortinfo(Mapping):
     """
-    A superclass for all Sortinfo classes
+    A superclass for all Sortinfo classes.
+    Instances of Sortinfo denote completely underspecified sortinfo
     """
     __slots__ = ()
 
@@ -365,6 +367,7 @@ class EventSortinfo(Sortinfo):
         """
         Create a new instance
         """
+        # Convert to lowercase if not None
         self.sf = sf.lower() if sf else sf
         self.tense = tense.lower() if tense else tense
         self.mood = mood.lower() if mood else mood
@@ -373,7 +376,7 @@ class EventSortinfo(Sortinfo):
 
     def __str__(self):
         """
-        Returns '?'
+        Returns 'e', followed by sf, tense, mood, perf, and prog features.
         """
         return 'e[{}]'.format(', '.join('{}={}'.format(key, self[key]) for key in self if key != 'cvarsort'))
 
@@ -447,6 +450,7 @@ class InstanceSortinfo(Sortinfo):
         """
         Create a new instance
         """
+        # Convert to lowercase if not None
         self.pers = pers.lower() if pers else pers
         self.num = num.lower() if num else num
         self.gend = gend.lower() if gend else gend
@@ -455,7 +459,7 @@ class InstanceSortinfo(Sortinfo):
 
     def __str__(self):
         """
-        Returns '?'
+        Returns 'x', followed by pers, num, gend, ind, and pt features
         """
         return 'x[{}]'.format(', '.join('{}={}'.format(key, self[key]) for key in self if key != 'cvarsort'))
 
