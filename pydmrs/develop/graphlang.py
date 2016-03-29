@@ -51,11 +51,13 @@ def parse_graphlang(string, cls=ListDmrs, queries={}):
                     current_id = ref_names[ref]
             else:
                 # TODO: index node?
+                if line[m] == '*' and line[m+1] == '*':  # index node
+                    index = nodeid
+                    m += 2
                 if line[m] == '*':  # top node
                     top = nodeid
-                    node, ref_id, ref_name = _parse_node(line[m+1:r], nodeid, queries)
-                else:
-                    node, ref_id, ref_name = _parse_node(line[m:r], nodeid, queries)
+                    m += 1
+                node, ref_id, ref_name = _parse_node(line[m:r], nodeid, queries)
                 nodes.append(node)
                 current_id = nodeid
                 nodeid += 1
@@ -348,6 +350,9 @@ def _parse_link(string, left_nodeid, right_nodeid, queries):
 
 if __name__ == '__main__':
     import sys
-    dmrs_str = ' '.join(sys.argv[1:])
-    dmrs = parse_graphlang(dmrs_str)
-    print(dmrs.dumps_xml())
+    assert len(sys.argv) <= 2 and sys.stdin.isatty() == (len(sys.argv) == 2), 'Invalid arguments.'
+    if sys.stdin.isatty():
+        sys.stdout.write(parse_graphlang(sys.argv[1]).dumps_xml(encoding='utf-8') + '\n')
+    else:
+        for line in sys.stdin:
+            sys.stdout.write(parse_graphlang(line).dumps_xml(encoding='utf-8') + '\n')

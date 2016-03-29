@@ -21,7 +21,7 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs):
     dmrs.cfrom = int(xml.get('cfrom')) if 'cfrom' in xml.attrib else None
     dmrs.cto = int(xml.get('cto')) if 'cto' in xml.attrib else None
     dmrs.surface = xml.get('surface')
-    dmrs.ident = int(xml.get('ident')) if 'ident' in xml.attrib else None
+    ident = int(xml.get('ident')) if 'ident' in xml.attrib else None
     index_id = int(xml.get('index')) if 'index' in xml.attrib else None
     top_id = None
 
@@ -118,7 +118,7 @@ def dumps_xml(dmrs, encoding=None):
             xnode.set('carg', '"{}"'.format(node.carg))
         if isinstance(node.pred, GPred):
             xpred = ET.SubElement(xnode, 'gpred')
-            xpred.text = str(node.pred) + '_rel'
+            xpred.text = str(node.pred)
         elif isinstance(node.pred, RealPred):
             xpred = ET.SubElement(xnode, 'realpred')
             xpred.set('lemma', node.pred.lemma)
@@ -129,10 +129,8 @@ def dumps_xml(dmrs, encoding=None):
             raise PydmrsTypeError("predicates must be RealPred or GPred objects")
         xsortinfo = ET.SubElement(xnode, 'sortinfo')
         if node.sortinfo:
-            for key in node.sortinfo:
-                value = node.sortinfo[key]
-                if value:
-                    xsortinfo.set(key, value)
+            for attr in node.sortinfo:
+                xsortinfo.set(attr, node.sortinfo[attr])
     if dmrs.top is not None:
         xlink = ET.SubElement(xdmrs, 'link')
         xlink.set('from', '0')
