@@ -52,8 +52,7 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs):
                         pred = RealPred.from_string(sub.text)
                         warn("RealPred string found in a <gpred> tag", PydmrsWarning)
                 elif sub.tag == 'sortinfo':
-                    if sub.attrib:
-                        sortinfo = sub.attrib
+                    sortinfo = sub.attrib
                 else:
                     raise PydmrsValueError(sub.tag)
 

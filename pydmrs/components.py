@@ -57,7 +57,7 @@ class Pred(object):
         if string[0] == "'":
             warn('Predicates with opening single-quote have been deprecated', PydmrsDeprecationWarning)
             string = string[1:]
-        if '"' in string or "'" in string:
+        if '"' in string:
             raise PydmrsValueError('Predicates must not contain quotes')
         # Force lower case
         if not string.islower():
@@ -314,13 +314,15 @@ class Sortinfo(Mapping):
         # Correct cvarsort if features are evidence for 'x' or 'e':
         if cvarsort not in 'ex' and len(dictionary) > 1:
             if any(key in dictionary for key in EventSortinfo.__slots__):  # event evidence
-                cvarsort = 'e'
+                cvarsort = dictionary['cvarsort'] = 'e'
             elif any(key in dictionary for key in InstanceSortinfo.__slots__):  # instance evidence
-                cvarsort = 'x'
+                cvarsort = dictionary['cvarsort'] = 'x'
         # Instantiate an appropriate type of Sortinfo
         if cvarsort == 'e':
             return EventSortinfo.from_dict(dictionary)
         elif cvarsort == 'x':
+            if 'prontype' in dictionary:
+                dictionary['pt'] = dictionary.pop('prontype')
             return InstanceSortinfo.from_dict(dictionary)
         else:
             # This needs to be updated so that the underspecified cvarsorts i, u, and p are distinguished

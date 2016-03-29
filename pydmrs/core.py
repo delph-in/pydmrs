@@ -87,7 +87,7 @@ class Node(object):
             raise PydmrsValueError('Cargs must not contain quotes.')
         self.carg = carg
 
-        if sortinfo is None:  # Allow no sortinfo
+        if not sortinfo:  # Allow no sortinfo
             self.sortinfo = None
         elif isinstance(sortinfo, Sortinfo):  # Allow Sortinfo instances
             self.sortinfo = sortinfo
