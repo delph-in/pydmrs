@@ -4,7 +4,9 @@ try:
 except ImportError:  # Python v3.2 or less
     from collections import Mapping
 from functools import total_ordering
+from itertools import chain
 from warnings import warn
+
 from pydmrs._exceptions import *
 
 
@@ -237,6 +239,7 @@ class Sortinfo(Mapping):
     Instances of Sortinfo denote completely underspecified sortinfo
     """
     __slots__ = ()
+    cvarsort = 'i'
 
     def __str__(self):
         """
@@ -276,7 +279,7 @@ class Sortinfo(Mapping):
         """
         Returns the size
         """
-        return sum(1 for _ in self)
+        return 1
 
     def __getitem__(self, key):
         """
@@ -294,230 +297,222 @@ class Sortinfo(Mapping):
         """
         raise PydmrsKeyError
 
-    @property
-    def cvarsort(self):
-        return 'i'
-
     @staticmethod
     def from_dict(dictionary):
         """
-        Instantiates a suitable type of Sortinfo from a dictionary
+        Instantiates a suitable type of Sortinfo from a dictionary,
+        mapping from features to values (including cvarsort)
         """
-        dictionary = {key.lower(): value.lower() for key, value in dictionary.items()}
-        if 'cvarsort' not in dictionary:
+        # Convert all keys to lowercase (so that we can check if certain keys exist)
+        # Values are left untouched until the object is constructed (e.g. in case of None)
+        dictionary = {key.lower(): value for key, value in dictionary.items()}
+        # Find the cvarsort
+        try:
+            cvarsort = dictionary['cvarsort'].lower()
+        except KeyError:
             raise PydmrsValueError('Sortinfo must have cvarsort')
-        cvarsort = dictionary['cvarsort']
         # Correct cvarsort if features are evidence for 'x' or 'e':
         if cvarsort not in 'ex' and len(dictionary) > 1:
-            if any(key in dictionary for key in ('sf', 'tense', 'mood', 'perf', 'prog')):  # event evidence
+            if any(key in dictionary for key in EventSortinfo.__slots__):  # event evidence
                 cvarsort = 'e'
-            elif any(key in dictionary for key in ('pers', 'num', 'gend', 'ind', 'pt', 'prontype')):  # instance evidence
+            elif any(key in dictionary for key in InstanceSortinfo.__slots__):  # instance evidence
                 cvarsort = 'x'
+        # Instantiate an appropriate type of Sortinfo
         if cvarsort == 'e':
-            return EventSortinfo(dictionary.get('sf', None),
-                                 dictionary.get('tense', None),
-                                 dictionary.get('mood', None),
-                                 dictionary.get('perf', None),
-                                 dictionary.get('prog', None))
+            return EventSortinfo.from_dict(dictionary)
         elif cvarsort == 'x':
-            return InstanceSortinfo(dictionary.get('pers', None),
-                                    dictionary.get('num', None),
-                                    dictionary.get('gend', None),
-                                    dictionary.get('ind', None),
-                                    dictionary.get('pt', None))
+            return InstanceSortinfo.from_dict(dictionary)
         else:
             # This needs to be updated so that the underspecified cvarsorts i, u, and p are distinguished
             return Sortinfo()
+    
+    @classmethod
+    def from_string(cls, string):
+        """
+        Instantiate from a string of the form:
+        cvarsort[feature1=value1, feature2=value2, ...]
+        """
+        # Force lowercase
+        string = string.lower()
+        # Dictionary mapping from features to values
+        dictionary = {'cvarsort' : string[0]}
+        if len(string) > 1:
+            if not (string[1] == '[' and string[-1] == ']'):
+                raise PydmrsValueError('Sortinfo string must include features in square brackets')
+            for item in string[2:-1].split(','):
+                key, value = item.split('=')
+                dictionary[key.strip()] = value.strip()
+        # Convert the dictionary
+        return cls.from_dict(dictionary)
 
-    @staticmethod
-    def from_string(string):
+
+class FeaturedSortinfo(Sortinfo):
+    """
+    Sortinfo with features.
+    Subclasses of FeaturedSortinfo must specify __slots__ and cvarsort
+    """
+    __slots__ = ()
+    
+    # The following two methods allow users to add features to subclasses
+    # The __slots__ of all parent classes are combined into a single tuple
+    # This tuple is accessible under .features, and is only calculated once per class
+    # (If it's necessary to access a class's features before _get_all_features is called,)
+    # (we could use a metaclass, or class decorator, but just using inheritance is simpler)
+    
+    @classmethod
+    def _get_all_features(cls):
         """
-        Instantiates a suitable type of Sortinfo from a string
+        Combine the __slots__ of all superclasses.
+        The result is memoized with the features attribute
         """
-        if string == 'i':
-            return Sortinfo()
-        if not (string[1] == '[' and string[-1] == ']'):
-            raise PydmrsValueError('Sortinfo string must include features in square brackets')
-        values = [tuple(value.strip().split('=')) for value in string[2:-1].split(',')]
-        dictionary = {key.lower(): value.lower() for key, value in values}
-        if string[0] == 'e':
-            return EventSortinfo(dictionary.get('sf', None),
-                                 dictionary.get('tense', None),
-                                 dictionary.get('mood', None),
-                                 dictionary.get('perf', None),
-                                 dictionary.get('prog', None))
-        elif string[0] == 'x':
-            return InstanceSortinfo(dictionary.get('pers', None),
-                                    dictionary.get('num', None),
-                                    dictionary.get('gend', None),
-                                    dictionary.get('ind', None),
-                                    dictionary.get('pt', None))
+        features = tuple(chain.from_iterable(getattr(parent, '__slots__', ()) for parent in cls.__mro__))
+        setattr(cls, 'features', features)
+        return features
+    
+    @property
+    def features(self):
+        """
+        Return the class's features attribute, if it exists,
+        or else calculate it and then return it.
+        """
+        return getattr(type(self), 'features', type(self)._get_all_features())
+    
+    # For convenience, we can also get features which are not None
+    
+    def iter_specified(self):
+        """
+        Return (feature, value) pairs where value is not None
+        """
+        for feat in self.features:
+            val = self[feat]
+            if val is not None:
+                yield (feat, val)
+    
+    # Container methods
+    
+    def __iter__(self):
+        """
+        Iterate through all features, including 'cvarsort'
+        """
+        yield 'cvarsort'
+        for feat in self.features:
+            yield feat
+    
+    def __len__(self):
+        """
+        Return the number of features, including 'cvarsort'
+        """
+        return 1 + len(self.features)
+    
+    def __contains__(self, feature):
+        """
+        Check if a feature is present in the class
+        """
+        if feature == 'cvarsort':
+            return True
         else:
-            # This needs to be updated to deal with the underspecified cvarsorts u and p.
-            raise PydmrsValueError('Unrecognised cvarsort')
+            return feature in self.features
+
+    # Setters and getters
+    # Allows both attribute and dictionary access
+    # Features and values must all be lowercase
+    
+    def __setattr__(self, feature, value):
+        """
+        Set the value of a feature, converting it to lowercase unless it's None
+        """
+        feature = feature.lower()
+        if value is not None:
+            super().__setattr__(feature, value.lower())
+        else:
+            super().__setattr__(feature, None)
+        
+    def __setitem__(self, feature, value):
+        """
+        Set items as attributes
+        """
+        setattr(self, feature, value)
+    
+    def __getitem__(self, feature):
+        """
+        Get the value of a feature, including 'cvarsort'
+        """
+        feature = feature.lower()
+        if feature == 'cvarsort':
+            return self.cvarsort
+        elif feature in self.features:
+            return getattr(self, feature)
+        else:
+            raise PydmrsKeyError("{} has no feature {}".format(type(self), feature))
+    
+    def __init__(self, *args, **kwargs):
+        """
+        Initialise values of features, from positional or keyword arguments
+        If a feature is not given, its value is set to None
+        """
+        if len(args) > len(self.features):
+            raise PydmrsTypeError("{} takes {} arguments, but {} were given".format(type(self).__name__,
+                                                                                    len(self.features),
+                                                                                    len(args)))
+        for i, value in enumerate(args):
+            setattr(self, self.features[i], value)
+        for feature, value in kwargs.items():
+            setattr(self, feature, value)
+        for feature in self.features:
+            if not hasattr(self, feature):
+                setattr(self, feature, None)
+    
+    # Conversion to strings and dicts
+    
+    def __str__(self):
+        """
+        Returns a string of the form:
+        cvarsort[feature1=value1, feature2=value2, ...]
+        """
+        return '{}[{}]'.format(self.cvarsort,
+                               ', '.join('{}={}'.format(*pair) for pair in self.iter_specified()))
+    
+    def __repr__(self):
+        """
+        Return a string that can be evaluated
+        """
+        return '{}({})'.format(type(self).__name__, ', '.join(repr(self[feat]) for feat in self.features))
+    
+    def as_dict(self):
+        """
+        Return a dict mapping from features to values, including 'cvarsort'
+        """
+        return dict(self.items())
+    
+    # Conversion from strings and dicts
+    # Note that cls.from_string (inherited from Sortinfo) will call cls.from_dict
+    
+    @classmethod
+    def from_dict(cls, dictionary):
+        """
+        Instantiate from a dictionary mapping features to values
+        """
+        if 'cvarsort' in dictionary and dictionary['cvarsort'] != cls.cvarsort:
+            raise PydmrsValueError('{} must have cvarsort {}, not {}'.format(cls.__name__,
+                                                                             cls.cvarsort,
+                                                                             dictionary['cvarsort']))
+        return cls(**{key:value for key, value in dictionary.items() if key != 'cvarsort'})
 
 
-class EventSortinfo(Sortinfo):
+class EventSortinfo(FeaturedSortinfo):
     """
     Event sortinfo
     """
+    cvarsort = 'e'
     __slots__ = ('sf', 'tense', 'mood', 'perf', 'prog')
-
-    def __init__(self, sf, tense, mood, perf, prog):
-        """
-        Create a new instance
-        """
-        # Convert to lowercase if not None
-        self.sf = sf.lower() if sf else sf
-        self.tense = tense.lower() if tense else tense
-        self.mood = mood.lower() if mood else mood
-        self.perf = perf.lower() if perf else perf
-        self.prog = prog.lower() if prog else prog
-
-    def __str__(self):
-        """
-        Returns 'e', followed by sf, tense, mood, perf, and prog features.
-        """
-        return 'e[{}]'.format(', '.join('{}={}'.format(key, self[key]) for key in self if key != 'cvarsort'))
-
-    def __repr__(self):
-        """
-        Return a string representation
-        """
-        return "EventSortinfo({}, {}, {}, {}, {})".format(repr(self.sf),
-                                                          repr(self.tense),
-                                                          repr(self.mood),
-                                                          repr(self.perf),
-                                                          repr(self.prog))
-
-    def __iter__(self):
-        """
-        Returns an iterator over the properties
-        """
-        return (attr for attr in ('cvarsort', 'sf', 'tense', 'mood', 'perf', 'prog') if self[attr])
-
-    def __getitem__(self, key):
-        """
-        Returns the value of a property
-        """
-        key = key.lower()
-        if key == 'cvarsort':
-            return 'e'
-        elif key == 'sf':
-            return self.sf
-        elif key == 'tense':
-            return self.tense
-        elif key == 'mood':
-            return self.mood
-        elif key == 'perf':
-            return self.perf
-        elif key == 'prog':
-            return self.prog
-        else:
-            raise PydmrsKeyError
-
-    def __setitem__(self, key, value):
-        """
-        Sets the value of a property
-        """
-        key = key.lower()
-        value = value.lower() if value else value
-        if key == 'sf':
-            self.sf = value
-        elif key == 'tense':
-            self.tense = value
-        elif key == 'mood':
-            self.mood = value
-        elif key == 'perf':
-            self.perf = value
-        elif key == 'prog':
-            self.prog = value
-        else:
-            raise PydmrsKeyError
-
-    @property
-    def cvarsort(self):
-        return 'e'
+    # Sentence force, tense, mood, perfect, progressive
 
 
-class InstanceSortinfo(Sortinfo):
+class InstanceSortinfo(FeaturedSortinfo):
     """
     Instance sortinfo
     """
+    cvarsort = 'x'
     __slots__ = ('pers', 'num', 'gend', 'ind', 'pt')
+    # Person, number, gender, individuated, pronoun type
 
-    def __init__(self, pers, num, gend, ind, pt):
-        """
-        Create a new instance
-        """
-        # Convert to lowercase if not None
-        self.pers = pers.lower() if pers else pers
-        self.num = num.lower() if num else num
-        self.gend = gend.lower() if gend else gend
-        self.ind = ind.lower() if ind else ind
-        self.pt = pt.lower() if pt else pt
-
-    def __str__(self):
-        """
-        Returns 'x', followed by pers, num, gend, ind, and pt features
-        """
-        return 'x[{}]'.format(', '.join('{}={}'.format(key, self[key]) for key in self if key != 'cvarsort'))
-
-    def __repr__(self):
-        """
-        Return a string representation
-        """
-        return "InstanceSortinfo({}, {}, {}, {}, {})".format(repr(self.pers),
-                                                             repr(self.num),
-                                                             repr(self.gend),
-                                                             repr(self.ind),
-                                                             repr(self.pt))
-
-    def __iter__(self):
-        """
-        Returns an iterator over the properties
-        """
-        return (attr for attr in ('cvarsort', 'pers', 'num', 'gend', 'ind', 'pt') if self[attr])
-
-    def __getitem__(self, key):
-        """
-        Returns the value of a property
-        """
-        key = key.lower()
-        if key == 'cvarsort':
-            return 'x'
-        elif key == 'pers':
-            return self.pers
-        elif key == 'num':
-            return self.num
-        elif key == 'gend':
-            return self.gend
-        elif key == 'ind':
-            return self.ind
-        elif key == 'pt':
-            return self.pt
-        else:
-            raise PydmrsKeyError
-
-    def __setitem__(self, key, value):
-        """
-        Sets the value of a property
-        """
-        key = key.lower()
-        value = value.lower() if value else value
-        if key == 'pers':
-            self.pers = value
-        elif key == 'num':
-            self.num = value
-        elif key == 'gend':
-            self.gend = value
-        elif key == 'ind':
-            self.ind = value
-        elif key == 'pt':
-            self.pt = value
-        else:
-            raise PydmrsKeyError
-
-    @property
-    def cvarsort(self):
-        return 'x'

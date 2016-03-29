@@ -393,16 +393,16 @@ class TestSortinfo(unittest.TestCase):
         self.assertEqual(event['tense'], 'present')
         event['perf'] = '+'
         self.assertEqual(event.perf, '+')
-        with self.assertRaises(KeyError):
+        with self.assertRaises((AttributeError, KeyError)):
             event['cvarsort'] = 'x'
-        with self.assertRaises(AttributeError):
+        with self.assertRaises((AttributeError, KeyError)):
             event.cvarsort = 'x'
         with self.assertRaises(KeyError):
             event['num']
         with self.assertRaises(AttributeError):
             event.num
         with self.assertRaises(TypeError):
-            EventSortinfo(1,2,3,4,5,6)
+            EventSortinfo('1','2','3','4','5','6')
     
     def test_InstanceSortinfo_init(self):
         """
@@ -427,16 +427,16 @@ class TestSortinfo(unittest.TestCase):
         self.assertEqual(instance['num'], 'pl')
         instance['pt'] = '-'
         self.assertEqual(instance.pt, '-')
-        with self.assertRaises(KeyError):
+        with self.assertRaises((AttributeError, KeyError)):
             instance['cvarsort'] = 'e'
-        with self.assertRaises(AttributeError):
+        with self.assertRaises((AttributeError, KeyError)):
             instance.cvarsort = 'e'
         with self.assertRaises(KeyError):
             instance['tense']
         with self.assertRaises(AttributeError):
             instance.tense
         with self.assertRaises(TypeError):
-            InstanceSortinfo(1,2,3,4,5,6)
+            InstanceSortinfo('1','2','3','4','5','6')
     
     def test_Sortinfo_subclasses_iter(self):
         """
@@ -446,8 +446,12 @@ class TestSortinfo(unittest.TestCase):
         instance = InstanceSortinfo('3', 'sg', 'f', '+', '+')
         self.assertEqual(list(iter(event)),
                          ['cvarsort', 'sf', 'tense', 'mood', 'perf', 'prog'])
+        self.assertEqual(event.features,
+                         ('sf', 'tense', 'mood', 'perf', 'prog'))
         self.assertEqual(list(iter(instance)),
                          ['cvarsort', 'pers', 'num', 'gend', 'ind', 'pt'])
+        self.assertEqual(instance.features,
+                         ('pers', 'num', 'gend', 'ind', 'pt'))
     
     def test_Sortinfo_subclasses_str(self):
         """
@@ -457,7 +461,32 @@ class TestSortinfo(unittest.TestCase):
         event = EventSortinfo('prop', 'past', 'indicative', '-', '-')
         event_string = 'e[sf=prop, tense=past, mood=indicative, perf=-, prog=-]'
         self.assertEqual(str(event), event_string)
+        self.assertEqual(event, EventSortinfo.from_string(event_string))
         instance = InstanceSortinfo('3', 'sg', 'f', '+', '+')
         instance_string = 'x[pers=3, num=sg, gend=f, ind=+, pt=+]'
         self.assertEqual(str(instance), instance_string)
+        self.assertEqual(instance, InstanceSortinfo.from_string(instance_string))
+    
+    def test_Sortinfo_subclasses_repr(self):
+        """
+        Repr strings should evaluate to equivalent objects
+        """
+        event = EventSortinfo('prop', 'past', 'indicative', '-', '-')
+        self.assertEqual(event, eval(repr(event)))
+        instance = InstanceSortinfo('3', 'sg', 'f', '+', '+')
+        self.assertEqual(instance, eval(repr(instance)))
+    
+    def test_Sortinfo_subclasses_dict(self):
+        """
+        Dicts of sortinfo objects should map from features to values,
+        including 'cvarsort' as a feature
+        """
+        event = EventSortinfo('prop', 'past', 'indicative', '-', '-')
+        event_dict = {'cvarsort':'e', 'sf':'prop', 'tense':'past', 'mood':'indicative', 'perf':'-', 'prog':'-'}
+        self.assertEqual(event.as_dict(), event_dict)
+        self.assertEqual(event, EventSortinfo.from_dict(event_dict))
+        instance = InstanceSortinfo('3', 'sg', 'f', '+', '+')
+        instance_dict = {'cvarsort':'x', 'pers':'3', 'num':'sg', 'gend':'f', 'ind':'+', 'pt':'+'}
+        self.assertEqual(instance.as_dict(), instance_dict)
+        self.assertEqual(instance, InstanceSortinfo.from_dict(instance_dict))
     
