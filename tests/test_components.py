@@ -390,11 +390,74 @@ class TestSortinfo(unittest.TestCase):
         self.assertEqual(event['perf'], '-')
         self.assertEqual(event['prog'], '-')
         event.tense = 'present'
+        self.assertEqual(event['tense'], 'present')
         event['perf'] = '+'
+        self.assertEqual(event.perf, '+')
+        with self.assertRaises(KeyError):
+            event['cvarsort'] = 'x'
+        with self.assertRaises(AttributeError):
+            event.cvarsort = 'x'
         with self.assertRaises(KeyError):
             event['num']
         with self.assertRaises(AttributeError):
             event.num
         with self.assertRaises(TypeError):
             EventSortinfo(1,2,3,4,5,6)
+    
+    def test_InstanceSortinfo_init(self):
+        """
+        Instances have five features:
+        'pers', 'num', 'gend', 'ind', 'pt'
+        as well as cvarsort
+        """
+        instance = InstanceSortinfo('3', 'sg', 'f', '+', '+')
+        self.assertEqual(instance.cvarsort, 'x')
+        self.assertEqual(instance.pers, '3')
+        self.assertEqual(instance.num, 'sg')
+        self.assertEqual(instance.gend, 'f')
+        self.assertEqual(instance.ind, '+')
+        self.assertEqual(instance.pt, '+')
+        self.assertEqual(instance['cvarsort'], 'x')
+        self.assertEqual(instance['pers'], '3')
+        self.assertEqual(instance['num'], 'sg')
+        self.assertEqual(instance['gend'], 'f')
+        self.assertEqual(instance['ind'], '+')
+        self.assertEqual(instance['pt'], '+')
+        instance.num = 'pl'
+        self.assertEqual(instance['num'], 'pl')
+        instance['pt'] = '-'
+        self.assertEqual(instance.pt, '-')
+        with self.assertRaises(KeyError):
+            instance['cvarsort'] = 'e'
+        with self.assertRaises(AttributeError):
+            instance.cvarsort = 'e'
+        with self.assertRaises(KeyError):
+            instance['tense']
+        with self.assertRaises(AttributeError):
+            instance.tense
+        with self.assertRaises(TypeError):
+            InstanceSortinfo(1,2,3,4,5,6)
+    
+    def test_Sortinfo_subclasses_iter(self):
+        """
+        Subclasses of Sortinfo should iter over feature names, including 'cvarsort'
+        """
+        event = EventSortinfo('prop', 'past', 'indicative', '-', '-')
+        instance = InstanceSortinfo('3', 'sg', 'f', '+', '+')
+        self.assertEqual(list(iter(event)),
+                         ['cvarsort', 'sf', 'tense', 'mood', 'perf', 'prog'])
+        self.assertEqual(list(iter(instance)),
+                         ['cvarsort', 'pers', 'num', 'gend', 'ind', 'pt'])
+    
+    def test_Sortinfo_subclasses_str(self):
+        """
+        Strings of sortinfo objects should be of the form:
+        cvarsort[feature1=value1, feature2=value2, ...]
+        """
+        event = EventSortinfo('prop', 'past', 'indicative', '-', '-')
+        event_string = 'e[sf=prop, tense=past, mood=indicative, perf=-, prog=-]'
+        self.assertEqual(str(event), event_string)
+        instance = InstanceSortinfo('3', 'sg', 'f', '+', '+')
+        instance_string = 'x[pers=3, num=sg, gend=f, ind=+, pt=+]'
+        self.assertEqual(str(instance), instance_string)
     
