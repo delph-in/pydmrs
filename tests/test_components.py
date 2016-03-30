@@ -364,12 +364,24 @@ class TestSortinfo(unittest.TestCase):
         """
         Initialise EventSortinfo or InstanceSortinfo as appropriate
         """
-        event_dict = {'cvarsort':'e', 'tense':'past'}
+        sortinfo_dict = {'cvarsort': 'i'}
+        self.assertEqual(Sortinfo.from_dict(sortinfo_dict),
+                         Sortinfo())
+        event_dict = {'cvarsort': 'e', 'tense': 'past'}
         self.assertEqual(Sortinfo.from_dict(event_dict),
                          EventSortinfo.from_dict(event_dict))
-        instance_dict = {'cvarsort':'x', 'num':'pl'}
+        instance_dict = {'cvarsort': 'x', 'num': 'pl'}
         self.assertEqual(Sortinfo.from_dict(instance_dict),
                          InstanceSortinfo.from_dict(instance_dict))
+        wrong_sort_sortinfo_dict = {'cvarsort': 'u'}
+        self.assertEqual(Sortinfo.from_dict(wrong_sort_sortinfo_dict),
+                         Sortinfo.from_dict(sortinfo_dict))
+        wrong_sort_event_dict = {'cvarsort': 'i', 'tense': 'past'}
+        self.assertEqual(Sortinfo.from_dict(wrong_sort_event_dict),
+                         Sortinfo.from_dict(event_dict))
+        wrong_sort_instance_dict = {'cvarsort': 'u', 'num': 'pl'}
+        self.assertEqual(Sortinfo.from_dict(wrong_sort_instance_dict),
+                         Sortinfo.from_dict(instance_dict))
     
     def test_EventSortinfo_init(self):
         """

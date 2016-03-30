@@ -15,11 +15,12 @@ def parse_graphlang(string, cls=ListDmrs, queries={}):
     for line in lines:
         last_id = -1
         r = -1
+        start = True
         while r < len(line):
             l = r + 1  # position of link
             while line[l] == ' ':
                 l += 1
-            if r == -1:
+            if start:
                 m = l
             else:
                 m = line.index(' ', l) + 1  # position of node (+ sortinfo)
@@ -52,9 +53,11 @@ def parse_graphlang(string, cls=ListDmrs, queries={}):
             else:
                 # TODO: index node?
                 if line[m] == '*' and line[m+1] == '*':  # index node
+                    assert index is None
                     index = nodeid
                     m += 2
                 if line[m] == '*':  # top node
+                    assert top is None
                     top = nodeid
                     m += 1
                 node, ref_id, ref_name = _parse_node(line[m:r], nodeid, queries)
@@ -64,11 +67,12 @@ def parse_graphlang(string, cls=ListDmrs, queries={}):
                 if ref_id is not None:
                     ref_ids[ref_id] = current_id
                 ref_names[ref_name] = current_id
-            if m > l:
+            if not start:
                 m = line.index(' ', l, m)
                 link = _parse_link(line[l:m], last_id, current_id, queries)
                 links.append(link)
             last_id = current_id
+            start = False
     return cls(nodes=nodes, links=links, index=index, top=top)
 
 
@@ -106,7 +110,7 @@ def _parse_node(string, nodeid, queries):
     while string[l] == ' ':
         l += 1
     pred = string[l:m]
-    if pred[:4] == 'pred':
+    if pred[:4] == 'node':  # ?????????????????????????????????????????????????
         value, query_key = _parse_value(pred[4:], None)
         assert not value
         if query_key:
@@ -115,7 +119,7 @@ def _parse_node(string, nodeid, queries):
         pred = Pred()
         carg = '?'
         sortinfo = Sortinfo()
-        ref_name = 'pred'
+        ref_name = 'node'
     else:
         pred, ref_name = _parse_pred(pred, nodeid, queries)
     if r < len(string):
@@ -145,13 +149,14 @@ def _parse_pred(string, nodeid, queries):
         string = string[1:-1]
     assert '"' not in string, 'Predicates must not contain quotes.'
     assert string[0] != '\'', 'Predicates with opening single-quote have been deprecated.'
-    if string[:3] == 'rel' and (len(string) == 3 or string[3] == '?'):
-        value, query_key = _parse_value(string[3:], None)
+    if (string[:4] == 'pred' and (len(string) == 4 or string[4] == '?')) or (string[:8] == 'predsort' and (len(string) == 8 or string[8] == '?')):
+        i = 8 if string[:8] == 'predsort' else 4
+        value, query_key = _parse_value(string[i:], None)
         assert not value
         if query_key:
             assert query_key not in queries
             queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred
-        return Pred(), 'rel'
+        return Pred(), string[:i]
     rel_suffix = ''
     if string[-4:] == '_rel':
         string = string[:-4]
@@ -216,7 +221,7 @@ def _parse_sortinfo(string, nodeid, queries):
         else:
             return Sortinfo()
     if string[1] == '?':
-        value, query_key = _parse_value(string[2:], None)
+        value, query_key = _parse_value(string[1:], None)
         assert not value
         if query_key:
             assert query_key not in queries
