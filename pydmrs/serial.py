@@ -5,7 +5,7 @@ from pydmrs.core import Link, ListDmrs
 from pydmrs._exceptions import *
 
 
-def loads_xml(bytestring, encoding=None, cls=ListDmrs):
+def loads_xml(bytestring, encoding=None, cls=ListDmrs, **kwargs):
     """
     Currently processes "<dmrs>...</dmrs>"
     To be updated for "<dmrslist>...</dmrslist>"...
@@ -16,7 +16,7 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs):
         bytestring = bytestring.encode(encoding)
     xml = ET.XML(bytestring)
 
-    dmrs = cls()
+    dmrs = cls(**kwargs)
 
     dmrs.cfrom = int(xml.get('cfrom')) if 'cfrom' in xml.attrib else None
     dmrs.cto = int(xml.get('cto')) if 'cto' in xml.attrib else None

@@ -496,22 +496,22 @@ class Dmrs(object):
         return unvisited_nodeids
 
     @classmethod
-    def loads_xml(cls, bytestring, encoding=None):
+    def loads_xml(cls, bytestring, encoding=None, **kwargs):
         """
         Currently processes "<dmrs>...</dmrs>"
         To be updated for "<dmrslist>...</dmrslist>"...
         Expects a bytestring; to load from a string instead, specify encoding
         """
         from pydmrs.serial import loads_xml
-        return loads_xml(bytestring, encoding=encoding, cls=cls)
+        return loads_xml(bytestring, encoding=encoding, cls=cls, **kwargs)
 
     @classmethod
-    def load_xml(cls, filehandle):
+    def load_xml(cls, filehandle, **kwargs):
         """
         Load a DMRS from a file
         NB: read file as bytes!
         """
-        return cls.loads_xml(filehandle.read())
+        return cls.loads_xml(filehandle.read(), **kwargs)
 
     def dumps_xml(self, encoding=None):
         """
@@ -938,6 +938,7 @@ def abstractSortDictDmrs(node_key=None, link_key=None):
         A factory function that constructs SortDictDmrs instances with specific keys.
         """
         return SortDictDmrs(*args, node_key=node_key, link_key=link_key, **kwargs)
+    wrapper.Node = SortDictDmrs.Node
     return wrapper
 
 class SortDictDmrs(DictDmrs):
@@ -986,8 +987,14 @@ class SortDictDmrs(DictDmrs):
         # To allow this instance to use the loads_xml method,
         # while keeping the same node_key and link_key
         def loads_xml_wrapper(*args, **kwargs):
-            from pydmrs.serial import loads_xml
-            return loads_xml(*args, cls=abstractSortDictDmrs(self.node_key, self.link_key), **kwargs)
+            """
+            Load a SortDictDmrs from XML, using the same node and link keys as this instance
+            """
+            return type(self).loads_xml(*args,
+                                        node_key=self.node_key,
+                                        link_key=self.link_key,
+                                        **kwargs)
+        loads_xml_wrapper.__name__ = type(self).loads_xml.__name__
         self.loads_xml = loads_xml_wrapper
 
     def __iter__(self):
