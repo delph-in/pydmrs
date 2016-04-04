@@ -91,7 +91,7 @@ class Node(object):
             self.sortinfo = None
         elif isinstance(sortinfo, Sortinfo):  # Allow Sortinfo instances
             self.sortinfo = sortinfo
-        elif isinstance(sortinfo, dict):  # Allow initialising sortinfo from a dict 
+        elif isinstance(sortinfo, dict):  # Allow initialising sortinfo from a dict
             self.sortinfo = Sortinfo.from_dict(sortinfo)
         elif isinstance(sortinfo, list):  # Allow initialising sortinfo from (key,value) pairs
             self.sortinfo = Sortinfo.from_dict({x: y for x, y in sortinfo})
@@ -318,7 +318,7 @@ class Dmrs(object):
         for nodeid in iterable:
             self.remove_node(nodeid)
 
-    def get_out(self, nodeid, rargname=None, post=None, itr=False):
+    def get_out(self, nodeid, rargname=None, post=None, itr=False, eq=True):
         """
         Get links going from a node.
         If rargname or post are specified, filter according to the label.
@@ -328,13 +328,15 @@ class Dmrs(object):
 
         if rargname or post:
             linkset = filter_links(linkset, rargname=rargname, post=post)
+        if not eq:
+            linkset = (x for x in linkset if x.rargname)
 
         if not itr:
             linkset = set(linkset)
 
         return linkset
 
-    def get_in(self, nodeid, rargname=None, post=None, itr=False):
+    def get_in(self, nodeid, rargname=None, post=None, itr=False, eq=True):
         """
         Get links coming to a node.
         If rargname or post are specified, filter according to the label.
@@ -344,12 +346,14 @@ class Dmrs(object):
 
         if rargname or post:
             linkset = filter_links(linkset, rargname=rargname, post=post)
+        if not eq:
+            linkset = (x for x in linkset if x.rargname)
 
         if not itr:
             linkset = set(linkset)
 
         return linkset
-    
+
     def get_links(self, nodeid, rargname=None, post=None, itr=False):
         """
         Get links going from or coming to a node.
@@ -363,14 +367,14 @@ class Dmrs(object):
         else:
             return in_links | out_links
 
-    def get_out_nodes(self, nodeid, rargname=None, post=None, nodeids=False, itr=False):
+    def get_out_nodes(self, nodeid, rargname=None, post=None, nodeids=False, itr=False, eq=True):
         """
         Get end nodes of links going from a node.
         If rargname or post are specified, filter according to the label.
         If nodeids is set to True, return nodeids rather than nodes.
         If itr is set to True, return an iterator rather than a list (of nodes) or set (of nodeids).
         """
-        links = self.get_out(nodeid, rargname=rargname, post=post, itr=True)
+        links = self.get_out(nodeid, rargname=rargname, post=post, itr=True, eq=eq)
         # Get nodeids:
         nodes = (link.end for link in links)
         # Get nodes, if requested:
@@ -384,14 +388,14 @@ class Dmrs(object):
                 nodes = list(nodes)
         return nodes
 
-    def get_in_nodes(self, nodeid, rargname=None, post=None, nodeids=False, itr=False):
+    def get_in_nodes(self, nodeid, rargname=None, post=None, nodeids=False, itr=False, eq=True):
         """
         Get start nodes of links coming to a node.
         If rargname or post are specified, filter according to the label.
         If nodeids is set to True, return nodeids rather than nodes.
         If itr is set to True, return an iterator rather than a list (of nodes) or set (of nodeids).
         """
-        links = self.get_in(nodeid, rargname=rargname, post=post, itr=True)
+        links = self.get_in(nodeid, rargname=rargname, post=post, itr=True, eq=eq)
         # Get nodeids:
         nodes = (link.start for link in links)
         # Get nodes, if requested:
@@ -978,7 +982,7 @@ class SortDictDmrs(DictDmrs):
                                         x.post)
 
         super().__init__(*args, **kwargs)
-        
+
         # To allow this instance to use the loads_xml method,
         # while keeping the same node_key and link_key
         def loads_xml_wrapper(*args, **kwargs):
@@ -1025,10 +1029,10 @@ class SortDictDmrs(DictDmrs):
 
     def remove_node(self, nodeid):
         node = self[nodeid]
-        
+
         # Remove the node and associated links from dictionaries
         super().remove_node(nodeid)
-        
+
         # Remove the node and key from the sorted lists
         i = bisect.bisect_left(self._node_keys, self.node_key(node))
         self._node_keys.pop(i)
@@ -1053,14 +1057,14 @@ class SortDictDmrs(DictDmrs):
                    for link in self.get_out(old_id, itr=True))
         new_in = (Link(link.start, new_id, link.rargname, link.post) \
                   for link in self.get_in(old_id, itr=True))
-        
+
         # Remove the node and all associated links
         self.remove_node(old_id)
-        
+
         # Change the id of the node and add it
         node.nodeid = new_id
         self.add_node(node)
-        
+
         # Add all the links
         for link in new_out:
             self.add_link(link)
