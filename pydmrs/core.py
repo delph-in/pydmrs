@@ -934,6 +934,7 @@ def abstractSortDictDmrs(node_key=None, link_key=None):
         A factory function that constructs SortDictDmrs instances with specific keys.
         """
         return SortDictDmrs(*args, node_key=node_key, link_key=link_key, **kwargs)
+    wrapper.Node = SortDictDmrs.Node
     return wrapper
 
 class SortDictDmrs(DictDmrs):
