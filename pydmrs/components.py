@@ -104,6 +104,8 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
             raise PydmrsValueError('a RealPred must have non-empty lemma')
         if not pos:
             raise PydmrsValueError('a RealPred must have non-empty pos')
+        if ' ' in lemma or ' ' in pos or (sense and ' ' in sense):
+            raise PydmrsValueError('the values of a RealPred must not contain spaces')
         return super().__new__(cls, lemma, pos, sense)
 
     def __str__(self):
@@ -296,6 +298,12 @@ class Sortinfo(Mapping):
         Sets the value of a property
         """
         raise PydmrsKeyError
+
+    def iter_specified(self):
+        """
+        Return (feature, value) pairs where value is not None
+        """
+        yield ('cvarsort', 'i')
 
     @staticmethod
     def from_dict(dictionary):

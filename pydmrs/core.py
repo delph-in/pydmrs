@@ -31,6 +31,25 @@ class LinkLabel(namedtuple('LinkLabelNamedTuple', ('rargname', 'post'))):
     def __repr__(self):
         return "LinkLabel({}, {})".format(*(repr(x) for x in self))
 
+    @classmethod
+    def from_string(cls, string):
+        if '/' in string:
+            i = string.index('/')
+            rargname = string[:i]
+            post = string[i+1:]
+        else:
+            rargname = string
+            post = None
+        if rargname == 'None':
+            rargname = None
+        elif not rargname.isupper():
+            raise PydmrsValueError("Link label rargname must be upper-case.")
+        if post == 'None':
+            post = None
+        elif not post.isupper():
+            raise PydmrsValueError("Link label post must be upper-case.")
+        return LinkLabel(rargname, post)
+
 
 class Link(namedtuple('LinkNamedTuple', ('start', 'end', 'rargname', 'post'))):
     """
