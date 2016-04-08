@@ -151,7 +151,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         """
         Checks whether the other RealPred underspecifies this RealPred
         """
-        return self <= other and self != other
+        return self >= other and self != other
 
     @staticmethod
     def from_normalised_string(string):
@@ -221,7 +221,7 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         """
         Checks whether the other GPred underspecifies this GPred
         """
-        return self <= other and self != other
+        return self >= other and self != other
 
     @staticmethod
     def from_normalised_string(string):

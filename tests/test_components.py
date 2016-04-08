@@ -82,6 +82,33 @@ class TestPred(unittest.TestCase):
         self.assertEqual(Pred.from_string('the_rel'), the_pred)
         self.assertEqual(Pred.from_string('"the_rel"'), the_pred)
         self.assertEqual(Pred.from_string('THE_REL'), the_pred)
+    
+    def test_Pred_cmp_self(self):
+        """
+        All Pred instances should be equal. 
+        """
+        p1 = Pred()
+        p2 = Pred()
+        self.assertEqual(p1, p2)
+        self.assertLessEqual(p1, p2)
+        self.assertGreaterEqual(p1, p2)
+        self.assertFalse(p1 < p2)
+        self.assertFalse(p1 > p2)
+        self.assertFalse(p1 != p2)
+    
+    def test_Pred_cmp_subclasses(self):
+        """
+        Any Pred instance should be less than instances of subclasses. 
+        """
+        p = Pred()
+        cat = RealPred('cat','n','1')
+        pron = GPred('pron')
+        self.assertLess(p, cat)
+        self.assertLess(p, pron)
+        self.assertLessEqual(p, cat)
+        self.assertLessEqual(p, pron)
+        self.assertNotEqual(p, cat)
+        self.assertNotEqual(p, pron)
 
     def test_Pred_subclasses(self):
         """
