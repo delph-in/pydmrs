@@ -109,6 +109,10 @@ class TestPred(unittest.TestCase):
         self.assertLessEqual(p, pron)
         self.assertNotEqual(p, cat)
         self.assertNotEqual(p, pron)
+        self.assertGreater(cat, p)
+        self.assertGreater(pron, p)
+        self.assertGreaterEqual(cat, p)
+        self.assertGreaterEqual(pron, p)
 
     def test_Pred_subclasses(self):
         """
@@ -259,6 +263,50 @@ class TestPred(unittest.TestCase):
         # if the.lemma is not the_deep.lemma,
         # because identical strings are considered to be the same
     
+    def test_RealPred_cmp(self):
+        """
+        Underspecified RealPreds (with '?', 'u', or 'unknown')
+        should be less than fully specified RealPreds 
+        """
+        take = RealPred('take','v','1')
+        take_v_1 = RealPred('take','v','1')
+        take_v_off = RealPred('take','v','off')
+        take_n_1 = RealPred('take','n','1')
+        jump_v_1 = RealPred('jump','n','1')
+        take_v = RealPred('take','v')
+        take_v__ = RealPred('take','v','?')
+        take___1 = RealPred('take','?','1')
+        __v_1 = RealPred('?','v','1')
+        _ = RealPred('?','?','?')
+        take_u_unknown = RealPred('take','u','unknown')
+        self.assertEqual(take, take_v_1)
+        self.assertLessEqual(take, take_v_1)
+        self.assertGreaterEqual(take, take_v_1)
+        self.assertNotEqual(take, take_v_off)
+        self.assertNotEqual(take, take_n_1)
+        self.assertNotEqual(take, jump_v_1)
+        self.assertNotEqual(take, take_v)
+        self.assertNotEqual(take, take_v__)
+        self.assertNotEqual(take, take___1)
+        self.assertNotEqual(take, __v_1)
+        self.assertNotEqual(take, _)
+        self.assertNotEqual(take, take_u_unknown)
+        self.assertFalse(take_v < take)
+        self.assertFalse(take_v > take)
+        self.assertLess(take_v__, take)
+        self.assertLess(take___1, take)
+        self.assertLess(__v_1, take)
+        self.assertLess(_, take)
+        self.assertLess(_, take_v__)
+        self.assertLess(_, take___1)
+        self.assertLess(_, __v_1)
+        self.assertLess(_, take_u_unknown)
+        self.assertLess(take_u_unknown, take)
+        self.assertLess(take_u_unknown, take_v__)
+        self.assertLess(take_u_unknown, take___1)
+        self.assertFalse(take_u_unknown < __v_1)
+        self.assertFalse(take_u_unknown > __v_1)
+    
     def test_GPred_new(self):
         """
         GPreds should require exactly one slot (name).
@@ -354,6 +402,27 @@ class TestPred(unittest.TestCase):
         # Note that it doesn't make sense to check
         # if pron.name is not pron_deep.name,
         # because identical strings are considered to be the same
+    
+    def test_GPred_cmp(self):
+        """
+        GPreds should be equal iff the names are equal
+        An underspecified GPreds (with '?') should be less than fully specified RealPreds 
+        """
+        pron = GPred('pron')
+        pron1 = GPred('pron')
+        the = GPred('the_q')
+        g = GPred('?')
+        self.assertEqual(pron, pron1)
+        self.assertLessEqual(pron, pron1)
+        self.assertGreaterEqual(pron, pron1)
+        self.assertFalse(pron < the)
+        self.assertFalse(pron > the)
+        self.assertNotEqual(pron, the)
+        self.assertNotEqual(pron, g)
+        self.assertGreater(pron, g)
+        self.assertGreaterEqual(pron, g)
+        self.assertLess(g, pron)
+        self.assertLessEqual(g, pron)
 
 
 class TestSortinfo(unittest.TestCase):
@@ -529,3 +598,41 @@ class TestSortinfo(unittest.TestCase):
         self.assertEqual(instance.as_dict(), instance_dict)
         self.assertEqual(instance, InstanceSortinfo.from_dict(instance_dict))
     
+    def test_Sortinfo_cmp(self):
+        """
+        Sortinfo objects should be equal if all features are equal.
+        An underspecified Sortinfo should be less than a specified one.
+        """
+        sortinfo = Sortinfo()
+        event = EventSortinfo('prop', 'past', 'indicative', '-', '-')
+        event2 = EventSortinfo('prop', 'past', 'indicative', '-', '-')
+        instance = InstanceSortinfo('3', 'sg', 'f', '+', '+')
+        instance2 = InstanceSortinfo('3', 'sg', 'f', '+', '+')
+        underspec_event = EventSortinfo(None, '?', 'u', '-', '-')
+        underspec_instance = InstanceSortinfo(None, '?', 'u', '+', '+')
+        another_event = EventSortinfo('prop', 'past', 'indicative', None, None)
+        another_instance = InstanceSortinfo('3', 'sg', 'f', None, None)
+        self.assertEqual(event, event2)
+        self.assertLessEqual(event, event2)
+        self.assertGreaterEqual(event, event2)
+        self.assertEqual(instance, instance2)
+        self.assertLessEqual(instance, instance2)
+        self.assertLessEqual(instance, instance2)
+        self.assertNotEqual(event, underspec_event)
+        self.assertNotEqual(event, sortinfo)
+        self.assertNotEqual(instance, underspec_instance)
+        self.assertNotEqual(instance, sortinfo)
+        self.assertNotEqual(underspec_instance, sortinfo)
+        self.assertNotEqual(underspec_instance, sortinfo)
+        self.assertLess(sortinfo, underspec_event)
+        self.assertLess(underspec_event, event)
+        self.assertLess(sortinfo, underspec_instance)
+        self.assertLess(underspec_instance, instance)
+        self.assertLessEqual(sortinfo, underspec_event)
+        self.assertLessEqual(underspec_event, event)
+        self.assertLessEqual(sortinfo, underspec_instance)
+        self.assertLessEqual(underspec_instance, instance)
+        self.assertFalse(underspec_event < another_event)
+        self.assertFalse(underspec_event > another_event)
+        self.assertFalse(underspec_instance < another_instance)
+        self.assertFalse(underspec_instance > another_instance)

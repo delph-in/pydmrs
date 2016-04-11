@@ -33,13 +33,13 @@ class Pred(object):
 
     def __eq__(self, other):
         """
-        Checks whether the other object is of type Pred
+        Checks whether the other object is precisely of type Pred
         """
         return type(other) == Pred
 
     def __le__(self, other):
         """
-        Checks whether this Pred underspecifies or equals the other Pred
+        Checks whether the other object is a Pred (including subclasses)
         """
         return isinstance(other, Pred)
     
@@ -90,7 +90,10 @@ class Pred(object):
 
 class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred):
     """
-    Real predicate, with a lemma, part of speech, and (optional) sense
+    Real predicate, with a lemma, part of speech, and (optional) sense.
+    All three fields can be underspecified by using '?'.
+    The pos can also be underspecified as 'u'.
+    The sense can also be underspecified as 'unknown'.
     """
 
     __slots__ = ()  # Suppress __dict__
@@ -132,8 +135,8 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         """
         return isinstance(other, RealPred) \
             and (self.lemma == '?' or self.lemma == other.lemma) \
-            and (self.pos in 'u' or self.pos == other.pos) \
-            and (self.sense == '?' or self.sense == other.sense)
+            and (self.pos in ['?', 'u'] or self.pos == other.pos) \
+            and (self.sense in ['?', 'unknown'] or self.sense == other.sense)
 
     def __lt__(self, other):
         """
@@ -174,7 +177,8 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
 
 class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
     """
-    Grammar predicate, with a rel name
+    Grammar predicate, with a rel name.
+    The name can be underspecified by using '?'.
     """
 
     __slots__ = ()  # Suppress __dict__
@@ -257,19 +261,15 @@ class Sortinfo(Mapping):
 
     def __eq__(self, other):
         """
-        Checks two Sortinfos for equality
+        Checks whether the other object is precisely of type Sortinfo
         """
-        return isinstance(other, type(self)) and len(self) == len(other) \
-            and all(key in other and self[key] == other[key] for key in self)
+        return type(other) == Sortinfo
 
     def __le__(self, other):
         """
-        Checks whether this Sortinfo underspecifies or equals the other Sortinfo
+        Checks whether the other object is a Sortinfo (including subclasses)
         """
-        return isinstance(other, type(self)) \
-            and (self.cvarsort == 'i' or self.cvarsort == other.cvarsort) \
-            and all(self[key] == 'u' or (key in other and self[key] == other[key]) \
-                    for key in self if key != 'cvarsort')
+        return isinstance(other, Sortinfo)
 
     def __iter__(self):
         """
@@ -356,6 +356,7 @@ class Sortinfo(Mapping):
         return cls.from_dict(dictionary)
 
 
+@total_ordering
 class FeaturedSortinfo(Sortinfo):
     """
     Sortinfo with features.
@@ -391,11 +392,11 @@ class FeaturedSortinfo(Sortinfo):
     
     def iter_specified(self):
         """
-        Return (feature, value) pairs where value is not None
+        Return (feature, value) pairs where value is not None, '?', or 'u'
         """
         for feat in self.features:
             val = self[feat]
-            if val is not None:
+            if val not in ['?', 'u', None]:
                 yield (feat, val)
     
     # Container methods
@@ -507,6 +508,25 @@ class FeaturedSortinfo(Sortinfo):
                                                                              cls.cvarsort,
                                                                              dictionary['cvarsort']))
         return cls(**{key:value for key, value in dictionary.items() if key != 'cvarsort'})
+    
+    # Comparison methods
+
+    def __eq__(self, other):
+        """
+        Checks two Sortinfos for equality
+        """
+        return isinstance(other, type(self)) \
+            and all(key in other and self[key] == other[key] for key in self)
+
+    def __le__(self, other):
+        """
+        Checks whether this Sortinfo underspecifies or equals the other Sortinfo
+        Features can be underspecified using '?', or 'u', or None
+        """
+        return isinstance(other, type(self)) \
+            and (self.cvarsort == 'i' or self.cvarsort == other.cvarsort) \
+            and all(self[key] in ['?', 'u', None] or self[key] == other[key] \
+                    for key in self.features)
 
 
 class EventSortinfo(FeaturedSortinfo):
