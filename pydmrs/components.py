@@ -356,7 +356,6 @@ class Sortinfo(Mapping):
         return cls.from_dict(dictionary)
 
 
-@total_ordering
 class FeaturedSortinfo(Sortinfo):
     """
     Sortinfo with features.
@@ -376,7 +375,8 @@ class FeaturedSortinfo(Sortinfo):
         Combine the __slots__ of all superclasses.
         The result is memoized with the features attribute
         """
-        features = tuple(chain.from_iterable(getattr(parent, '__slots__', ()) for parent in cls.__mro__))
+        features = tuple(chain.from_iterable(getattr(parent, '__slots__', ()) \
+                                             for parent in reversed(cls.__mro__)))
         setattr(cls, 'features', features)
         return features
     
@@ -517,6 +517,9 @@ class FeaturedSortinfo(Sortinfo):
         """
         return isinstance(other, type(self)) \
             and all(key in other and self[key] == other[key] for key in self)
+    
+    def __ne__(self, other):
+        return not self == other
 
     def __le__(self, other):
         """
@@ -527,6 +530,16 @@ class FeaturedSortinfo(Sortinfo):
             and (self.cvarsort == 'i' or self.cvarsort == other.cvarsort) \
             and all(self[key] in ['?', 'u', None] or self[key] == other[key] \
                     for key in self.features)
+    
+    def __lt__(self, other):
+        return self <= other and self != other
+    
+    def __ge__(self, other):
+        # We need to check types to avoid infinite recursion
+        return type(other) == Sortinfo or (isinstance(self, type(other)) and other <= self)
+    
+    def __gt__(self, other):
+        return self >= other and self != other
 
 
 class EventSortinfo(FeaturedSortinfo):
