@@ -501,6 +501,10 @@ class TestSortinfo(unittest.TestCase):
         self.assertEqual(event['tense'], 'present')
         event['perf'] = '+'
         self.assertEqual(event.perf, '+')
+        del event.perf
+        self.assertIsNone(event['perf'])
+        del event['sf']
+        self.assertIsNone(event.sf)
         with self.assertRaises((AttributeError, KeyError)):
             event['cvarsort'] = 'x'
         with self.assertRaises((AttributeError, KeyError)):
@@ -535,6 +539,10 @@ class TestSortinfo(unittest.TestCase):
         self.assertEqual(instance['num'], 'pl')
         instance['pt'] = '-'
         self.assertEqual(instance.pt, '-')
+        del instance.gend
+        self.assertIsNone(instance['gend'])
+        del instance['ind']
+        self.assertIsNone(instance.ind)
         with self.assertRaises((AttributeError, KeyError)):
             instance['cvarsort'] = 'e'
         with self.assertRaises((AttributeError, KeyError)):
@@ -636,3 +644,26 @@ class TestSortinfo(unittest.TestCase):
         self.assertFalse(underspec_event > another_event)
         self.assertFalse(underspec_instance < another_instance)
         self.assertFalse(underspec_instance > another_instance)
+    
+    def test_Sortinfo_features(self):
+        """
+        We should be able to add new features to subclasses
+        """
+        event_features = EventSortinfo.features  # @UndefinedVariable
+        self.assertEqual(event_features, ('sf', 'tense', 'mood', 'perf', 'prog'))
+        
+        class EvidentialEvent(EventSortinfo):
+            __slots__ = ['evidentiality']
+        
+        self.assertEqual(EvidentialEvent.features, event_features + ('evidentiality',))
+        
+        evidential_event = EvidentialEvent(evidentiality='witness', tense='past')
+        self.assertEqual(evidential_event.cvarsort, 'e')
+        self.assertEqual(evidential_event.sf, None)
+        self.assertEqual(evidential_event.tense, 'past')
+        self.assertEqual(evidential_event.mood, None)
+        self.assertEqual(evidential_event.perf, None)
+        self.assertEqual(evidential_event.prog, None)
+        self.assertEqual(evidential_event.evidentiality, 'witness')
+        with self.assertRaises(AttributeError):
+            evidential_event.num
