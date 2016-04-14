@@ -271,8 +271,8 @@ class SortinfoMeta(ABCMeta):
         
         # Sortinfo defines a from_normalised_dict method which calls either EventSortinfo or InstanceSortinfo
         # Subclasses need to override this method
-        if cls.features != () and 'from_normalised_dict' not in namespace:
-            def from_normalised_dict(dictionary):  # @NoSelf - as a method of the metaclass, this becomes a class method
+        if cls.features and 'from_normalised_dict' not in namespace:
+            def from_normalised_dict(dictionary):  # this becomes a static method
                 """
                 Instantiate from a dictionary mapping features to values
                 """
@@ -509,8 +509,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
     
     def __ge__(self, other):
         # Note that "other <= self" will fail with subclasses, due to infinite recursion
-        return (other.cvarsort == 'i' or self.cvarsort == other.cvarsort) \
-            and all(self[key] == value for key, value in other.iter_specified())
+        return other.__le__(self)
     
     def __gt__(self, other):
         return self >= other and self != other
