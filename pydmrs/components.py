@@ -271,17 +271,8 @@ class SortinfoMeta(ABCMeta):
         
         # Sortinfo defines a from_normalised_dict method which calls either EventSortinfo or InstanceSortinfo
         # Subclasses need to override this method
-        if cls.features and 'from_normalised_dict' not in namespace:
-            def from_normalised_dict(dictionary):  # this becomes a static method
-                """
-                Instantiate from a dictionary mapping features to values
-                """
-                if 'cvarsort' in dictionary and dictionary['cvarsort'] != cls.cvarsort:
-                    raise PydmrsValueError('{} must have cvarsort {}, not {}'.format(cls.__name__,
-                                                                                     cls.cvarsort,
-                                                                                     dictionary['cvarsort']))
-                return cls(**{key:value for key, value in dictionary.items() if key != 'cvarsort'})
-            cls.from_normalised_dict = from_normalised_dict
+        if 'from_normalised_dict' not in namespace:
+            cls.from_normalised_dict = cls._from_normalised_dict
         
         return cls
 
@@ -445,11 +436,12 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
                 dictionary['cvarsort'] = 'x'
         return dictionary
     
-    # SortinfoMeta will override this method in any class with a non-empty list of features
+    # In, subclasses, _from_normalised_dict will override from_normalised_dict
+    # See SortinfoMeta for details
     @staticmethod
     def from_normalised_dict(dictionary):
         """
-        Instantiates a suitable type of Sortinfo from a dictionary,
+        Instantiate a suitable type of Sortinfo from a dictionary,
         mapping from features to values (including cvarsort)
         """
         cvarsort = dictionary['cvarsort']
@@ -463,6 +455,17 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         else:
             # This needs to be updated so that the underspecified cvarsorts i, u, and p are distinguished
             return Sortinfo()
+    
+    @classmethod
+    def _from_normalised_dict(cls, dictionary):
+        """
+        Instantiate from a dictionary mapping features to values
+        """
+        if 'cvarsort' in dictionary and dictionary['cvarsort'] != cls.cvarsort:
+            raise PydmrsValueError('{} must have cvarsort {}, not {}'.format(cls.__name__,
+                                                                             cls.cvarsort,
+                                                                             dictionary['cvarsort']))
+        return cls(**{key:value for key, value in dictionary.items() if key != 'cvarsort'})
     
     @classmethod
     def from_string(cls, string):
