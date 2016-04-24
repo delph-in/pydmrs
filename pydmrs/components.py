@@ -1,8 +1,9 @@
 from collections import namedtuple
 try:
-    from collections.abc import Mapping
+    from collections.abc import MutableMapping
 except ImportError:  # Python v3.2 or less
-    from collections import Mapping
+    from collections import MutableMapping
+from abc import ABCMeta
 from functools import total_ordering
 from itertools import chain
 from warnings import warn
@@ -33,13 +34,13 @@ class Pred(object):
 
     def __eq__(self, other):
         """
-        Checks whether the other object is of type Pred
+        Checks whether the other object is precisely of type Pred
         """
         return type(other) == Pred
 
     def __le__(self, other):
         """
-        Checks whether this Pred underspecifies or equals the other Pred
+        Checks whether the other object is a Pred (including subclasses)
         """
         return isinstance(other, Pred)
     
@@ -90,7 +91,10 @@ class Pred(object):
 
 class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred):
     """
-    Real predicate, with a lemma, part of speech, and (optional) sense
+    Real predicate, with a lemma, part of speech, and (optional) sense.
+    All three fields can be underspecified by using '?'.
+    The pos can also be underspecified as 'u'.
+    The sense can also be underspecified as 'unknown'.
     """
 
     __slots__ = ()  # Suppress __dict__
@@ -132,8 +136,8 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         """
         return isinstance(other, RealPred) \
             and (self.lemma == '?' or self.lemma == other.lemma) \
-            and (self.pos == 'u' or self.pos == other.pos) \
-            and (self.sense == '?' or self.sense == other.sense)
+            and (self.pos in ('?', 'u') or self.pos == other.pos) \
+            and (self.sense in ('?', 'unknown') or self.sense == other.sense)
 
     def __lt__(self, other):
         """
@@ -151,7 +155,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         """
         Checks whether the other RealPred underspecifies this RealPred
         """
-        return self <= other and self != other
+        return self >= other and self != other
 
     @staticmethod
     def from_normalised_string(string):
@@ -174,7 +178,8 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
 
 class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
     """
-    Grammar predicate, with a rel name
+    Grammar predicate, with a rel name.
+    The name can be underspecified by using '?'.
     """
 
     __slots__ = ()  # Suppress __dict__
@@ -221,7 +226,7 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         """
         Checks whether the other GPred underspecifies this GPred
         """
-        return self <= other and self != other
+        return self >= other and self != other
 
     @staticmethod
     def from_normalised_string(string):
@@ -234,169 +239,52 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
             return GPred(string)
 
 
-@total_ordering
-class Sortinfo(Mapping):
+# Sortinfo objects will store features via __slots__
+# Users can define subclasses with additional features
+# The __slots__ of a class and all its parents are concatenated as the 'features' attribute
+# To allow this to happen, we will use a metaclass
+# (An alternative solution would be to define a descriptor class, with an instance as a class attribute of Sortinfo)
+# (Using a metaclass gives us more freedom - e.g. we can check that subclasses define __slots__)
+# This metaclass inherits from ABCMeta rather than type, because MutableMapping has ABCMeta as a metaclass
+
+class SortinfoMeta(ABCMeta):
+    """
+    A metaclass for Sortinfo, which defines a 'features' class attribute automatically  
+    """
+    def __new__(mcls, name, bases, namespace):  # @NoSelf - 'mcls' is SortinfoMeta, 'cls' is the new class
+        """
+        Create a new class, and add a 'features' attribute from __slots__
+        """
+        # Check that the namespace is compliant
+        if '__slots__' not in namespace:
+            raise PydmrsError('Subclasses of Sortinfo must define __slots__')
+        if 'features' in namespace:
+            raise PydmrsError("Subclasses of Sortinfo must not define a 'features' attribute")
+        
+        # Force all feature names to be lowercase
+        namespace['__slots__'] = tuple(feat.lower() for feat in namespace['__slots__'])
+        
+        # Create the class, and add the 'features' attribute
+        cls = super().__new__(mcls, name, bases, namespace)
+        cls.features = tuple(chain.from_iterable(getattr(parent, '__slots__', ())
+                                                 for parent in reversed(cls.__mro__)))
+        
+        # Sortinfo defines a from_normalised_dict method which calls either EventSortinfo or InstanceSortinfo
+        # Subclasses need to override this method
+        if 'from_normalised_dict' not in namespace:
+            cls.from_normalised_dict = cls._from_normalised_dict
+        
+        return cls
+
+
+class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
     """
     A superclass for all Sortinfo classes.
-    Instances of Sortinfo denote completely underspecified sortinfo
+    Instances of Sortinfo denote completely underspecified sortinfo.
+    Subclasses of Sortinfo must specify __slots__ (and optionally, cvarsort)
     """
     __slots__ = ()
     cvarsort = 'i'
-
-    def __str__(self):
-        """
-        Returns 'i'
-        """
-        return 'i'
-
-    def __repr__(self):
-        """
-        Returns a string representation
-        """
-        return 'Sortinfo()'
-
-    def __eq__(self, other):
-        """
-        Checks two Sortinfos for equality
-        """
-        return isinstance(other, type(self)) and len(self) == len(other) \
-            and all(key in other and self[key] == other[key] for key in self)
-
-    def __le__(self, other):
-        """
-        Checks whether this Sortinfo underspecifies or equals the other Sortinfo
-        """
-        return isinstance(other, type(self)) \
-            and (self.cvarsort == 'i' or self.cvarsort == other.cvarsort) \
-            and all(self[key] == 'u' or (key in other and self[key] == other[key]) \
-                    for key in self if key != 'cvarsort')
-
-    def __iter__(self):
-        """
-        Returns an iterator over the properties
-        """
-        yield 'cvarsort'
-
-    def __len__(self):
-        """
-        Returns the size
-        """
-        return 1
-
-    def __getitem__(self, key):
-        """
-        Returns the value of a property
-        """
-        key = key.lower()
-        if key == 'cvarsort':
-            return 'i'
-        else:
-            raise PydmrsKeyError
-
-    def __setitem__(self, key, value):
-        """
-        Sets the value of a property
-        """
-        raise PydmrsKeyError
-
-    def iter_specified(self):
-        """
-        Return (feature, value) pairs where value is not None
-        """
-        yield ('cvarsort', 'i')
-
-    @staticmethod
-    def from_dict(dictionary):
-        """
-        Instantiates a suitable type of Sortinfo from a dictionary,
-        mapping from features to values (including cvarsort)
-        """
-        # Convert all keys to lowercase (so that we can check if certain keys exist)
-        # Values are left untouched until the object is constructed (e.g. in case of None)
-        dictionary = {key.lower(): value for key, value in dictionary.items()}
-        # Find the cvarsort
-        try:
-            cvarsort = dictionary['cvarsort'].lower()
-        except KeyError:
-            raise PydmrsValueError('Sortinfo must have cvarsort')
-        # Correct cvarsort if features are evidence for 'x' or 'e':
-        if cvarsort not in 'ex' and len(dictionary) > 1:
-            if any(key in dictionary for key in EventSortinfo.__slots__):  # event evidence
-                cvarsort = dictionary['cvarsort'] = 'e'
-            elif any(key in dictionary for key in InstanceSortinfo.__slots__):  # instance evidence
-                cvarsort = dictionary['cvarsort'] = 'x'
-        # Instantiate an appropriate type of Sortinfo
-        if cvarsort == 'e':
-            return EventSortinfo.from_dict(dictionary)
-        elif cvarsort == 'x':
-            if 'prontype' in dictionary:
-                dictionary['pt'] = dictionary.pop('prontype')
-            return InstanceSortinfo.from_dict(dictionary)
-        else:
-            # This needs to be updated so that the underspecified cvarsorts i, u, and p are distinguished
-            return Sortinfo()
-    
-    @classmethod
-    def from_string(cls, string):
-        """
-        Instantiate from a string of the form:
-        cvarsort[feature1=value1, feature2=value2, ...]
-        """
-        # Force lowercase
-        string = string.lower()
-        # Dictionary mapping from features to values
-        dictionary = {'cvarsort' : string[0]}
-        if len(string) > 1:
-            if not (string[1] == '[' and string[-1] == ']'):
-                raise PydmrsValueError('Sortinfo string must include features in square brackets')
-            for item in string[2:-1].split(','):
-                key, value = item.split('=')
-                dictionary[key.strip()] = value.strip()
-        # Convert the dictionary
-        return cls.from_dict(dictionary)
-
-
-class FeaturedSortinfo(Sortinfo):
-    """
-    Sortinfo with features.
-    Subclasses of FeaturedSortinfo must specify __slots__ and cvarsort
-    """
-    __slots__ = ()
-    
-    # The following two methods allow users to add features to subclasses
-    # The __slots__ of all parent classes are combined into a single tuple
-    # This tuple is accessible under .features, and is only calculated once per class
-    # (If it's necessary to access a class's features before _get_all_features is called,)
-    # (we could use a metaclass, or class decorator, but just using inheritance is simpler)
-    
-    @classmethod
-    def _get_all_features(cls):
-        """
-        Combine the __slots__ of all superclasses.
-        The result is memoized with the features attribute
-        """
-        features = tuple(chain.from_iterable(getattr(parent, '__slots__', ()) for parent in cls.__mro__))
-        setattr(cls, 'features', features)
-        return features
-    
-    @property
-    def features(self):
-        """
-        Return the class's features attribute, if it exists,
-        or else calculate it and then return it.
-        """
-        return getattr(type(self), 'features', type(self)._get_all_features())
-    
-    # For convenience, we can also get features which are not None
-    
-    def iter_specified(self):
-        """
-        Return (feature, value) pairs where value is not None
-        """
-        for feat in self.features:
-            val = self[feat]
-            if val is not None:
-                yield (feat, val)
     
     # Container methods
     
@@ -404,9 +292,7 @@ class FeaturedSortinfo(Sortinfo):
         """
         Iterate through all features, including 'cvarsort'
         """
-        yield 'cvarsort'
-        for feat in self.features:
-            yield feat
+        return chain(('cvarsort',), iter(self.features))
     
     def __len__(self):
         """
@@ -418,11 +304,19 @@ class FeaturedSortinfo(Sortinfo):
         """
         Check if a feature is present in the class
         """
-        if feature == 'cvarsort':
-            return True
-        else:
-            return feature in self.features
-
+        return feature == 'cvarsort' or feature in self.features
+    
+    # For convenience, we can also get features which are not None
+    
+    def iter_specified(self):
+        """
+        Return (feature, value) pairs where value is not None, '?', or 'u'
+        """
+        for feat in self.features:
+            val = self[feat]
+            if val not in ['?', 'u', None]:
+                yield (feat, val)
+    
     # Setters and getters
     # Allows both attribute and dictionary access
     # Features and values must all be lowercase
@@ -433,9 +327,14 @@ class FeaturedSortinfo(Sortinfo):
         """
         feature = feature.lower()
         if value is not None:
-            super().__setattr__(feature, value.lower())
-        else:
-            super().__setattr__(feature, None)
+            value = value.lower()
+        super().__setattr__(feature, value)
+    
+    def __delattr__(self, feature):
+        """
+        Set the value of a feature to None
+        """
+        setattr(self, feature, None)
         
     def __setitem__(self, feature, value):
         """
@@ -455,6 +354,14 @@ class FeaturedSortinfo(Sortinfo):
         else:
             raise PydmrsKeyError("{} has no feature {}".format(type(self), feature))
     
+    def __delitem__(self, feature):
+        """
+        Set the value of a feature to None
+        """
+        self[feature] = None
+    
+    # Initialisation
+    
     def __init__(self, *args, **kwargs):
         """
         Initialise values of features, from positional or keyword arguments
@@ -471,7 +378,7 @@ class FeaturedSortinfo(Sortinfo):
         for feature in self.features:
             if not hasattr(self, feature):
                 setattr(self, feature, None)
-    
+
     # Conversion to strings and dicts
     
     def __str__(self):
@@ -479,8 +386,11 @@ class FeaturedSortinfo(Sortinfo):
         Returns a string of the form:
         cvarsort[feature1=value1, feature2=value2, ...]
         """
-        return '{}[{}]'.format(self.cvarsort,
-                               ', '.join('{}={}'.format(*pair) for pair in self.iter_specified()))
+        spec_feats = ', '.join('{}={}'.format(*pair) for pair in self.iter_specified())
+        if spec_feats:
+            return '{}[{}]'.format(self.cvarsort, spec_feats)
+        else:
+            return self.cvarsort
     
     def __repr__(self):
         """
@@ -495,10 +405,59 @@ class FeaturedSortinfo(Sortinfo):
         return dict(self.items())
     
     # Conversion from strings and dicts
-    # Note that cls.from_string (inherited from Sortinfo) will call cls.from_dict
     
     @classmethod
     def from_dict(cls, dictionary):
+        """
+        Instantiates a Sortinfo object from dictionary,
+        normalising as necessary
+        """
+        normalised = cls.normalise_dict(dictionary)
+        return cls.from_normalised_dict(normalised)
+    
+    @staticmethod
+    def normalise_dict(dictionary):
+        """
+        Normalise a sortinfo dictionary - convert keys to lowercase and correct cvarsort if necessary
+        """
+        # Convert all keys to lowercase (so that we can check if certain keys exist)
+        # Values are left untouched until the object is constructed (e.g. in case of None)
+        dictionary = {key.lower(): value for key, value in dictionary.items()}
+        # Find the cvarsort
+        try:
+            dictionary['cvarsort'] = dictionary['cvarsort'].lower()
+        except KeyError:
+            raise PydmrsValueError('Sortinfo must have cvarsort')
+        # Correct cvarsort if features are evidence for 'x' or 'e':
+        if dictionary['cvarsort'] not in 'ex' and len(dictionary) > 1:
+            if any(key in dictionary for key in EventSortinfo.features):  # event evidence
+                dictionary['cvarsort'] = 'e'
+            elif any(key in dictionary for key in InstanceSortinfo.features):  # instance evidence
+                dictionary['cvarsort'] = 'x'
+        return dictionary
+    
+    # In, subclasses, _from_normalised_dict will override from_normalised_dict
+    # See SortinfoMeta for details
+    @staticmethod
+    def from_normalised_dict(dictionary):
+        """
+        Instantiate a suitable type of Sortinfo from a dictionary,
+        mapping from features to values (including cvarsort)
+        """
+        cvarsort = dictionary['cvarsort']
+        # Instantiate an appropriate type of Sortinfo
+        if cvarsort == 'e':
+            return EventSortinfo.from_normalised_dict(dictionary)
+        elif cvarsort == 'x':
+            if 'prontype' in dictionary:
+                dictionary['pt'] = dictionary.pop('prontype')
+            return InstanceSortinfo.from_normalised_dict(dictionary)
+        else:
+            # This needs to be updated so that the underspecified cvarsorts i, u, and p are distinguished
+            return Sortinfo()
+    
+    @classmethod
+    def _from_normalised_dict(cls, dictionary):
         """
         Instantiate from a dictionary mapping features to values
         """
@@ -507,9 +466,59 @@ class FeaturedSortinfo(Sortinfo):
                                                                              cls.cvarsort,
                                                                              dictionary['cvarsort']))
         return cls(**{key:value for key, value in dictionary.items() if key != 'cvarsort'})
+    
+    @classmethod
+    def from_string(cls, string):
+        """
+        Instantiate from a string of the form:
+        cvarsort[feature1=value1, feature2=value2, ...]
+        """
+        # Force lowercase
+        string = string.lower()
+        # Dictionary mapping from features to values
+        dictionary = {'cvarsort' : string[0]}
+        if len(string) > 1:
+            if not (string[1] == '[' and string[-1] == ']'):
+                raise PydmrsValueError('Sortinfo string must include features in square brackets')
+            for item in string[2:-1].split(','):
+                key, value = item.split('=')
+                dictionary[key.strip()] = value.strip()
+        # Convert the dictionary
+        return cls.from_dict(dictionary)
+    
+    # Comparison methods
+
+    def __eq__(self, other):
+        """
+        Checks two Sortinfos for equality.
+        Returns True if all specified features are the same.
+        """
+        return self.cvarsort == other.cvarsort \
+            and set(self.iter_specified()) == set(other.iter_specified())
+    
+    def __ne__(self, other):
+        return not self == other
+
+    def __le__(self, other):
+        """
+        Checks whether this Sortinfo underspecifies or equals the other Sortinfo.
+        Features can be underspecified using '?', or 'u', or None.
+        """
+        return (self.cvarsort == 'i' or self.cvarsort == other.cvarsort) \
+            and all(other[key] == value for key, value in self.iter_specified())
+    
+    def __lt__(self, other):
+        return self <= other and self != other
+    
+    def __ge__(self, other):
+        # Note that "other <= self" will fail with subclasses, due to infinite recursion
+        return other.__le__(self)
+    
+    def __gt__(self, other):
+        return self >= other and self != other
 
 
-class EventSortinfo(FeaturedSortinfo):
+class EventSortinfo(Sortinfo):
     """
     Event sortinfo
     """
@@ -518,7 +527,7 @@ class EventSortinfo(FeaturedSortinfo):
     # Sentence force, tense, mood, perfect, progressive
 
 
-class InstanceSortinfo(FeaturedSortinfo):
+class InstanceSortinfo(Sortinfo):
     """
     Instance sortinfo
     """
