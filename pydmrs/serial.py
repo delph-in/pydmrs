@@ -61,6 +61,8 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs, **kwargs):
         elif elem.tag == 'link':
             start = int(elem.get('from'))
             end = int(elem.get('to'))
+            if start == end:
+                raise PydmrsValueError("Link start must not equal link end.")
 
             if start == 0:
                 top_id = end
@@ -69,9 +71,11 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs, **kwargs):
                 post = None
                 for sub in elem:
                     if sub.tag == 'rargname':
-                        rargname = sub.text
+                        if sub.text and sub.text.upper() not in ('NONE', 'NULL', 'NIL'):
+                            rargname = sub.text
                     elif sub.tag == 'post':
-                        post = sub.text
+                        if sub.text and sub.text.upper() not in ('NONE', 'NULL', 'NIL'):
+                            post = sub.text
                     else:
                         raise PydmrsValueError(sub.tag)
                 dmrs.add_link(Link(start, end, rargname, post))
@@ -174,12 +178,12 @@ def visualise(dmrs, format):
         dot_strs.append('node[shape=box];\n')
         for nodeid in dmrs:
             node = dmrs[nodeid]
-            dot_strs.append('Node{} [label=<{}{}<BR /><FONT POINT-SIZE="10">{}</FONT>>];\n'.format(nodeid, node.pred, '("{}")'.format(node.carg) if node.carg else '', node.sortinfo))
+            dot_strs.append('Node{} [label=<{}{}<BR /><FONT POINT-SIZE="10">{}</FONT>>];\n'.format(str(nodeid).replace('-', 'M'), node.pred, '("{}")'.format(node.carg) if node.carg else '', node.sortinfo))
         dot_strs.append('edge[fontsize=10];\n')
         if dmrs.top is not None:
-            dot_strs.append('NodeTop -> Node{} [style=dotted];\n'.format(dmrs.top.nodeid))
+            dot_strs.append('NodeTop -> Node{} [style=dotted];\n'.format(str(dmrs.top.nodeid).replace('-', 'M')))
         for link in dmrs.links:
-            dot_strs.append('Node{} -> Node{} [label="{}"];\n'.format(link.start, link.end, link.labelstring))
+            dot_strs.append('Node{} -> Node{} [label="{}"];\n'.format(str(link.start).replace('-', 'M'), str(link.end).replace('-', 'M'), link.labelstring))
         dot_strs.append('}\n')
         dot_str = ''.join(dot_strs)
         return dot_str.encode()

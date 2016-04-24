@@ -604,6 +604,7 @@ class ListDmrs(Dmrs):
         for n in self.nodes:
             if n.nodeid == nodeid:
                 return n
+        raise KeyError(nodeid)
 
     def __iter__(self):
         """
