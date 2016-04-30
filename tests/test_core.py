@@ -171,5 +171,5 @@ class TestNode(unittest.TestCase):
         self.assertNotEqual(node1, node2)
 
         # Different sortinfo.
-        node2 = Node(pred='_smile_v', sortinfo=sortinfo2, carg='Kim')
+        node2 = Node(pred='_the_q', sortinfo=sortinfo2, carg='Kim')
         self.assertNotEqual(node1, node2)
