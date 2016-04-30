@@ -101,9 +101,9 @@ class TestLink(unittest.TestCase):
         
         # Check wrong numbers of arguments
         with self.assertRaises(TypeError):
-            Link(0, 1, 2)
+            LinkLabel(0, 1, 2)
         with self.assertRaises(TypeError):
-            Link(0, 1, 2, 3, 4)
+            LinkLabel(0, 1, 2, 3, 4)
     
     # Helper function for test_LinkLabel_new
     def assert_rstr_h(self, linklabel):
