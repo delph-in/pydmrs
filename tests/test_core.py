@@ -142,3 +142,34 @@ class TestLink(unittest.TestCase):
         # Note that it doesn't make sense to check
         # if label.post is not label_deep.post,
         # because identical strings are considered to be the same
+
+
+class TestNode(unittest.TestCase):
+    """
+    Test methods for Node class.
+    """
+    def test_Node_eq(self):
+        # Unspecified nodes are always equal.
+        node1 = Node()
+        node2 = Node()
+        self.assertEqual(node1, node2)
+
+        sortinfo1 = {'cvarsort': 'e', 'tense': 'past'}
+        sortinfo2 = {'cvarsort': 'e', 'tense': 'pres'}
+
+        # Two nodes are equal if they have the same pred, sortinfo and carg, even if all the other elements are different
+        node1 = Node(nodeid = 23, pred='the_q', sortinfo=sortinfo1, cfrom=2, cto=22, carg='Kim', surface='cat', base='x')
+        node2 = Node(nodeid=25, pred='the_q', sortinfo=sortinfo1, cfrom=15, carg='Kim', surface='mad', base='w')
+        self.assertEqual(node1, node2)
+
+        # Different carg
+        node2 = Node(pred='the_q', sortinfo=sortinfo1, carg='Jane')
+        self.assertNotEqual(node1, node2)
+
+        # Different pred
+        node2 = Node(pred='_smile_v', sortinfo=sortinfo1, carg='Kim')
+        self.assertNotEqual(node1, node2)
+
+        # Different sortinfo.
+        node2 = Node(pred='_smile_v', sortinfo=sortinfo2, carg='Kim')
+        self.assertNotEqual(node1, node2)
