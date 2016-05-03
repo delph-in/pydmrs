@@ -79,7 +79,7 @@ def parse_graphlang(string, cls=ListDmrs, queries={}):
 def _parse_value(string, underspec):
     if not string or string[0] != '?':
         return string, None
-    if len(string) == 1:
+    if string == '?':
         return underspec, None
     if string[1] == '?':
         return string[1:], None
@@ -94,16 +94,17 @@ def _parse_node(string, nodeid, queries):
         l = string.find(':')
     else:
         l = string.find(':', 0, m)
-    if l >= 0:
+    if l < 0:
+        ref_id = None
+        l = 0
+    else:
         ref_id = string[:l]
         l += 1
         while string[l] == ' ':
             l += 1
-    else:
-        ref_id = None
     if string[l:l+4] == 'node' and (len(string) - l == 4 or string[l+4] == '?'):
-        value, query_key = _parse_value(pred[l+4:], None)
-        assert value is None
+        value, query_key = _parse_value(string[l+4:], None)
+        assert not value
         if query_key:
             assert query_key not in queries
             queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]]
@@ -112,7 +113,7 @@ def _parse_node(string, nodeid, queries):
         sortinfo = Sortinfo()
         ref_name = 'node'
     elif m < 0:
-        pred, ref_name = _parse_pred(string[l:m], nodeid, queries)
+        pred, ref_name = _parse_pred(string[l:], nodeid, queries)
         carg = None
         sortinfo = None
     else:
@@ -134,11 +135,9 @@ def _parse_node(string, nodeid, queries):
         if string[m] == ' ':
             while string[m] == ' ':
                 m += 1
-            sortinfo = _parse_sortinfo(string[l:], nodeid, queries)
+            sortinfo = _parse_sortinfo(string[m:], nodeid, queries)
         else:
             sortinfo = None
-
-
     if not ref_id:
         ref_id = None
         node = Node(nodeid, pred, sortinfo=sortinfo, carg=carg)
@@ -164,7 +163,7 @@ def _parse_pred(string, nodeid, queries):
     if (string[:4] == 'pred' and (len(string) == 4 or string[4] == '?')) or (string[:8] == 'predsort' and (len(string) == 8 or string[8] == '?')):
         i = 8 if string[:8] == 'predsort' else 4
         value, query_key = _parse_value(string[i:], None)
-        assert value is None
+        assert not value
         if query_key:
             assert query_key not in queries
             queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred
@@ -183,19 +182,19 @@ def _parse_pred(string, nodeid, queries):
     count = len(values)
     assert count > 0, 'Invalid number of arguments for RealPred.'
     if count == 1:
-        values.insert(0, '?')
-        values.append('?')
+        values.insert(0, '')
+        values.append('')
     elif count == 2:
         values.append(None)
-    lemma, query_key = _parse_value(values[0], '?')
+    lemma, query_key = _parse_value(values[0], '')
     if query_key:
         assert query_key not in queries
         queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred.lemma
-    pos, query_key = _parse_value(values[1], 'u')
+    pos, query_key = _parse_value(values[1], '')  # u ???
     if query_key:
         assert query_key not in queries
         queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred.pos
-    sense, query_key = _parse_value(values[2], None)
+    sense, query_key = _parse_value(values[2], '')  # unknown ???
     if query_key:
         assert query_key not in queries
         queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred.sense
@@ -236,7 +235,7 @@ def _parse_sortinfo(string, nodeid, queries):
             return Sortinfo()
     if string[1] == '?':
         value, query_key = _parse_value(string[1:], None)
-        assert value is None
+        assert not value
         if query_key:
             assert query_key not in queries
             queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].sortinfo
@@ -248,7 +247,7 @@ def _parse_sortinfo(string, nodeid, queries):
             return Sortinfo()
     assert string[0] in 'ex', 'Sortinfo type i cannot be specified.'
     assert string[1] == '[' and string[-1] == ']', 'Square brackets missing.'
-    if '=' not in string:  # explicit key-value specification
+    if '=' in string:  # explicit key-value specification
         if string[0] == 'e':
             sortinfo = EventSortinfo()
             shorthand = _parse_event_shorthand
@@ -285,7 +284,6 @@ def _parse_sortinfo(string, nodeid, queries):
 
 
 def _parse_link(string, left_nodeid, right_nodeid, queries):
-    assert string.islower(), 'Links must be lower-case.'
     assert ' ' not in string, 'Links must not contain spaces.'
     l = 0
     r = len(string) - 1
@@ -346,7 +344,7 @@ def _parse_link(string, left_nodeid, right_nodeid, queries):
             rargname = '?'
             post = '?'
             value, query_key = _parse_value(string[l:r+1], None)
-            assert value is None
+            assert not value
             if query_key:
                 assert query_key not in queries
                 queries[query_key] = lambda matching, dmrs: ','.join(link.labelstring for link in dmrs.get_out(matching[start], itr=True) if link.end == matching[end])

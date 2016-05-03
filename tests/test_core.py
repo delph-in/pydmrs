@@ -1,4 +1,4 @@
-import unittest
+import unittest, warnings
 
 from pydmrs.core import (
     Link, LinkLabel,
@@ -25,12 +25,24 @@ class TestLink(unittest.TestCase):
         # Check four arguments
         self.assert_ex_link(Link(0, 1, 'RSTR', 'H'))
         self.assert_ex_link(Link(start=0, end=1, rargname='RSTR', post='H'))
-        
+
+        # Check None values
+        self.assertIsNone(Link(0, 1, '', 'H').rargname)
+        self.assertIsNone(Link(0, 1, 'RSTR', 'NONE').post)
+        self.assertIsNone(Link(0, 1, 'NULL', 'H').rargname)
+        self.assertIsNone(Link(0, 1, 'RSTR', 'NIL').post)
+
         # Check wrong numbers of arguments
         with self.assertRaises(TypeError):
             Link(0, 1, 2)
         with self.assertRaises(TypeError):
             Link(0, 1, 2, 3, 4)
+
+        # Check equal start and end
+        with self.assertRaises(Warning):
+            warnings.simplefilter('error')
+            Link(0, 0, 1, 2)
+        warnings.resetwarnings()
     
     # Helper function for test_Link_new
     def assert_ex_link(self, link):

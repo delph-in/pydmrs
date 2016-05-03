@@ -48,7 +48,10 @@ class TestPred(unittest.TestCase):
         with self.assertRaises(ValueError):
             Pred.normalise_string('pred"name')
         # Force lower case
-        self.assertEqual(Pred.normalise_string('PRON'), 'pron')
+        with self.assertRaises(Warning):
+            warnings.simplefilter('error')
+            self.assertEqual(Pred.normalise_string('PRON'), 'pron')
+        warnings.resetwarnings()
         # Strip trailing _rel
         self.assertEqual(Pred.normalise_string('pron_rel'), 'pron')
     
@@ -76,12 +79,18 @@ class TestPred(unittest.TestCase):
         cat_pred = RealPred.from_normalised_string('_cat_n_1')
         self.assertEqual(Pred.from_string('_cat_n_1_rel'), cat_pred)
         self.assertEqual(Pred.from_string('"_cat_n_1_rel"'), cat_pred)
-        self.assertEqual(Pred.from_string('_CAT_N_1_REL'), cat_pred)
+        with self.assertRaises(Warning):
+            warnings.simplefilter('error')
+            self.assertEqual(Pred.from_string('_CAT_N_1_REL'), cat_pred)
+        warnings.resetwarnings()
         
         the_pred = GPred.from_normalised_string('the')
         self.assertEqual(Pred.from_string('the_rel'), the_pred)
         self.assertEqual(Pred.from_string('"the_rel"'), the_pred)
-        self.assertEqual(Pred.from_string('THE_REL'), the_pred)
+        with self.assertRaises(Warning):
+            warnings.simplefilter('error')
+            self.assertEqual(Pred.from_string('THE_REL'), the_pred)
+        warnings.resetwarnings()
     
     def test_Pred_cmp_self(self):
         """

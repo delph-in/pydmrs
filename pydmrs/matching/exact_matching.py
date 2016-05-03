@@ -1,7 +1,7 @@
 from pydmrs.core import Dmrs
 
 
-def dmrs_exact_matching(sub_dmrs, dmrs):
+def dmrs_exact_matching(sub_dmrs, dmrs, match_top_index=False):
     """
     Performs an exact DMRS (sub)graph matching of a (sub)graph against a containing graph.
     :param sub_dmrs DMRS (sub)graph to match.
@@ -28,7 +28,7 @@ def dmrs_exact_matching(sub_dmrs, dmrs):
             return iter(())
 
     # match index and top
-    if sub_dmrs.index is not None:
+    if match_top_index and sub_dmrs.index is not None:
         if dmrs.index is None:
             return iter(())
         sub_index = sub_dmrs.index.nodeid
@@ -43,7 +43,7 @@ def dmrs_exact_matching(sub_dmrs, dmrs):
                 del matches[sub_index]
             else:
                 return iter(())
-    if sub_dmrs.top is not None:
+    if match_top_index and sub_dmrs.top is not None:
         if dmrs.top is None:
             return iter(())
         sub_top = sub_dmrs.top.nodeid

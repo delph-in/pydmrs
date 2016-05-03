@@ -27,12 +27,12 @@ class AnchorNode(Node):
             return
         if isinstance(self.pred, RealPred):
             if isinstance(node.pred, RealPred):
-                node.pred = RealPred(node.pred.lemma if self.pred.lemma == '?' else self.pred.lemma, node.pred.pos if self.pred.pos == 'u' else self.pred.pos, node.pred.sense if self.pred.sense == '?' else self.pred.sense)
+                node.pred = RealPred(node.pred.lemma if self.pred.lemma == '' else self.pred.lemma, node.pred.pos if self.pred.pos == '' else self.pred.pos, node.pred.sense if self.pred.sense == '' else self.pred.sense)
             else:
                 node.pred = copy.deepcopy(self.pred)
         elif isinstance(self.pred, GPred):
             if isinstance(node.pred, GPred):
-                node.pred = GPred(node.pred.name if self.pred.name == '?' else self.pred.name)
+                node.pred = GPred(node.pred.name if self.pred.name == '' else self.pred.name)
             else:
                 node.pred = copy.deepcopy(self.pred)
         elif not isinstance(self.pred, Pred):

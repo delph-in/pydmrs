@@ -4,6 +4,7 @@ import copy
 from functools import total_ordering
 from operator import attrgetter
 from itertools import chain
+from warnings import warn
 from pydmrs.components import *
 from pydmrs._exceptions import *
 
@@ -66,6 +67,12 @@ class Link(namedtuple('LinkNamedTuple', ('start', 'end', 'rargname', 'post'))):
             rargname = rargname.upper()
         if isinstance(post, str):
             post = post.upper()
+        if start == end:
+            warn("Link start must not equal link end.", PydmrsWarning)
+        if rargname in ('', 'NONE', 'NULL', 'NIL'):
+            rargname = None
+        if post in ('', 'NONE', 'NULL', 'NIL'):
+            post = None
         return super().__new__(cls, start, end, rargname, post)
 
     def __str__(self):
@@ -140,10 +147,10 @@ class Node(object):
         """
         return isinstance(other, Node) \
             and ((self.pred is other.pred is None) \
-                 or (self.pred <= other.pred)) \
+                 or (self.pred is not None and self.pred <= other.pred)) \
             and (self.carg == '?' or self.carg == other.carg) \
             and ((self.sortinfo is other.sortinfo is None) \
-                 or (self.sortinfo <= other.sortinfo))
+                 or (self.sortinfo is not None and self.sortinfo <= other.sortinfo))
 
     @property
     def span(self):

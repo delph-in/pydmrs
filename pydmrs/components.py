@@ -104,10 +104,10 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         Create a new instance, allowing the sense to be optional,
         and requiring non-empty lemma and pos
         """
-        if not lemma:
-            raise PydmrsValueError('a RealPred must have non-empty lemma')
-        if not pos:
-            raise PydmrsValueError('a RealPred must have non-empty pos')
+        if lemma is None:
+            raise PydmrsValueError('a RealPred must have lemma')
+        if pos is None:
+            raise PydmrsValueError('a RealPred must have pos')
         if ' ' in lemma or ' ' in pos or (sense and ' ' in sense):
             raise PydmrsValueError('the values of a RealPred must not contain spaces')
         return super().__new__(cls, lemma, pos, sense)
@@ -135,9 +135,9 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         Checks whether this RealPred underspecifies or equals the other RealPred
         """
         return isinstance(other, RealPred) \
-            and (self.lemma == '?' or self.lemma == other.lemma) \
-            and (self.pos in ('?', 'u') or self.pos == other.pos) \
-            and (self.sense in ('?', 'unknown') or self.sense == other.sense)
+            and (self.lemma in ('', '?') or self.lemma == other.lemma) \
+            and (self.pos in ('', 'u', '?') or self.pos == other.pos) \
+            and (self.sense in ('', 'unknown', '?') or self.sense == other.sense)
 
     def __lt__(self, other):
         """
@@ -493,7 +493,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         Checks two Sortinfos for equality.
         Returns True if all specified features are the same.
         """
-        return self.cvarsort == other.cvarsort \
+        return isinstance(other, Sortinfo) and self.cvarsort == other.cvarsort \
             and set(self.iter_specified()) == set(other.iter_specified())
     
     def __ne__(self, other):
@@ -504,7 +504,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         Checks whether this Sortinfo underspecifies or equals the other Sortinfo.
         Features can be underspecified using '?', or 'u', or None.
         """
-        return (self.cvarsort == 'i' or self.cvarsort == other.cvarsort) \
+        return (self.cvarsort == 'i' or (isinstance(other, Sortinfo) and self.cvarsort == other.cvarsort)) \
             and all(other[key] == value for key, value in self.iter_specified())
     
     def __lt__(self, other):

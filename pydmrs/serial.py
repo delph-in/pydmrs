@@ -61,8 +61,6 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs, **kwargs):
         elif elem.tag == 'link':
             start = int(elem.get('from'))
             end = int(elem.get('to'))
-            if start == end:
-                raise PydmrsValueError("Link start must not equal link end.")
 
             if start == 0:
                 top_id = end
@@ -71,11 +69,9 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs, **kwargs):
                 post = None
                 for sub in elem:
                     if sub.tag == 'rargname':
-                        if sub.text and sub.text.upper() not in ('NONE', 'NULL', 'NIL'):
-                            rargname = sub.text
+                        rargname = sub.text
                     elif sub.tag == 'post':
-                        if sub.text and sub.text.upper() not in ('NONE', 'NULL', 'NIL'):
-                            post = sub.text
+                        post = sub.text
                     else:
                         raise PydmrsValueError(sub.tag)
                 dmrs.add_link(Link(start, end, rargname, post))
