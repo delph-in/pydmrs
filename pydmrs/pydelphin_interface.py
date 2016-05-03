@@ -3,7 +3,7 @@ from delphin.interfaces import ace
 from delphin.mrs import simplemrs, dmrx
 
 
-erg_file = '/home/aok25/bin/erg/erg.dat'
+erg_file = 'erg.dat'
 
 
 def parse(sentence, cls=ListDmrs):
