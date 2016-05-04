@@ -42,7 +42,7 @@ class Pred(object):
         """
         Checks whether the other object is a Pred (including subclasses)
         """
-        return isinstance(other, Pred)
+        return other is None or isinstance(other, Pred)
     
     @staticmethod
     def normalise_string(string):

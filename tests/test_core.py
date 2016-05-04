@@ -1,7 +1,7 @@
-import unittest
+import unittest, warnings
 
 from pydmrs._exceptions import PydmrsTypeError, PydmrsValueError
-from pydmrs.components import GPred, InstanceSortinfo
+from pydmrs.components import Pred, GPred, RealPred, Sortinfo, EventSortinfo, InstanceSortinfo
 from pydmrs.core import (
     Link, LinkLabel,
     Node, PointerNode,
@@ -233,7 +233,25 @@ class TestNode(unittest.TestCase):
 
     def test_Node_leq(self):
         with self.assertRaises(TypeError):
-            4 < Node(pred='the_q')
+            4 <= Node(pred='_the_q')
+        # pred underspecification
+        self.assertTrue(Node(pred=Pred()) <= Node())
+        self.assertFalse(Node() <= Node(pred=Pred()))
+        self.assertTrue(Node(pred=Pred()) <= Node(pred=Pred()))
+        self.assertTrue(Node(pred=Pred()) <= Node(pred=GPred(name='abc')))
+        self.assertFalse(Node(pred=GPred(name='abc')) <= Node(pred=Pred()))
+        # carg underspecification
+        self.assertTrue(Node(carg='?') <= Node())
+        self.assertFalse(Node() <= Node(carg='?'))
+        self.assertTrue(Node(carg='?') <= Node(carg='?'))
+        self.assertTrue(Node(carg='?') <= Node(carg='abc'))
+        self.assertFalse(Node(carg='abc') <= Node(carg='?'))
+        # sortinfo underspecification
+        self.assertTrue(Node(sortinfo=Sortinfo()) <= Node())
+        self.assertFalse(Node() <= Node(sortinfo=Sortinfo()))
+        self.assertTrue(Node(sortinfo=Sortinfo()) <= Node(sortinfo=Sortinfo()))
+        self.assertTrue(Node(sortinfo=Sortinfo()) <= Node(sortinfo=EventSortinfo(sf='abc')))
+        self.assertFalse(Node(sortinfo=EventSortinfo(sf='abc')) <= Node(sortinfo=Sortinfo()))
 
     def test_Node_span(self):
         node = Node(cfrom=2, cto=15)

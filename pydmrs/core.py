@@ -149,7 +149,7 @@ class Node(object):
         Checks whether this node underspecifies or equals the other node (predicate, carg, sortinfo)
         """
         if not isinstance(other, Node):
-            raise TypeError
+            raise PydmrsTypeError('Nodes can only be compared to other nodes.')
         return ((self.pred is other.pred is None) \
                  or (self.pred is not None and self.pred <= other.pred)) \
             and (self.carg == '?' or self.carg == other.carg) \
