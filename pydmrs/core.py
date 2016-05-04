@@ -145,8 +145,9 @@ class Node(object):
         """
         Checks whether this node underspecifies or equals the other node (predicate, carg, sortinfo)
         """
-        return isinstance(other, Node) \
-            and ((self.pred is other.pred is None) \
+        if not isinstance(other, Node):
+            raise TypeError
+        return ((self.pred is other.pred is None) \
                  or (self.pred is not None and self.pred <= other.pred)) \
             and (self.carg == '?' or self.carg == other.carg) \
             and ((self.sortinfo is other.sortinfo is None) \
