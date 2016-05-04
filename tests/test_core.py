@@ -1,5 +1,7 @@
 import unittest
 
+from pydmrs._exceptions import PydmrsTypeError, PydmrsValueError
+from pydmrs.components import GPred, InstanceSortinfo
 from pydmrs.core import (
     Link, LinkLabel,
     Node, PointerNode,
@@ -160,6 +162,42 @@ class TestNode(unittest.TestCase):
     """
     Test methods for Node class.
     """
+
+    def test_Node_init(self):
+        node = Node(nodeid=13, pred='the_q', surface='cat', base='x', cfrom=23, cto=27, carg='Kim', )
+        self.assertEqual(node.nodeid, 13)
+        self.assertEqual(node.surface, 'cat')
+        self.assertEqual(node.base, 'x')
+
+        self.assertEqual(node.cfrom, 23)
+        self.assertEqual(node.cto, 27)
+        # Incorrect span
+        with self.assertRaises(PydmrsValueError):
+            Node(cfrom=22, cto=7)
+
+        self.assertEqual(node.carg, 'Kim')
+        # Fix carg with  "".
+        self.assertEqual(Node(carg='"Kim"').carg, 'Kim')
+        # Unaccounted " in carg
+        with self.assertRaises(PydmrsValueError):
+            Node(carg='"Kim')
+
+        # String pred.
+        self.assertEqual(node.pred, GPred('the_q'))
+        # Other pred
+        self.assertEqual(Node(pred=GPred('the_q')).pred, GPred('the_q'))
+
+        # Allow None for sortinfo.
+        self.assertEqual(Node().sortinfo, None)
+        # Dict sortinfo
+        self.assertEqual(Node(sortinfo={'cvarsort': 'i', 'pers': '3'}).sortinfo, InstanceSortinfo(pers='3'))
+        # Sortinfo sortinfo
+        self.assertEqual(Node(sortinfo=InstanceSortinfo(pers='3')).sortinfo, InstanceSortinfo(pers='3'))
+        # List sortinfo
+        self.assertEqual(Node(sortinfo=[('cvarsort', 'i'), ('pers', '3')]).sortinfo, InstanceSortinfo(pers='3'))
+        # But nothing else.
+        with self.assertRaises(PydmrsTypeError):
+            Node(sortinfo="x[pers=3, num=sg, ind=+]")
 
     def test_Node_str(self):
         node = Node()

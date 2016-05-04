@@ -97,10 +97,13 @@ class Node(object):
     """
     def __init__(self, nodeid=None, pred=None, sortinfo=None, cfrom=None, cto=None, surface=None, base=None, carg=None):
         self.nodeid = nodeid
-        self.cfrom = cfrom
-        self.cto = cto
         self.surface = surface
         self.base = base
+
+        if cto and cfrom and cto < cfrom:
+            raise PydmrsValueError('Incorrect span: cto < cfrom.')
+        self.cfrom = cfrom
+        self.cto = cto
 
         if isinstance(pred, str):
             self.pred = Pred.from_string(pred)
