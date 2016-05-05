@@ -193,6 +193,8 @@ def are_compatible_matches(match1, match2):
         :param match2 Another Match object.
         :return True/False
     """
+    if len(match1) == 0 or len(match2) == 0:
+        return True
     nodeA_set1, nodeA_set2 = map(set, zip(*match1.nodeid_pairs))
     nodeB_set1, nodeB_set2 = map(set, zip(*match2.nodeid_pairs))
     if nodeA_set1.isdisjoint(nodeB_set1) and nodeA_set2.isdisjoint(nodeB_set2):
@@ -324,12 +326,12 @@ def get_missing_elements(match, dmrs):
         :param dmrs A DMRS object for which the match was searched.
         :return A list of nodeids and links.
     """
-    matched_nodes = [dmrs[nodeid] for nodeid in zip(*match.nodeid_pairs)[1]]
-    matched_links = zip(*match.link_pairs)[1]
+    matched_nodeids = list(zip(*match.nodeid_pairs))[1]
+    matched_links = list(zip(*match.link_pairs))[1]
     not_matched = []
     for nodeid in dmrs:
-        if nodeid not in matched_nodes:
-            not_matched.append(dmrs[nodeid])
+        if nodeid not in matched_nodeids:
+            not_matched.append(nodeid)
     for link in dmrs.iter_links():
         if link not in matched_links:
             not_matched.append(link)

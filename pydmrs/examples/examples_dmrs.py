@@ -11,25 +11,41 @@ def the():
 def the_cat():
     dmrs = DictDmrs()
     dmrs.add_node(Node(nodeid=1, pred=RealPred('the', 'q')))
-    dmrs.add_node(Node(nodeid=2, pred=RealPred('cat', 'n', '1'), sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')))  # underspecified sortinfo
+    dmrs.add_node(Node(nodeid=2, pred=RealPred('cat', 'n', '1'),
+                       sortinfo=InstanceSortinfo(pers='3', num='sg',
+                                                 ind='+')))  # underspecified sortinfo
+    dmrs.add_link(Link(start=1, end=2, rargname='RSTR', post='H'))
+    return dmrs
+
+
+def the_mouse():
+    dmrs = DictDmrs()
+    dmrs.add_node(Node(nodeid=1, pred=RealPred('the', 'q')))
+    dmrs.add_node(Node(nodeid=2, pred=RealPred('mouse', 'n', '1'),
+                       sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')))
     dmrs.add_link(Link(start=1, end=2, rargname='RSTR', post='H'))
     return dmrs
 
 
 def dog_cat():
     dmrs = DictDmrs()
-    dmrs.add_node(Node(pred=RealPred('dog', 'n', '1'), sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')))
-    dmrs.add_node(Node(pred=RealPred('cat', 'n', '1'), sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')))
+    dmrs.add_node(Node(pred=RealPred('dog', 'n', '1'),
+                       sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')))
+    dmrs.add_node(Node(pred=RealPred('cat', 'n', '1'),
+                       sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')))
     return dmrs
 
 
 def the_dog_chases_the_cat():
     return DictDmrs(
         nodes=[Node(nodeid=1, pred=RealPred('the', 'q')),
-               Node(nodeid=2, pred=RealPred('dog', 'n', '1'), sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
-               Node(nodeid=3, pred=RealPred('chase', 'v', '1'), sortinfo=EventSortinfo(sf='prop', tense='pres', mood='indicative')),
+               Node(nodeid=2, pred=RealPred('dog', 'n', '1'),
+                    sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
+               Node(nodeid=3, pred=RealPred('chase', 'v', '1'),
+                    sortinfo=EventSortinfo(sf='prop', tense='pres', mood='indicative')),
                Node(nodeid=4, pred=RealPred('the', 'q')),
-               Node(nodeid=5, pred=RealPred('cat', 'n', '1'), sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+'))],
+               Node(nodeid=5, pred=RealPred('cat', 'n', '1'),
+                    sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+'))],
         links=[Link(start=1, end=2, rargname='RSTR', post='H'),
                Link(start=3, end=2, rargname='ARG1', post='NEQ'),
                Link(start=3, end=5, rargname='ARG2', post='NEQ'),
@@ -41,10 +57,31 @@ def the_dog_chases_the_cat():
 def the_cat_chases_the_dog():
     return DictDmrs(
         nodes=[Node(nodeid=1, pred=RealPred('the', 'q')),
-               Node(nodeid=2, pred=RealPred('cat', 'n', '1'), sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
-               Node(nodeid=3, pred=RealPred('chase', 'v', '1'), sortinfo=EventSortinfo(sf='prop', tense='pres', mood='indicative')),
+               Node(nodeid=2, pred=RealPred('cat', 'n', '1'),
+                    sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
+               Node(nodeid=3, pred=RealPred('chase', 'v', '1'),
+                    sortinfo=EventSortinfo(sf='prop', tense='pres', mood='indicative')),
                Node(nodeid=4, pred=RealPred('the', 'q')),
-               Node(nodeid=5, pred=RealPred('dog', 'n', '1'), sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+'))],
+               Node(nodeid=5, pred=RealPred('dog', 'n', '1'),
+                    sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+'))],
+        links=[Link(start=1, end=2, rargname='RSTR', post='H'),
+               Link(start=3, end=2, rargname='ARG1', post='NEQ'),
+               Link(start=3, end=5, rargname='ARG2', post='NEQ'),
+               Link(start=4, end=5, rargname='RSTR', post='H')],
+        index=3,
+        top=3)
+
+
+def the_dog_chases_the_mouse():
+    return DictDmrs(
+        nodes=[Node(nodeid=1, pred=RealPred('the', 'q')),
+               Node(nodeid=2, pred=RealPred('dog', 'n', '1'),
+                    sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
+               Node(nodeid=3, pred=RealPred('chase', 'v', '1'),
+                    sortinfo=EventSortinfo(sf='prop', tense='pres', mood='indicative')),
+               Node(nodeid=4, pred=RealPred('the', 'q')),
+               Node(nodeid=5, pred=RealPred('mouse', 'n', '1'),
+                    sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+'))],
         links=[Link(start=1, end=2, rargname='RSTR', post='H'),
                Link(start=3, end=2, rargname='ARG1', post='NEQ'),
                Link(start=3, end=5, rargname='ARG2', post='NEQ'),
@@ -56,14 +93,19 @@ def the_cat_chases_the_dog():
 def the_dog_chases_the_cat_and_the_mouse():
     return DictDmrs(
         nodes=[Node(nodeid=1, pred=RealPred('the', 'q')),
-               Node(nodeid=2, pred=RealPred('dog', 'n', '1'), sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
-               Node(nodeid=3, pred=RealPred('chase', 'v', '1'), sortinfo=EventSortinfo(sf='prop', tense='pres', mood='indicative')),
+               Node(nodeid=2, pred=RealPred('dog', 'n', '1'),
+                    sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
+               Node(nodeid=3, pred=RealPred('chase', 'v', '1'),
+                    sortinfo=EventSortinfo(sf='prop', tense='pres', mood='indicative')),
                Node(nodeid=4, pred=RealPred('the', 'q')),
-               Node(nodeid=5, pred=RealPred('cat', 'n', '1'), sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
+               Node(nodeid=5, pred=RealPred('cat', 'n', '1'),
+                    sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
                Node(nodeid=6, pred=GPred('udef_q')),
-               Node(nodeid=7, pred=RealPred('and', 'c'), sortinfo=InstanceSortinfo(pers='3', num='pl')),
+               Node(nodeid=7, pred=RealPred('and', 'c'),
+                    sortinfo=InstanceSortinfo(pers='3', num='pl')),
                Node(nodeid=8, pred=RealPred('the', 'q')),
-               Node(nodeid=9, pred=RealPred('mouse', 'n', '1'), sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+'))],
+               Node(nodeid=9, pred=RealPred('mouse', 'n', '1'),
+                    sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+'))],
         links=[Link(start=1, end=2, rargname='RSTR', post='H'),
                Link(start=3, end=2, rargname='ARG1', post='NEQ'),
                Link(start=3, end=7, rargname='ARG2', post='NEQ'),
@@ -79,16 +121,23 @@ def the_dog_chases_the_cat_and_the_mouse():
 def the_dog_chases_the_cat_and_the_cat_chases_the_mouse():
     return DictDmrs(
         nodes=[Node(nodeid=1, pred=RealPred('the', 'q')),
-               Node(nodeid=2, pred=RealPred('dog', 'n', '1'), sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
-               Node(nodeid=3, pred=RealPred('chase', 'v', '1'), sortinfo=EventSortinfo(sf='prop', tense='pres', mood='indicative')),
+               Node(nodeid=2, pred=RealPred('dog', 'n', '1'),
+                    sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
+               Node(nodeid=3, pred=RealPred('chase', 'v', '1'),
+                    sortinfo=EventSortinfo(sf='prop', tense='pres', mood='indicative')),
                Node(nodeid=4, pred=RealPred('the', 'q')),
-               Node(nodeid=5, pred=RealPred('cat', 'n', '1'), sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
-               Node(nodeid=6, pred=RealPred('and', 'c'), sortinfo=InstanceSortinfo(pers='3', num='pl')),
+               Node(nodeid=5, pred=RealPred('cat', 'n', '1'),
+                    sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
+               Node(nodeid=6, pred=RealPred('and', 'c'),
+                    sortinfo=InstanceSortinfo(pers='3', num='pl')),
                Node(nodeid=7, pred=RealPred('the', 'q')),
-               Node(nodeid=8, pred=RealPred('cat', 'n', '1'), sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
-               Node(nodeid=9, pred=RealPred('chase', 'v', '1'), sortinfo=EventSortinfo(sf='prop', tense='pres', mood='indicative')),
+               Node(nodeid=8, pred=RealPred('cat', 'n', '1'),
+                    sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
+               Node(nodeid=9, pred=RealPred('chase', 'v', '1'),
+                    sortinfo=EventSortinfo(sf='prop', tense='pres', mood='indicative')),
                Node(nodeid=10, pred=RealPred('the', 'q')),
-               Node(nodeid=11, pred=RealPred('mouse', 'n', '1'), sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+'))],
+               Node(nodeid=11, pred=RealPred('mouse', 'n', '1'),
+                    sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+'))],
         links=[Link(start=1, end=2, rargname='RSTR', post='H'),
                Link(start=3, end=2, rargname='ARG1', post='NEQ'),
                Link(start=3, end=5, rargname='ARG2', post='NEQ'),
@@ -113,5 +162,6 @@ def predsort():
 
 def noun():
     dmrs = DictDmrs()
-    dmrs.add_node(Node(pred=RealPred('', 'n', ''), sortinfo=Sortinfo()))  # underspecified noun and sortinfo
+    dmrs.add_node(
+        Node(pred=RealPred('', 'n', ''), sortinfo=Sortinfo()))  # underspecified noun and sortinfo
     return dmrs
