@@ -1,8 +1,10 @@
-
+from pydmrs._exceptions import PydmrsTypeError
+from pydmrs.components import RealPred
+from pydmrs.core import DictDmrs
 from pydmrs.matching.common import are_equal_nodes, are_equal_links
-from pydrms.core import DictDmrs, RealPred, Node
 
-from itertools import product, combinations, chain
+from itertools import product, chain
+
 
 class Match(object):
     """ A mapping between two DMRS objects.
@@ -10,7 +12,8 @@ class Match(object):
         nodeid1 and nodeid2 come from different DMRS.
         The link_pairs is the link equivalent of the nodeid_pairs.
     """
-    def __init__(self, nodeid_pairs = [], link_pairs = []):
+
+    def __init__(self, nodeid_pairs=[], link_pairs=[]):
         self.nodeid_pairs = nodeid_pairs
         self.link_pairs = link_pairs
 
@@ -33,18 +36,18 @@ class Match(object):
                     nodes1.append(node_pair[0])
                     nodes2.append(node_pair[1])
 
-            links1_from2, links2_from2 = map(list, zip(*match.link_pairs))
             for link1, link2 in match.link_pairs:
                 if link1.start in nodes1 and link1.end in nodes1:
                     if link2.start in nodes2 and link2.end in nodes2:
                         self.link_pairs.append((link1, link2))
 
-#------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
 def group_same_nodes(nodes):
     """ Groups nodeids of equivalent nodes into sublists, using are_equal_nodes
         as the equivalency criterion.
 
-        :param A list of nodes.
+        :param nodes A list of nodes.
         :return A list of tuples (pred, id list) sorted by pred. The pred is
                 the shared predicate of the group; the id_list is a list of
                 nodeids of equivalent nodes.
@@ -52,7 +55,8 @@ def group_same_nodes(nodes):
     grouped_nodes = []
     group_node_type = None
     current_group = []
-    for node in sorted(nodes, key = lambda n: n.pred):
+    sorted_nodes = sorted(nodes, key=lambda n: str(n.pred))
+    for node in sorted_nodes:
         if not group_node_type:
             group_node_type = node
             current_group.append(node.nodeid)
@@ -64,6 +68,7 @@ def group_same_nodes(nodes):
             group_node_type = node
     grouped_nodes.append((group_node_type.pred, current_group))
     return grouped_nodes
+
 
 def pair_same_node_groups(dmrs1, dmrs2):
     """ Finds which nodes in dmrs1 are equivalent to which nodes in dmrs2.
@@ -87,11 +92,12 @@ def pair_same_node_groups(dmrs1, dmrs2):
             i += 1
             j += 1
         else:
-            if pred1 > pred2:
+            if str(pred1) > str(pred2):
                 j += 1
             else:
                 i += 1
     return grouped_nodes
+
 
 def find_match(start_id1, start_id2, dmrs1, dmrs2, matched_nodes, matched_links):
     """ Finds a match between dmrs1 and dmrs2.
@@ -101,7 +107,7 @@ def find_match(start_id1, start_id2, dmrs1, dmrs2, matched_nodes, matched_links)
         :param start_id2 A nodeid of a node from dmrs2 from which the graph traversal should be started.
         :param matched_nodes Nodes matched so far during the graph traversal
                              Gets updated during recursion. Use an empty list for the top call.
-        :param matched_link Link matched so far during the graph traversal.
+        :param matched_links Link matched so far during the graph traversal.
                             Gets updated during recursion. Use an empty list for the top call.
 
         The two start nodes should be equivalent by are_equal_nodes criterion.
@@ -114,7 +120,7 @@ def find_match(start_id1, start_id2, dmrs1, dmrs2, matched_nodes, matched_links)
 
         :return A Match composed of updated matched_nodes, matched_links.
     """
-    assert(are_equal_nodes(dmrs1[start_id1], dmrs2[start_id2]))
+    assert (are_equal_nodes(dmrs1[start_id1], dmrs2[start_id2]))
     matched_nodes.append((start_id1, start_id2))
 
     node_queue = []
@@ -146,6 +152,7 @@ def find_match(start_id1, start_id2, dmrs1, dmrs2, matched_nodes, matched_links)
             find_match(nodeid1, nodeid2, dmrs1, dmrs2, matched_nodes, matched_links)
     return Match(matched_nodes, matched_links)
 
+
 def find_all_matches(dmrs1, dmrs2):
     """ Finds all regions with potential matches between two DMRS graphs.
         :param dmrs1 A DMRS object. For matching, the small dmrs.
@@ -166,7 +173,7 @@ def find_all_matches(dmrs1, dmrs2):
     # Exclude GPreds and some quantifiers from the pool of start nodes.
     filter_func = lambda pairing: isinstance(pairing[0], RealPred) and pairing[0].lemma not in ['a', 'the']
     filtered_pairings = filter(filter_func, node_pairings)
-    sorted_pairings = sorted(filtered_pairings, key = lambda pairing: len(pairing[1])*len(pairing[2]))
+    sorted_pairings = sorted(filtered_pairings, key=lambda pairing: len(pairing[1]) * len(pairing[2]))
 
     for pred, group1, group2 in sorted_pairings:
         all_pairs = product(group1, group2)
@@ -175,7 +182,8 @@ def find_all_matches(dmrs1, dmrs2):
                 match = find_match(pair[0], pair[1], dmrs1, dmrs2, [], [])
                 checked_node_pairs.extend(match.nodeid_pairs)
                 matches.append(match)
-    return matches #(matched_nodes, matched_links)
+    return matches  # (matched_nodes, matched_links)
+
 
 def are_compatible_matches(match1, match2):
     """ Checks if two matches are possible simultaneously. Two matches are conflicting
@@ -192,6 +200,7 @@ def are_compatible_matches(match1, match2):
     else:
         return False
 
+
 def group_compatible_matches(matches):
     """ Groups matches into compatible sets of indices of non-conflicting matches.
         Indices are given by the positions in the matches list.
@@ -203,7 +212,7 @@ def group_compatible_matches(matches):
     are_all_clashes = True
     clash_pairs = []
     for i in range(len(matches)):
-        for j in range(i+1, len(matches)):
+        for j in range(i + 1, len(matches)):
             if i != j:
                 if are_compatible_matches(matches[i], matches[j]):
                     are_all_clashes = False
@@ -211,7 +220,7 @@ def group_compatible_matches(matches):
                     clash_pairs.append((i, j))
                     clash_pairs.append((j, i))
 
-    combinations = [set([i]) for i in range(len(matches))]
+    combinations = [{i} for i in range(len(matches))]
     if are_all_clashes:
         return combinations
 
@@ -228,7 +237,8 @@ def group_compatible_matches(matches):
                         break
                 if not clash:
                     comb.add(i)
-    return combinations # list of sets
+    return combinations  # list of sets
+
 
 def find_biggest_disjoint_matches(matches):
     """ Finds collections of compatible matches which maximize the number of
@@ -250,7 +260,7 @@ def find_biggest_disjoint_matches(matches):
         elif group_score == best_score:
             best_groups.append(group)
 
-    full_matches= []
+    full_matches = []
     for group in best_groups:
         nodes = list(chain(*[matches[i].nodeid_pairs for i in group]))
         links = list(chain(*[matches[i].link_pairs for i in group]))
@@ -258,8 +268,8 @@ def find_biggest_disjoint_matches(matches):
     return full_matches
 
 
-#-------------------------------------------------------------------------------\
-#IMPORTANT
+# -------------------------------------------------------------------------------\
+# IMPORTANT
 def find_best_matches(small_dmrs, large_dmrs):
     """ Finds the best matches between two DMRS (in case more the one reached
         the same score).
@@ -273,7 +283,7 @@ def find_best_matches(small_dmrs, large_dmrs):
         return None
     else:
         if len(matches) == 1:
-            return all_matches
+            return matches
 
         best_combinations = []
         indexed_best_combined_matches = find_biggest_disjoint_matches(matches)
@@ -282,8 +292,8 @@ def find_best_matches(small_dmrs, large_dmrs):
             for extra_match in leftovers:
                 match.add(extra_match)
             best_combinations.append(match)
-        print(best_combinations)
         return best_combinations
+
 
 def get_matched_subgraph(large_dmrs, match):
     """ Returns the subgraph of large_dmrs described by match.
@@ -293,12 +303,14 @@ def get_matched_subgraph(large_dmrs, match):
         :return A DMRS object containing only the matched elements from large_dmrs.
                 The graph can be disconnected.
     """
-    links = zip(*match.link_pairs)[1]
-    nodeids = zip(*match.nodeid_pairs)[1]
-    nodes = [dmrs2[nodeid] for nodeid in nodeids]
+    links = list(zip(*match.link_pairs))[1]
+    nodeids = list(zip(*match.nodeid_pairs))[1]
+    nodes = [large_dmrs[nodeid] for nodeid in nodeids]
     return DictDmrs(nodes, links)
 
 def get_recall(match, dmrs):
+    if isinstance(match, list) and isinstance(match[0], Match):
+        raise PydmrsTypeError("More than one match passed in an argument.")
     return len(match)/(len(dmrs.nodes)+len(dmrs.links))
 
 def get_fscore(match, dmrs):
