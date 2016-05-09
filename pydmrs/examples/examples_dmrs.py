@@ -163,5 +163,5 @@ def predsort():
 def noun():
     dmrs = DictDmrs()
     dmrs.add_node(
-        Node(pred=RealPred('', 'n', ''), sortinfo=Sortinfo()))  # underspecified noun and sortinfo
+        Node(pred=RealPred('?', 'n', 'unknown'), sortinfo=Sortinfo()))  # underspecified noun and sortinfo
     return dmrs
