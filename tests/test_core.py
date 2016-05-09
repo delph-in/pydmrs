@@ -9,8 +9,8 @@ from pydmrs.core import (
     SetDict, DictDmrs,
     PointerMixin, ListPointDmrs, DictPointDmrs,
     SortDictDmrs,
-    filter_links
-)
+    filter_links)
+from pydmrs.examples import examples_dmrs
 
 
 class TestLink(unittest.TestCase):
@@ -214,7 +214,8 @@ class TestNode(unittest.TestCase):
         sortinfo1 = {'cvarsort': 'e', 'tense': 'past'}
         sortinfo2 = {'cvarsort': 'e', 'tense': 'pres'}
 
-        # Two nodes are equal if they have the same pred, sortinfo and carg, even if all the other elements are different
+        # Two nodes are equal if they have the same pred, sortinfo and carg,
+        # even if all the other elements are different
         node1 = Node(nodeid=23, pred='the_q', sortinfo=sortinfo1, cfrom=2, cto=22, carg='Kim', surface='cat', base='x')
         node2 = Node(nodeid=25, pred='the_q', sortinfo=sortinfo1, cfrom=15, carg='Kim', surface='mad', base='w')
         self.assertEqual(node1, node2)
@@ -289,3 +290,56 @@ class TestNode(unittest.TestCase):
         self.assertTrue(realnode.is_realpred_node)
         self.assertFalse(gnode.is_realpred_node)
         self.assertFalse(realnode.is_gpred_node)
+
+
+class TestDmrs(unittest.TestCase):
+    def setUp(self):
+        self.test_dmrs = examples_dmrs.the_dog_chases_the_cat()
+
+    def test_contains(self):
+        self.assertTrue(4 in self.test_dmrs)
+        self.assertFalse(16 in self.test_dmrs)
+
+    def test_iter_outgoing(self):
+        with self.assertRaises(PydmrsValueError):
+            self.test_dmrs.iter_outgoing(15)
+
+        self.test_dmrs.add_link(Link(3, 4, 'None', 'EQ'))
+        out_it = self.test_dmrs.iter_outgoing(3)
+        # Check that an iterator returned
+        self.assertTrue(hasattr(out_it, '__next__'))
+        # EQ link counted as outgoing
+        self.assertCountEqual(list(out_it), [Link(3, 5, 'ARG2', 'NEQ'), Link(3, 2, 'ARG1', 'NEQ'),
+                                             Link(3, 4, None, 'EQ')])
+        # TODO: Treat EQ links symmetrically or not at all, as long as it's consistent.
+        # Test e.g.
+        # self.test_dmrs.add_link(Link(4, 3, 'None', 'EQ'))
+        # out_it = self.test_dmrs.iter_outgoing(3)
+        # self.assertIn(Link(4, 3, 'None', 'EQ'), list(out_it))
+
+        # No outgoing links
+        out_it = self.test_dmrs.iter_outgoing(2)
+        with self.assertRaises(StopIteration):
+            next(out_it)
+
+    def test_iter_incoming(self):
+        with self.assertRaises(PydmrsValueError):
+            self.test_dmrs.iter_incoming(15)
+
+        self.test_dmrs.add_link(Link(4, 2, 'None', 'EQ'))
+        in_it = self.test_dmrs.iter_incoming(2)
+        # Check that an iterator returned
+        self.assertTrue(hasattr(in_it, '__next__'))
+        # EQ link counted as incoming
+        self.assertCountEqual(list(in_it), [Link(1, 2, 'RSTR', 'H'), Link(3, 2, 'ARG1', 'NEQ'), Link(4, 2, None, 'EQ')])
+
+        # TODO: Treat EQ links symmetrically or not at all, as long as it's consistent.
+        # Test e.g.
+        # self.test_dmrs.add_link(Link(2, 4, 'None', 'EQ'))
+        # in_it = self.test_dmrs.iter_incoming(2)
+        # self.assertIn(Link(2, 4, 'None', 'EQ'), list(in_it))
+
+        # No incoming links
+        in_it = self.test_dmrs.iter_incoming(3)
+        with self.assertRaises(StopIteration):
+            next(in_it)
