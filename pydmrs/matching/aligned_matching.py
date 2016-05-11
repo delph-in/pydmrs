@@ -1,4 +1,4 @@
-from pydmrs.core import DictDmrs
+from pydmrs.core import SortDictDmrs
 from pydmrs.matching.common import are_equal_nodes, are_equal_links
 
 def sort_nodes(nodes):
@@ -101,27 +101,27 @@ def find_extra_surface_nodeids(orderids, sorted_large_nodes):
     """
     extra_nodeids = []
     first_overlap_orderid = orderids[0]
-    min_cfrom = sorted_nodes[first_overlap_orderid].cfrom
+    min_cfrom = sorted_large_nodes[first_overlap_orderid].cfrom
 
     # Check if any earlier nodes also in the region.
     while True:
-        prev_cfrom = sorted_nodes[first_overlap_orderid-1].cfrom
+        prev_cfrom = sorted_large_nodes[first_overlap_orderid-1].cfrom
         if prev_cfrom == min_cfrom:
             first_overlap_orderid -= 1
-            extra_nodeids.append(sorted_nodes[first_overlap_orderid].nodeid)
+            extra_nodeids.append(sorted_large_nodes[first_overlap_orderid].nodeid)
         else:
             break
 
     # Find the last node in the region.
-    last_overlap_orderid = matched_orderids[-1]
-    max_cto = sorted_nodes[last_overlap_orderid].cto
-    for i in range(first_overlap_orderid, len(sorted_nodes)):
-        if sorted_nodes[i].cfrom > max_cto:
+    last_overlap_orderid = orderids[-1]
+    max_cto = sorted_large_nodes[last_overlap_orderid].cto
+    for i in range(first_overlap_orderid, len(sorted_large_nodes)):
+        if sorted_large_nodes[i].cfrom > max_cto:
             break
         else:
             if i not in orderids:
-                extra_nodeids.append(sorted_nodes[i].nodeid)
-            cto = sorted_nodes[i].cto
+                extra_nodeids.append(sorted_large_nodes[i].nodeid)
+            cto = sorted_large_nodes[i].cto
             if cto >= max_cto:
                 max_cto = cto
                 if i > last_overlap_orderid:
@@ -140,7 +140,7 @@ def get_subgraph(dmrs, subgraph_nodeids):
             if link.end in subgraph_nodeids:
                 links.append(link)
     nodes = [dmrs[nodeid] for nodeid in subgraph_nodeids]
-    return DictDmrs(nodes, links)
+    return SortDictDmrs(nodes, links)
 
 #-------------------------------------------------------------------------------
 
@@ -170,7 +170,7 @@ def get_link_diff(small_dmrs, matched_subgraph, matching_nodeids):
                     small_only.append(link1)
             for i in range(0, len(subgraph_links)):
                 if not links_flag[i]:
-                    subgraph_only.append(links[i])
+                    subgraph_only.append(subgraph_links[i])
         else:
             subgraph_only.extend(matched_subgraph.get_out(subgraph_nodeid))
 
@@ -226,7 +226,7 @@ def get_matching_nodeids(small_dmrs, large_dmrs, all_surface=False):
         matched_large_orderids = list(zip(*match))[1] # [(order ids from small dmrs), (order ids from the
         paired_nodeids = get_matched_nodeids_from_orderids(sorted_small_nodes, sorted_large_nodes, match)
         if all_surface:
-            extra_overlap_nodeids = find_extra_surface_overlap(matched_large_nodeids, sorted_large_nodes)
+            extra_overlap_nodeids = find_extra_surface_nodeids(matched_large_orderids, sorted_large_nodes)
             paired_nodeids.extend([(None, nodeid) for nodeid in extra_overlap_nodeids])
         all_matched_nodeids.append(paired_nodeids)
 
@@ -236,7 +236,7 @@ def get_matched_subgraph(matching_nodeids, large_dmrs):
     present_large_nodeids = list(zip(*matching_nodeids))[1]
     return get_subgraph(large_dmrs, present_large_nodeids)
 
-def get_fscore(small_dmrs, matched_subgraph, matching_nodeids):
+def get_score(small_dmrs, matched_subgraph, matching_nodeids):
     num_extra_nodes = len([pair for pair in matching_nodeids if pair[0] is None])
     num_matched_nodes = len(matching_nodeids)-num_extra_nodes
     num_missing_nodes = len([nodeid for nodeid in small_dmrs if nodeid not in list(zip(*matching_nodeids))[0]])
@@ -246,11 +246,15 @@ def get_fscore(small_dmrs, matched_subgraph, matching_nodeids):
     num_missing_links = len(only_small_links)
     num_shared_links = len(shared_links)
 
-    num_matched = num_matched_nodes + num_shared_links
-    num_selected = num_matched + num_extra_links + num_extra_nodes
-    num_relevant = num_matched + num_missing_links + num_missing_nodes
+    num_correct = num_matched_nodes + num_shared_links
+    num_matched = num_correct + num_extra_links + num_extra_nodes
+    num_expected = num_correct + num_missing_links + num_missing_nodes
 
-    precision = num_matched/num_selected
-    recall = num_matched/num_relevant
+    return num_correct, num_matched, num_expected
+
+
+def get_fscore(num_correct, num_matched, num_expected):
+    precision = num_correct/num_matched
+    recall = num_correct/num_expected
 
     return 2*precision*recall/(precision+recall) # f_score
