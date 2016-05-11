@@ -17,7 +17,7 @@ def dmrs_exact_matching(sub_dmrs, dmrs, match_top_index=False):
 
     # find matchable nodes and add unambiguous matchings
     for sub_node in sub_dmrs.iter_nodes():
-        match = [node.nodeid for node in dmrs.iter_nodes() if sub_node <= node]
+        match = [node.nodeid for node in dmrs.iter_nodes() if sub_node == node or sub_node.is_less_specific(node)]
         if match:
             if len(match) == 1:
                 matching[sub_node.nodeid] = match[0]
