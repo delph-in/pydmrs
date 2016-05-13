@@ -1,15 +1,11 @@
-import unittest, warnings
+import unittest
+import warnings
 
 from pydmrs._exceptions import PydmrsTypeError, PydmrsValueError
-from pydmrs.components import Pred, GPred, RealPred, Sortinfo, EventSortinfo, InstanceSortinfo
+from pydmrs.components import Pred, GPred, Sortinfo, EventSortinfo, InstanceSortinfo
 from pydmrs.core import (
     Link, LinkLabel,
-    Node, PointerNode,
-    Dmrs, ListDmrs,
-    SetDict, DictDmrs,
-    PointerMixin, ListPointDmrs, DictPointDmrs,
-    SortDictDmrs,
-    filter_links)
+    Node, span_pred_key, abstractSortDictDmrs)
 from pydmrs.examples import examples_dmrs
 
 
@@ -164,7 +160,8 @@ class TestNode(unittest.TestCase):
     """
 
     def test_Node_init(self):
-        node = Node(nodeid=13, pred='the_q', surface='cat', base='x', cfrom=23, cto=27, carg='Kim', )
+        node = Node(nodeid=13, pred='the_q', surface='cat', base='x', cfrom=23, cto=27,
+                    carg='Kim', )
         self.assertEqual(node.nodeid, 13)
         self.assertEqual(node.surface, 'cat')
         self.assertEqual(node.base, 'x')
@@ -190,11 +187,14 @@ class TestNode(unittest.TestCase):
         # Allow None for sortinfo.
         self.assertEqual(Node().sortinfo, None)
         # Dict sortinfo
-        self.assertEqual(Node(sortinfo={'cvarsort': 'i', 'pers': '3'}).sortinfo, InstanceSortinfo(pers='3'))
+        self.assertEqual(Node(sortinfo={'cvarsort': 'i', 'pers': '3'}).sortinfo,
+                         InstanceSortinfo(pers='3'))
         # Sortinfo sortinfo
-        self.assertEqual(Node(sortinfo=InstanceSortinfo(pers='3')).sortinfo, InstanceSortinfo(pers='3'))
+        self.assertEqual(Node(sortinfo=InstanceSortinfo(pers='3')).sortinfo,
+                         InstanceSortinfo(pers='3'))
         # List sortinfo
-        self.assertEqual(Node(sortinfo=[('cvarsort', 'i'), ('pers', '3')]).sortinfo, InstanceSortinfo(pers='3'))
+        self.assertEqual(Node(sortinfo=[('cvarsort', 'i'), ('pers', '3')]).sortinfo,
+                         InstanceSortinfo(pers='3'))
         # But nothing else.
         with self.assertRaises(PydmrsTypeError):
             Node(sortinfo="x[pers=3, num=sg, ind=+]")
@@ -202,7 +202,8 @@ class TestNode(unittest.TestCase):
     def test_Node_str(self):
         node = Node()
         self.assertEqual(str(node), "None")
-        node = Node(nodeid=2, pred='_dog_n_1', sortinfo=dict(cvarsort='i', pers='3', num='sg', ind='+'), carg='Pat')
+        node = Node(nodeid=2, pred='_dog_n_1',
+                    sortinfo=dict(cvarsort='i', pers='3', num='sg', ind='+'), carg='Pat')
         self.assertEqual(str(node), '_dog_n_1(Pat) x[pers=3, num=sg, ind=+]')
 
     def test_Node_eq(self):
@@ -216,8 +217,10 @@ class TestNode(unittest.TestCase):
 
         # Two nodes are equal if they have the same pred, sortinfo and carg,
         # even if all the other elements are different
-        node1 = Node(nodeid=23, pred='the_q', sortinfo=sortinfo1, cfrom=2, cto=22, carg='Kim', surface='cat', base='x')
-        node2 = Node(nodeid=25, pred='the_q', sortinfo=sortinfo1, cfrom=15, carg='Kim', surface='mad', base='w')
+        node1 = Node(nodeid=23, pred='the_q', sortinfo=sortinfo1, cfrom=2, cto=22, carg='Kim',
+                     surface='cat', base='x')
+        node2 = Node(nodeid=25, pred='the_q', sortinfo=sortinfo1, cfrom=15, carg='Kim',
+                     surface='mad', base='w')
         self.assertEqual(node1, node2)
 
         # Different carg
@@ -267,10 +270,14 @@ class TestNode(unittest.TestCase):
         self.assertFalse(Node().is_less_specific(Node(sortinfo=Sortinfo())))
         self.assertFalse(Node(sortinfo=Sortinfo()).is_more_specific(Node(sortinfo=Sortinfo())))
         self.assertFalse(Node(sortinfo=Sortinfo()).is_less_specific(Node(sortinfo=Sortinfo())))
-        self.assertFalse(Node(sortinfo=Sortinfo()).is_more_specific(Node(sortinfo=EventSortinfo(sf='abc'))))
-        self.assertTrue(Node(sortinfo=Sortinfo()).is_less_specific(Node(sortinfo=EventSortinfo(sf='abc'))))
-        self.assertTrue(Node(sortinfo=EventSortinfo(sf='abc')).is_more_specific(Node(sortinfo=Sortinfo())))
-        self.assertFalse(Node(sortinfo=EventSortinfo(sf='abc')).is_less_specific(Node(sortinfo=Sortinfo())))
+        self.assertFalse(
+            Node(sortinfo=Sortinfo()).is_more_specific(Node(sortinfo=EventSortinfo(sf='abc'))))
+        self.assertTrue(
+            Node(sortinfo=Sortinfo()).is_less_specific(Node(sortinfo=EventSortinfo(sf='abc'))))
+        self.assertTrue(
+            Node(sortinfo=EventSortinfo(sf='abc')).is_more_specific(Node(sortinfo=Sortinfo())))
+        self.assertFalse(
+            Node(sortinfo=EventSortinfo(sf='abc')).is_less_specific(Node(sortinfo=Sortinfo())))
         # mixed specification
         self.assertFalse(Node(pred=Pred()).is_more_specific(Node(carg='?')))
         self.assertFalse(Node(pred=Pred()).is_less_specific(Node(carg='?')))
@@ -331,9 +338,10 @@ class TestDmrs(unittest.TestCase):
         # Check that an iterator returned
         self.assertTrue(hasattr(in_it, '__next__'))
         # EQ link counted as incoming
-        self.assertCountEqual(list(in_it), [Link(1, 2, 'RSTR', 'H'), Link(3, 2, 'ARG1', 'NEQ'), Link(4, 2, None, 'EQ')])
+        self.assertCountEqual(list(in_it), [Link(1, 2, 'RSTR', 'H'), Link(3, 2, 'ARG1', 'NEQ'),
+                                            Link(4, 2, None, 'EQ')])
 
-        # TODO: Treat EQ links symmetrically or not at all, as long as it's consistent.
+        # TODO: Treat EQ links somehow.
         # Test e.g.
         # self.test_dmrs.add_link(Link(2, 4, 'None', 'EQ'))
         # in_it = self.test_dmrs.iter_incoming(2)

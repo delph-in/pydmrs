@@ -62,7 +62,7 @@ class TestGeneralMatching(unittest.TestCase):
         self.assertCountEqual(matches[0].link_pairs,
                              [(Link(1, 2, 'RSTR', 'H'), Link(4, 5, 'RSTR', 'H'))])
 
-        # Match "the cat chases the dog" onto "the dog chases the cat" (inexact fit)
+        # Match "the dog chases the cat" onto "the cat chases the dog" (inexact fit)
         matches = general_matching.find_best_matches(self.small_dmrs, self.reverse_dmrs)
         self.assertEqual(len(matches), 1)
         self.assertCountEqual(matches[0].nodeid_pairs, [(5, 2), (4, 1), (3, 3), (2, 5), (1, 4)])
