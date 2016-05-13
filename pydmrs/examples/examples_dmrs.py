@@ -9,9 +9,9 @@ def the():
 
 
 def the_cat():
-    dmrs = DictDmrs()
-    dmrs.add_node(Node(nodeid=1, pred=RealPred('the', 'q')))
-    dmrs.add_node(Node(nodeid=2, pred=RealPred('cat', 'n', '1'),
+    dmrs = DictDmrs(surface='the cat')
+    dmrs.add_node(Node(nodeid=1, pred=RealPred('the', 'q'), cfrom=0, cto=3))
+    dmrs.add_node(Node(nodeid=2, pred=RealPred('cat', 'n', '1'), cfrom=4, cto=7,
                        sortinfo=InstanceSortinfo(pers='3', num='sg',
                                                  ind='+')))  # underspecified sortinfo
     dmrs.add_link(Link(start=1, end=2, rargname='RSTR', post='H'))
@@ -19,32 +19,33 @@ def the_cat():
 
 
 def the_mouse():
-    dmrs = DictDmrs()
-    dmrs.add_node(Node(nodeid=1, pred=RealPred('the', 'q')))
-    dmrs.add_node(Node(nodeid=2, pred=RealPred('mouse', 'n', '1'),
+    dmrs = DictDmrs(surface='the mouse')
+    dmrs.add_node(Node(nodeid=1, pred=RealPred('the', 'q'), cfrom=0, cto=3))
+    dmrs.add_node(Node(nodeid=2, pred=RealPred('mouse', 'n', '1'), cfrom=4, cto=9,
                        sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')))
     dmrs.add_link(Link(start=1, end=2, rargname='RSTR', post='H'))
     return dmrs
 
 
 def dog_cat():
-    dmrs = DictDmrs()
-    dmrs.add_node(Node(pred=RealPred('dog', 'n', '1'),
+    dmrs = DictDmrs(surface='dog cat')
+    dmrs.add_node(Node(pred=RealPred('dog', 'n', '1'), cfrom=0, cto=3,
                        sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')))
-    dmrs.add_node(Node(pred=RealPred('cat', 'n', '1'),
+    dmrs.add_node(Node(pred=RealPred('cat', 'n', '1'), cfrom=4, cto=7,
                        sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')))
     return dmrs
 
 
 def the_dog_chases_the_cat():
     return DictDmrs(
-        nodes=[Node(nodeid=1, pred=RealPred('the', 'q')),
-               Node(nodeid=2, pred=RealPred('dog', 'n', '1'),
+        surface='the dog chases the cat',
+        nodes=[Node(nodeid=1, pred=RealPred('the', 'q'), cfrom=0, cto=3),
+               Node(nodeid=2, pred=RealPred('dog', 'n', '1'), cfrom=4, cto=7,
                     sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
-               Node(nodeid=3, pred=RealPred('chase', 'v', '1'),
+               Node(nodeid=3, pred=RealPred('chase', 'v', '1'), cfrom=8, cto=14,
                     sortinfo=EventSortinfo(sf='prop', tense='pres', mood='indicative')),
-               Node(nodeid=4, pred=RealPred('the', 'q')),
-               Node(nodeid=5, pred=RealPred('cat', 'n', '1'),
+               Node(nodeid=4, pred=RealPred('the', 'q'), cfrom=15, cto=18),
+               Node(nodeid=5, pred=RealPred('cat', 'n', '1'), cfrom=19, cto=22,
                     sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+'))],
         links=[Link(start=1, end=2, rargname='RSTR', post='H'),
                Link(start=3, end=2, rargname='ARG1', post='NEQ'),
@@ -56,13 +57,14 @@ def the_dog_chases_the_cat():
 
 def the_cat_chases_the_dog():
     return DictDmrs(
-        nodes=[Node(nodeid=1, pred=RealPred('the', 'q')),
-               Node(nodeid=2, pred=RealPred('cat', 'n', '1'),
+        surface='the cat chases the dog',
+        nodes=[Node(nodeid=1, pred=RealPred('the', 'q'), cfrom=0, cto=3),
+               Node(nodeid=2, pred=RealPred('cat', 'n', '1'), cfrom=4, cto=7,
                     sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+')),
-               Node(nodeid=3, pred=RealPred('chase', 'v', '1'),
+               Node(nodeid=3, pred=RealPred('chase', 'v', '1'), cfrom=8, cto=14,
                     sortinfo=EventSortinfo(sf='prop', tense='pres', mood='indicative')),
-               Node(nodeid=4, pred=RealPred('the', 'q')),
-               Node(nodeid=5, pred=RealPred('dog', 'n', '1'),
+               Node(nodeid=4, pred=RealPred('the', 'q'), cfrom=15, cto=18),
+               Node(nodeid=5, pred=RealPred('dog', 'n', '1'), cfrom=19, cto=22,
                     sortinfo=InstanceSortinfo(pers='3', num='sg', ind='+'))],
         links=[Link(start=1, end=2, rargname='RSTR', post='H'),
                Link(start=3, end=2, rargname='ARG1', post='NEQ'),
