@@ -1,9 +1,9 @@
+from itertools import product, chain
+
 from pydmrs._exceptions import PydmrsTypeError
 from pydmrs.components import RealPred
 from pydmrs.core import DictDmrs
 from pydmrs.matching.common import are_equal_nodes, are_equal_links
-
-from itertools import product, chain
 
 
 class Match(object):
@@ -25,7 +25,7 @@ class Match(object):
 
     def add(self, match):
         """Combines self with match, resolving any conflicts in favour of self."""
-        if are_compatible_matches(self, match):
+        if self.is_compatible(match):
             self.nodeid_pairs.extend(match.nodeid_pairs)
             self.link_pairs.extend(match.link_pairs)
         else:
@@ -40,6 +40,22 @@ class Match(object):
                 if link1.start in nodes1 and link1.end in nodes1:
                     if link2.start in nodes2 and link2.end in nodes2:
                         self.link_pairs.append((link1, link2))
+
+    def is_compatible(self, match2):
+        """ Checks if two matches are possible simultaneously. Two matches are conflicting
+            if they pair nodes differently, e.g. (10001, 10003) in self and
+            (10001, 10005) in match2.
+            :param match2 Another Match object.
+            :return True/False
+        """
+        if len(self) == 0 or len(match2) == 0:
+            return True
+        nodeA_set1, nodeA_set2 = map(set, zip(*self.nodeid_pairs))
+        nodeB_set1, nodeB_set2 = map(set, zip(*match2.nodeid_pairs))
+        if nodeA_set1.isdisjoint(nodeB_set1) and nodeA_set2.isdisjoint(nodeB_set2):
+            return True
+        else:
+            return False
 
 
 # ------------------------------------------------------------------------------
@@ -171,9 +187,11 @@ def find_all_matches(dmrs1, dmrs2):
 
     # Sort pairs so that the ones with fewer matching combination are considered first.
     # Exclude GPreds and some quantifiers from the pool of start nodes.
-    filter_func = lambda pairing: isinstance(pairing[0], RealPred) and pairing[0].lemma not in ['a', 'the']
+    filter_func = lambda pairing: isinstance(pairing[0], RealPred) and pairing[0].lemma not in ['a',
+                                                                                                'the']
     filtered_pairings = filter(filter_func, node_pairings)
-    sorted_pairings = sorted(filtered_pairings, key=lambda pairing: len(pairing[1]) * len(pairing[2]))
+    sorted_pairings = sorted(filtered_pairings,
+                             key=lambda pairing: len(pairing[1]) * len(pairing[2]))
 
     for pred, group1, group2 in sorted_pairings:
         all_pairs = product(group1, group2)
@@ -183,24 +201,6 @@ def find_all_matches(dmrs1, dmrs2):
                 checked_node_pairs.extend(match.nodeid_pairs)
                 matches.append(match)
     return matches  # (matched_nodes, matched_links)
-
-
-def are_compatible_matches(match1, match2):
-    """ Checks if two matches are possible simultaneously. Two matches are conflicting
-        if they pair nodes differently, e.g. (10001, 10003) in match1 and
-        (10001, 10005) in match2.
-        :param match1 A Match object.
-        :param match2 Another Match object.
-        :return True/False
-    """
-    if len(match1) == 0 or len(match2) == 0:
-        return True
-    nodeA_set1, nodeA_set2 = map(set, zip(*match1.nodeid_pairs))
-    nodeB_set1, nodeB_set2 = map(set, zip(*match2.nodeid_pairs))
-    if nodeA_set1.isdisjoint(nodeB_set1) and nodeA_set2.isdisjoint(nodeB_set2):
-        return True
-    else:
-        return False
 
 
 def group_compatible_matches(matches):
@@ -216,7 +216,7 @@ def group_compatible_matches(matches):
     for i in range(len(matches)):
         for j in range(i + 1, len(matches)):
             if i != j:
-                if are_compatible_matches(matches[i], matches[j]):
+                if matches[i].is_compatible(matches[j]):
                     are_all_clashes = False
                 else:
                     clash_pairs.append((i, j))
@@ -310,15 +310,18 @@ def get_matched_subgraph(large_dmrs, match):
     nodes = [large_dmrs[nodeid] for nodeid in nodeids]
     return DictDmrs(nodes, links)
 
+
 def get_recall(match, dmrs):
     if isinstance(match, list) and isinstance(match[0], Match):
         raise PydmrsTypeError("More than one match passed in an argument.")
-    return len(match)/(len(dmrs.nodes)+len(dmrs.links))
+    return len(match) / (len(dmrs.nodes) + len(dmrs.links))
+
 
 def get_fscore(match, dmrs):
     # Precision always 1.0. for this algorithm.
     recall = get_recall(match, dmrs)
-    return 2*recall/(1.0 + recall)
+    return 2 * recall / (1.0 + recall)
+
 
 def get_missing_elements(match, dmrs):
     """ Returns a list of elements of dmrs for which no match was found.:
