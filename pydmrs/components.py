@@ -4,14 +4,12 @@ try:
 except ImportError:  # Python v3.2 or less
     from collections import MutableMapping
 from abc import ABCMeta
-from functools import total_ordering
 from itertools import chain
 from warnings import warn
 
 from pydmrs._exceptions import *
 
 
-@total_ordering
 class Pred(object):
     """
     A superclass for all Pred classes.
@@ -32,18 +30,73 @@ class Pred(object):
         """
         return 'Pred()'
 
+    def __hash__(self):
+        return hash(None)
+
     def __eq__(self, other):
         """
-        Checks whether the other object is precisely of type Pred
+        Checks pred equality
         """
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
         return type(other) == Pred
+
+    def __ne__(self, other):
+        """
+        Checks pred inequality
+        """
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return type(other) != Pred
 
     def __le__(self, other):
         """
-        Checks whether the other object is a Pred (including subclasses)
+        Checks pred leq comparison (Pred < GPred < RealPred)
         """
-        return isinstance(other, Pred)
-    
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return True
+
+    def __lt__(self, other):
+        """
+        Checks pred lt comparison (Pred < GPred < RealPred)
+        """
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return type(other) != Pred
+
+    def __ge__(self, other):
+        """
+        Checks pred geq comparison (Pred < GPred < RealPred)
+        """
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return type(other) == Pred
+
+    def __gt__(self, other):
+        """
+        Checks pred gt comparison (Pred < GPred < RealPred)
+        """
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return False
+
+    def is_more_specific(self, other):
+        """
+        Checks whether the other object is a more specific pred
+        """
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return False
+
+    def is_less_specific(self, other):
+        """
+        Checks whether the other object is a less specific pred
+        """
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return type(other) != Pred
+
     @staticmethod
     def normalise_string(string):
         """
@@ -104,10 +157,10 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         Create a new instance, allowing the sense to be optional,
         and requiring non-empty lemma and pos
         """
-        if not lemma:
-            raise PydmrsValueError('a RealPred must have non-empty lemma')
-        if not pos:
-            raise PydmrsValueError('a RealPred must have non-empty pos')
+        if lemma is None:
+            raise PydmrsValueError('a RealPred must have lemma')
+        if pos is None:
+            raise PydmrsValueError('a RealPred must have pos')
         if ' ' in lemma or ' ' in pos or (sense and ' ' in sense):
             raise PydmrsValueError('the values of a RealPred must not contain spaces')
         return super().__new__(cls, lemma, pos, sense)
@@ -130,32 +183,128 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         else:
             return "RealPred({}, {})".format(*(repr(x) for x in self))
 
+    def __hash__(self):
+        return super().__hash__()
+
+    def __eq__(self, other):
+        """
+        Checks pred equality
+        """
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return isinstance(other, RealPred) and super().__eq__(other)
+
+    def __ne__(self, other):
+        """
+        Checks pred inequality
+        """
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return not isinstance(other, RealPred) or super().__ne__(other)
+
     def __le__(self, other):
         """
-        Checks whether this RealPred underspecifies or equals the other RealPred
+        Checks pred leq comparison (Pred < GPred < RealPred)
         """
-        return isinstance(other, RealPred) \
-            and (self.lemma == '?' or self.lemma == other.lemma) \
-            and (self.pos in ['?', 'u'] or self.pos == other.pos) \
-            and (self.sense in ['?', 'unknown'] or self.sense == other.sense)
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        if not isinstance(other, RealPred):
+            return False
+        if self.sense is None:
+            return self[:2] <= other[:2]
+        if other.sense is None:
+            return self[:2] < other[:2]
+        return super().__le__(other)
 
     def __lt__(self, other):
         """
-        Checks whether this RealPred underspecifies the other RealPred
+        Checks pred lt comparison (Pred < GPred < RealPred)
         """
-        return self <= other and self != other
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        if not isinstance(other, RealPred):
+            return False
+        if other.sense is None:
+            return self[:2] < other[:2]
+        if self.sense is None:
+            return self[:2] <= other[:2]
+        return super().__lt__(other)
 
     def __ge__(self, other):
         """
-        Checks whether the other RealPred underspecifies or equals this RealPred
+        Checks pred geq comparison (Pred < GPred < RealPred)
         """
-        return type(other) == Pred or (isinstance(other, RealPred) and other <= self)
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        if not isinstance(other, RealPred):
+            return True
+        if other.sense is None:
+            return self[:2] >= other[:2]
+        if self.sense is None:
+            return self[:2] > other[:2]
+        return super().__ge__(other)
 
     def __gt__(self, other):
         """
-        Checks whether the other RealPred underspecifies this RealPred
+        Checks pred gt comparison (Pred < GPred < RealPred)
         """
-        return self >= other and self != other
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        if not isinstance(other, RealPred):
+            return True
+        if self.sense is None:
+            return self[:2] > other[:2]
+        if other.sense is None:
+            return self[:2] >= other[:2]
+        return super().__gt__(other)
+
+    def is_more_specific(self, other):
+        """
+        Checks whether the other object is a more specific pred
+        """
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        if type(other) == Pred:
+            return True
+        if not isinstance(other, RealPred):
+            return False
+        result = False
+        if self.lemma != '?' and other.lemma == '?':
+            result = True
+        elif self.lemma != other.lemma:
+            return False
+        if self.pos not in ('u', '?') and other.pos in ('u', '?'):
+            result = True
+        elif self.pos != other.pos:
+            return False
+        if self.sense not in ('unknown', '?') and other.sense in ('unknown', '?'):
+            result = True
+        elif self.sense != other.sense:
+            return False
+        return result
+
+    def is_less_specific(self, other):
+        """
+        Checks whether the other object is a less specific pred
+        """
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        if not isinstance(other, RealPred):
+            return False
+        result = False
+        if self.lemma == '?' and other.lemma != '?':
+            result = True
+        elif self.lemma != other.lemma:
+            return False
+        if self.pos in ('u', '?') and other.pos not in ('u', '?'):
+            result = True
+        elif self.pos != other.pos:
+            return False
+        if self.sense in ('unknown', '?') and other.sense not in ('unknown', '?'):
+            result = True
+        elif self.sense != other.sense:
+            return False
+        return result
 
     @staticmethod
     def from_normalised_string(string):
@@ -204,29 +353,72 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         """
         return "GPred({})".format(repr(self.name))
 
+    def __hash__(self):
+        return super().__hash__()
+
+    def __eq__(self, other):
+        """
+        Checks pred equality
+        """
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return isinstance(other, GPred) and super().__eq__(other)
+
+    def __ne__(self, other):
+        """
+        Checks pred inequality
+        """
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return not isinstance(other, GPred) or super().__ne__(other)
+
     def __le__(self, other):
         """
-        Checks whether this GPred underspecifies or equals the other GPred
+        Checks pred leq comparison (Pred < GPred < RealPred)
         """
-        return isinstance(other, GPred) and (self.name == '?' or self.name == other.name)
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return isinstance(other, RealPred) or (isinstance(other, GPred) and super().__le__(other))
 
     def __lt__(self, other):
         """
-        Checks whether this GPred underspecifies the other GPred
+        Checks pred lt comparison (Pred < GPred < RealPred)
         """
-        return self <= other and self != other
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return isinstance(other, RealPred) or (isinstance(other, GPred) and super().__lt__(other))
 
     def __ge__(self, other):
         """
-        Checks whether the other GPred underspecifies or equals this GPred
+        Checks pred geq comparison (Pred < GPred < RealPred)
         """
-        return type(other) == Pred or (isinstance(other, GPred) and other <= self)
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return isinstance(other, Pred) or (isinstance(other, GPred) and super().__ge__(other))
 
     def __gt__(self, other):
         """
-        Checks whether the other GPred underspecifies this GPred
+        Checks pred gt comparison (Pred < GPred < RealPred)
         """
-        return self >= other and self != other
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return isinstance(other, Pred) or (isinstance(other, GPred) and super().__gt__(other))
+
+    def is_more_specific(self, other):
+        """
+        Checks whether the other object is a more specific pred
+        """
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return type(other) == Pred or (isinstance(other, GPred) and (self.name != '?' and other.name == '?'))
+
+    def is_less_specific(self, other):
+        """
+        Checks whether the other object is a less specific pred
+        """
+        if not isinstance(other, Pred):
+            raise PydmrsTypeError()
+        return isinstance(other, GPred) and (self.name == '?' and other.name != '?')
 
     @staticmethod
     def from_normalised_string(string):
@@ -306,15 +498,21 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         """
         return feature == 'cvarsort' or feature in self.features
     
+    def is_specified(self, feature):
+        """
+        Returns True if value of feature is specified and not '?' or 'u'
+        """
+        return feature == 'cvarsort' or (feature in self.features and self[feature] not in (None, 'u', '?'))
+
     # For convenience, we can also get features which are not None
     
     def iter_specified(self):
         """
-        Return (feature, value) pairs where value is not None, '?', or 'u'
+        Return (feature, value) pairs where value is specified and not '?' or 'u'
         """
         for feat in self.features:
             val = self[feat]
-            if val not in ['?', 'u', None]:
+            if val not in (None, 'u', '?'):
                 yield (feat, val)
     
     # Setters and getters
@@ -493,29 +691,49 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         Checks two Sortinfos for equality.
         Returns True if all specified features are the same.
         """
-        return self.cvarsort == other.cvarsort \
+        return isinstance(other, Sortinfo) and self.cvarsort == other.cvarsort \
             and set(self.iter_specified()) == set(other.iter_specified())
-    
+
     def __ne__(self, other):
         return not self == other
 
-    def __le__(self, other):
+    def is_more_specific(self, other):
         """
-        Checks whether this Sortinfo underspecifies or equals the other Sortinfo.
-        Features can be underspecified using '?', or 'u', or None.
+        Checks whether the other object is a more specific sortinfo
+        (underspecified value: '?' or 'u' or non-existent)
         """
-        return (self.cvarsort == 'i' or self.cvarsort == other.cvarsort) \
-            and all(other[key] == value for key, value in self.iter_specified())
-    
-    def __lt__(self, other):
-        return self <= other and self != other
-    
-    def __ge__(self, other):
-        # Note that "other <= self" will fail with subclasses, due to infinite recursion
-        return other.__le__(self)
-    
-    def __gt__(self, other):
-        return self >= other and self != other
+        if not isinstance(other, Sortinfo):
+            raise PydmrsTypeError()
+        if other.cvarsort == 'i':
+            return self.cvarsort != 'i'
+        if self.cvarsort != other.cvarsort:
+            return False
+        for key, value in other.iter_specified():
+            if not self.is_specified(key) or value != self[key]:
+                return False
+        for key, value in self.iter_specified():
+            if not other.is_specified(key):
+                return True
+        return False
+
+    def is_less_specific(self, other):
+        """
+        Checks whether the other object is a less specific sortinfo
+        (underspecified value: '?' or 'u' or non-existent)
+        """
+        if not isinstance(other, Sortinfo):
+            raise PydmrsTypeError()
+        if self.cvarsort == 'i':
+            return other.cvarsort != 'i'
+        if self.cvarsort != other.cvarsort:
+            return False
+        for key, value in self.iter_specified():
+            if not other.is_specified(key) or value != other[key]:
+                return False
+        for key, value in other.iter_specified():
+            if not self.is_specified(key):
+                return True
+        return False
 
 
 class EventSortinfo(Sortinfo):

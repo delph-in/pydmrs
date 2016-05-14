@@ -3,7 +3,7 @@ from pydmrs.core import Link, Node, ListDmrs
 from pydmrs.mapping.mapping import AnchorNode, SubgraphNode
 
 
-def parse_graphlang(string, cls=ListDmrs, queries={}):
+def parse_graphlang(string, cls=ListDmrs, queries={}, equalities={}):
     nodeid = 1
     nodes = []
     links = []
@@ -60,7 +60,7 @@ def parse_graphlang(string, cls=ListDmrs, queries={}):
                     assert top is None
                     top = nodeid
                     m += 1
-                node, ref_id, ref_name = _parse_node(line[m:r], nodeid, queries)
+                node, ref_id, ref_name = _parse_node(line[m:r], nodeid, queries, equalities)
                 nodes.append(node)
                 current_id = nodeid
                 nodeid += 1
@@ -69,64 +69,77 @@ def parse_graphlang(string, cls=ListDmrs, queries={}):
                 ref_names[ref_name] = current_id
             if not start:
                 m = line.index(' ', l, m)
-                link = _parse_link(line[l:m], last_id, current_id, queries)
+                link = _parse_link(line[l:m], last_id, current_id, queries, equalities)
                 links.append(link)
             last_id = current_id
             start = False
     return cls(nodes=nodes, links=links, index=index, top=top)
 
 
-def _parse_value(string, underspec):
-    if not string or string[0] != '?':
-        return string, None
-    if len(string) == 1:
-        return underspec, None
-    if string[1] == '?':
-        return string[1:], None
-    return underspec, string[1:]
+def _parse_value(string, underspecified, queries, equalities, retriever):
+    if not string or string[0] not in '?=':
+        return string
+    if string in ('?', '='):
+        return underspecified
+    if string[1] == string[0]:
+        return string[1:]
+    if string[0] == '?':
+        assert string[1:] not in queries
+        queries[string[1:]] = retriever
+    elif string[0] == '=':
+        if string[1:] in equalities:
+            equalities[string[1:]].append(retriever)
+        else:
+            equalities[string[1:]] = [retriever]
+    return underspecified
 
 
-def _parse_node(string, nodeid, queries):
-    ref_id = None
-    carg = None
-    sortinfo = None
-    m = string.find('(', 1)
-    if m >= 0:
-        r = string.index(')', m)
-        carg, query_key = _parse_value(string[m+1:r], '?')
-        if query_key:
-            assert query_key not in queries
-            queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].carg
-        r += 1
+def _parse_node(string, nodeid, queries, equalities):
+    m = string.find('(')
+    if m < 0:
+        m = string.find(' ')
+    if m < 0:
+        l = string.find(':')
     else:
-        r = string.find(' ')
-        if r < 0:
-            r = len(string)
-        m = r
-    l = string.find(':', 0, m)
-    if l >= 0:
+        l = string.find(':', 0, m)
+    if l < 0:
+        ref_id = None
+        l = 0
+    else:
         ref_id = string[:l]
-    l += 1
-    while string[l] == ' ':
         l += 1
-    pred = string[l:m]
-    if pred[:4] == 'node':  # ?????????????????????????????????????????????????
-        value, query_key = _parse_value(pred[4:], None)
+        while string[l] == ' ':
+            l += 1
+    if string[l:l+4] == 'node' and (len(string) - l == 4 or string[l+4] == '?'):
+        value = _parse_value(string[l+4:], None, queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]]))
         assert not value
-        if query_key:
-            assert query_key not in queries
-            queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]]
         pred = Pred()
         carg = '?'
         sortinfo = Sortinfo()
         ref_name = 'node'
+    elif m < 0:
+        pred, ref_name = _parse_pred(string[l:], nodeid, queries, equalities)
+        carg = None
+        sortinfo = None
     else:
-        pred, ref_name = _parse_pred(pred, nodeid, queries)
-    if r < len(string):
-        l = r
-        while string[l] == ' ':
-            l += 1
-        sortinfo = _parse_sortinfo(string[l:], nodeid, queries)
+        pred, ref_name = _parse_pred(string[l:m], nodeid, queries, equalities)
+        if string[m] == '(':
+            r = string.index(')', m)
+            if string[m+1] == '"' and string[r-1] == '"':
+                carg = string[m+2:r-1]
+            else:
+                carg = string[m+1:r]
+            assert '"' not in carg
+            carg = _parse_value(carg, None, queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].carg))
+            m = r + 1
+        else:
+            carg = None
+        if string[m] == ' ':
+            while string[m] == ' ':
+                m += 1
+            sortinfo = _parse_sortinfo(string[m:], nodeid, queries, equalities)
+        else:
+            sortinfo = None
     if not ref_id:
         ref_id = None
         node = Node(nodeid, pred, sortinfo=sortinfo, carg=carg)
@@ -142,7 +155,7 @@ def _parse_node(string, nodeid, queries):
     return node, ref_id, ref_name
 
 
-def _parse_pred(string, nodeid, queries):
+def _parse_pred(string, nodeid, queries, equalities):
     assert string.islower(), 'Predicates must be lower-case.'
     assert ' ' not in string, 'Predicates must not contain spaces.'
     if string[0] == '"' and string[-1] == '"':
@@ -151,42 +164,27 @@ def _parse_pred(string, nodeid, queries):
     assert string[0] != '\'', 'Predicates with opening single-quote have been deprecated.'
     if (string[:4] == 'pred' and (len(string) == 4 or string[4] == '?')) or (string[:8] == 'predsort' and (len(string) == 8 or string[8] == '?')):
         i = 8 if string[:8] == 'predsort' else 4
-        value, query_key = _parse_value(string[i:], None)
+        value = _parse_value(string[i:], None, queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].pred))
         assert not value
-        if query_key:
-            assert query_key not in queries
-            queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred
         return Pred(), string[:i]
     rel_suffix = ''
     if string[-4:] == '_rel':
         string = string[:-4]
         rel_suffix = '_rel'
     if string[0] != '_':
-        name, query_key = _parse_value(string, '?')
-        if query_key:
-            assert query_key not in queries
-            queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred.name
+        name = _parse_value(string, '?', queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].pred.name))
         return GPred(name), name + rel_suffix
-    values = string[1:].split('_')
-    assert values and len(values) <= 3, 'Invalid number of arguments for RealPred.'
+    values = string[1:].rsplit('_', 2)
     count = len(values)
+    assert count > 0, 'Invalid number of arguments for RealPred.'
     if count == 1:
         values.insert(0, '?')
-        values.append('?')
+        values.append('unknown')
     elif count == 2:
         values.append(None)
-    lemma, query_key = _parse_value(values[0], '?')
-    if query_key:
-        assert query_key not in queries
-        queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred.lemma
-    pos, query_key = _parse_value(values[1], 'u')
-    if query_key:
-        assert query_key not in queries
-        queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred.pos
-    sense, query_key = _parse_value(values[2], '?')
-    if query_key:
-        assert query_key not in queries
-        queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].pred.sense
+    lemma = _parse_value(values[0], '?', queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].pred.lemma))
+    pos = _parse_value(values[1], 'u', queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].pred.pos))  # u ???
+    sense = _parse_value(values[2], 'unknown', queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].pred.sense))  # unknown ???
     if count == 1:
         ref_name = '_{}{}'.format(pos, rel_suffix)
     elif count == 2:
@@ -197,35 +195,34 @@ def _parse_pred(string, nodeid, queries):
 
 
 _parse_instance_shorthand = {
-    'p': ('pers', {'_': None, '?': 'u', '1': '1', '2': '2', '3': '3', '4': '1-or-3'}),
+    'p': ('pers', {'_': None, '?': 'u', '1': '1', '2': '2', '3': '3', 'o': '1-or-3'}),
     'n': ('num', {'_': None, '?': 'u', 's': 'sg', 'p': 'pl'}),
-    'g': ('gend', {'_': None, '?': 'u', 'f': 'f', 'm': 'm', 'n': 'n', 'g': 'm-or-f'}),
+    'g': ('gend', {'_': None, '?': 'u', 'f': 'f', 'm': 'm', 'n': 'n', 'o': 'm-or-f'}),
     'i': ('ind', {'_': None, '?': 'u', '+': '+', '-': '-'}),
     't': ('pt', {'_': None, '?': 'u', 's': 'std', 'z': 'zero', 'r': 'refl'})}
 
 _parse_event_shorthand = {
-    's': ('sf', {'?': 'u', 'p': 'prop', 'q': 'ques', 'r': 'prop-or-ques', 'c': 'comm'}),
+    's': ('sf', {'_': None, '?': 'u', 'p': 'prop', 'q': 'ques', 'o': 'prop-or-ques', 'c': 'comm'}),
     't': ('tense', {'_': None, '?': 'u', 'u': 'untensed', 't': 'tensed', 'p': 'pres', 'a': 'past', 'f': 'fut'}),
     'm': ('mood', {'_': None, '?': 'u', 'i': 'indicative', 's': 'subjunctive'}),
     'p': ('perf', {'_': None, '?': 'u', '+': '+', '-': '-'}),
     'r': ('prog', {'_': None, '?': 'u', '+': '+', '-': '-', 'b': 'bool'})}
 
 
-def _parse_sortinfo(string, nodeid, queries):
-    assert string[0] in 'eix', 'Invalid sortinfo type.'
+def _parse_sortinfo(string, nodeid, queries, equalities):
+    assert string.islower(), 'Sortinfos must be lower-case.'
+    assert ' ' not in string, 'Sortinfos must not contain spaces.'
+    assert string[0] in 'iex', 'Invalid sortinfo type.'
     if len(string) == 1:
         if string[0] == 'e':
-            return EventSortinfo(None, None, None, None, None)
+            return EventSortinfo()
         elif string[0] == 'x':
-            return InstanceSortinfo(None, None, None, None, None)
+            return InstanceSortinfo()
         else:
             return Sortinfo()
     if string[1] == '?':
-        value, query_key = _parse_value(string[1:], None)
+        value = _parse_value(string[1:], None, queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].sortinfo))
         assert not value
-        if query_key:
-            assert query_key not in queries
-            queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].sortinfo
         if string[0] == 'e':
             return EventSortinfo('u', 'u', 'u', 'u', 'u')
         elif string[0] == 'x':
@@ -234,8 +231,22 @@ def _parse_sortinfo(string, nodeid, queries):
             return Sortinfo()
     assert string[0] in 'ex', 'Sortinfo type i cannot be specified.'
     assert string[1] == '[' and string[-1] == ']', 'Square brackets missing.'
-    string = string.replace(':', '=').replace(';', ',').lower()
-    if '=' not in string:
+    if '=' in string:  # explicit key-value specification
+        if string[0] == 'e':
+            sortinfo = EventSortinfo()
+            shorthand = _parse_event_shorthand
+        else:
+            sortinfo = InstanceSortinfo()
+            shorthand = _parse_instance_shorthand
+        for kv in string[2:-1].split(','):
+            key, value = kv.split('=')
+            if key in shorthand:
+                key, values = shorthand[key]
+                sortinfo[key] = values[value]
+            else:
+                sortinfo[key] = _parse_value(value, 'u', queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].sortinfo[key]))
+        return sortinfo
+    else:  # implicit specification
         assert len(string) == 8, 'Invalid number of short-hand sortinfo arguments.'
         if string[0] == 'e':
             sf = _parse_event_shorthand['s'][1][string[2]]
@@ -251,25 +262,10 @@ def _parse_sortinfo(string, nodeid, queries):
             ind = _parse_instance_shorthand['i'][1][string[5]]
             pt = _parse_instance_shorthand['t'][1][string[6]]
             return InstanceSortinfo(pers, num, gend, ind, pt)
-    elif string.index('=') == 3:
-        if string[0] == 'e':
-            sortinfo = {'cvarsort': 'e'}
-            shorthand = _parse_event_shorthand
-        else:
-            sortinfo = {'cvarsort': 'x'}
-            shorthand = _parse_instance_shorthand
-        for kv in string[2:-1].split(','):
-            key, value = kv.split('=')
-            key, values = shorthand[key]
-            sortinfo[key], query_key = _parse_value(values[value], 'u')
-            if query_key:
-                assert query_key not in queries
-                queries[query_key] = lambda matching, dmrs: dmrs[matching[nodeid]].sortinfo[key]
-    else:
-        return Sortinfo.from_string(string)
 
 
-def _parse_link(string, left_nodeid, right_nodeid, queries):
+def _parse_link(string, left_nodeid, right_nodeid, queries, equalities):
+    assert ' ' not in string, 'Links must not contain spaces.'
     l = 0
     r = len(string) - 1
     if string[l] == '<':  # pointing left
@@ -282,33 +278,39 @@ def _parse_link(string, left_nodeid, right_nodeid, queries):
         r -= 1
     else:  # invalid link
         assert False, 'Link must have a direction.'
-    assert string[l] in '-=', 'Link line must consist of either "-" or "=".'
+    assert string[l] in '-=' and string[r] in '-=', 'Link line must consist of either "-" or "=".'
     link_char = string[l]
     while l < len(string) and string[l] == link_char:  # arbitrary left length
         l += 1
     while r >= 0 and string[r] == link_char:  # arbitrary right length
         r -= 1
     if l + 1 < r:  # explicit specification
-        if string[l:r+1].lower() == 'rstr':  # rargname RSTR uniquely determines post H
+        r += 1
+        if string[l:r] == 'rstr':  # rargname RSTR uniquely determines post H
             rargname = 'rstr'
             post = 'h'
-        elif string[l:r+1].lower() == 'eq':  # post EQ uniquely determines rargname None
+        elif string[l:r] == 'eq':  # post EQ uniquely determines rargname None
             rargname = None
             post = 'eq'
         else:
-            assert '/' in string[l:r], 'Explicit link description must contain "/".'
-            m = string.index('/', l, r)
-            if l == m or string[l:m].lower() == 'none':  # None/EQ link
-                rargname = None
+            m = string.find('/', l, r)
+            if m >= 0:
+                if l == m and m + 1 == r:
+                    rargname = None
+                    post = None
+                elif l == m:
+                    rargname = None
+                    post = _parse_value(string[m+1:r], '?', queries, equalities, (lambda matching, dmrs: ','.join(link.post for link in dmrs.get_out(matching[start], itr=True) if link.end == matching[end])))
+                elif m + 1 == r:
+                    rargname = _parse_value(string[l:m], '?', queries, equalities, (lambda matching, dmrs: ','.join(link.rargname for link in dmrs.get_out(matching[start], itr=True) if link.end == matching[end])))
+                    post = None
+                else:
+                    # problem: doesn't combine rargname and post
+                    rargname = _parse_value(string[l:m], '?', queries, equalities, (lambda matching, dmrs: ','.join(link.rargname for link in dmrs.get_out(matching[start], itr=True) if link.end == matching[end])))
+                    post = _parse_value(string[m+1:r], '?', queries, equalities, (lambda matching, dmrs: ','.join(link.post for link in dmrs.get_out(matching[start], itr=True) if link.end == matching[end])))
             else:
-                rargname, rargname_query_key = _parse_value(string[l:m], '?')
-            post, post_query_key = _parse_value(string[m+1:r+1], '?')
-            if rargname_query_key:
-                assert rargname_query_key not in queries
-                queries[rargname_query_key] = lambda matching, dmrs: ','.join(link.rargname for link in dmrs.get_out(matching[start], post=(None if post_query_key else post), itr=True) if link.end == matching[end])
-            if post_query_key:
-                assert post_query_key not in queries
-                queries[post_query_key] = lambda matching, dmrs: ','.join(link.post for link in dmrs.get_out(matching[start], rargname=(None if rargname_query_key else rargname), itr=True) if link.end == matching[end])
+                rargname = _parse_value(string[l:r], '?', queries, equalities, (lambda matching, dmrs: ','.join(link.labelstring for link in dmrs.get_out(matching[start], itr=True) if link.end == matching[end])))
+                post = None
         return Link(start, end, rargname, post)
     if l > r:  # no specification symbol
         if link_char == '=':
@@ -321,11 +323,8 @@ def _parse_link(string, left_nodeid, right_nodeid, queries):
         if string[l] == '?':
             rargname = '?'
             post = '?'
-            value, query_key = _parse_value(string[l:r+1], None)
+            value = _parse_value(string[l:r+1], None, queries, equalities, (lambda matching, dmrs: ','.join(link.labelstring for link in dmrs.get_out(matching[start], itr=True) if link.end == matching[end])))
             assert not value
-            if query_key:
-                assert query_key not in queries
-                queries[query_key] = lambda matching, dmrs: ','.join(link.labelstring for link in dmrs.get_out(matching[start], itr=True) if link.end == matching[end])
         elif l == r:  # one specification symbol, i.e. variable link
             if link_char == '=':
                 post = 'eq'
@@ -341,14 +340,14 @@ def _parse_link(string, left_nodeid, right_nodeid, queries):
             assert False  # never reached
         if string[l] == 'n':  # ARG/ARGN (underspecified ARG)
             rargname = 'arg'
-        elif string[l] in '123':  # ARG{1,2,3}
+        elif string[l] in '1234':  # ARG{1,2,3,4}
             rargname = 'arg' + string[l]
         elif string[l] in 'lr':  # {L,R}-{INDEX,HNDL}
             if l == r:
                 rargname = string[l].upper() + '-index'
             else:
                 rargname = string[l].upper() + '-hndl'
-        elif l <= r and string[l] != '?':
+        elif string[l] != '?':
             assert False, 'Invalid link specification symbol.'
     return Link(start, end, rargname, post)
 

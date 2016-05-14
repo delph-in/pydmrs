@@ -1,96 +1,41 @@
-from pydmrs.core import DictDmrs
-from pydmrs.matching.common import are_equal_nodes, are_equal_links
+from pydmrs.core import SortDictDmrs, span_pred_key, abstractSortDictDmrs
+from pydmrs.matching.common import are_equal_links
 
-def sort_nodes(nodes):
-    """ Returns a list of nodes sorted by:
-        1) cfrom,
-        2) cto (decreasing),
-        3) pred __str__()."""
-    return sorted(sorted(sorted(nodes, key=lambda node: node.pred.__str__()), key = lambda node: node.cto, reverse=True), key = lambda node: node.cfrom)
+
+# TODO: Fix documentation.
 
 # Finding the longest node overlap subsequence.
-#------------------------------------------------------------------------
-class TreeNode(object):
-    def __init__(self, id1, id2):
-        self.id1 = id1
-        self.id2 = id2
-        self.depth = 1
-        self.children = []
-
-    def __repr__(self):
-        return "TreeNode({0}, {1})".format(self.id1, self.id2)
-
-    def add_child(self, child_node):
-        self.depth += child_node.depth
-        self.children.append(child_node)
-
-    def to_tuple(self):
-        return (self.id1, self.id2)
-
-def fill_tree(root, sorted_nodes1, sorted_nodes2):
-    """ Builds a tree, starting at root, of matching subsequences between
-        sorted_nodes1 and sorted_nodes2. The subsequences match if the order
-        of the nodes is preserved and they satisfy are_equal_nodes.
-
-        :param root A TreeNode root of the constructed tree.
-        :param sorted_nodes1 A list of nodes (from the smaller DMRS) sorted by sort_nodes.
-        :param sorted_nodes2 A list of nodes (from the larger DMRS) sorted by sort_nodes.
-    """
-    for id1 in range(root.id1+1, len(sorted_nodes1)):
-        for id2 in range(root.id2+1, len(sorted_nodes2)):
-            if are_equal_nodes(sorted_nodes1[id1], sorted_nodes2[id2]):
-                child_node = TreeNode(id1, id2)
-                fill_tree(child_node, sorted_nodes1, sorted_nodes2)
-                root.add_child(child_node)
-
-def find_treepaths(root, treepaths):
-    """ Returns the longest paths through the tree starting at root.
-        :param root A TreeNode root of a tree.
-        :param treepaths A list of lists of TreeNodes partcipating in the longest path
-                         through the root tree. A list of lists, in case more than one longest path found.
-        :return Updated treepaths.
-    """
-    treepaths.append(root)# possible that more than one match of the same length
-    if root.children:
-        path_children = max(root.children, key = lambda node: node.depth) # pick the deepest child tree(s)
-        if isinstance(path_children, TreeNode):
-            find_treepaths(path_children, treepaths)
-        else: # more than one child tree with the max depth
-            num_paths = len(path_children)
-            treepaths = [treepaths[:]]*num_paths # copies, not references
-            for i in range(0, num_paths):
-                find_treepaths(path_children[i], treepaths[i])
-    return treepaths
-
-def find_longest_matches(sorted_nodes1, sorted_nodes2):
-    """ Returns the longest common subsequences between sorted_nodes1 and
-        sorted_nodes2.
-        :param sorted_nodes1 A list of nodes (from the smaller DMRS) sorted by sort_nodes.
-        :param sorted_nodes2 A list of nodes (from the larger DMRS) sorted by sort_nodes.
-
-        :return A list of lists of tuples (index in sorted_nodes1, index in sorted_nodes2).
-                Each list is a longest matching subsequence between sorted_ndoes1
-                and sorted_nodes2."""
-    root = TreeNode(-1,-1)
-    fill_tree(root, sorted_nodes1, sorted_nodes2)
-    match = find_treepaths(root, [])
-
-    # Remove (-1, -1) superroot.
-    if isinstance(match[0], list): # More than one match of the same length.
-        res = []
-        for m in match:
-            res.append([node.to_tuple() for node in m[1:]])
-        return res
+# ------------------------------------------------------------------------
+def match_nodes(nodes1, nodes2):
+    if not nodes1 or not nodes2:
+        return []
+    matches = []
+    earliest = len(nodes1)
+    longest = 0
+    for i, node2 in enumerate(nodes2):
+        if len(nodes2) - i < longest:  # Not enough nodes left to beat the current longest match.
+            break
+        for j, node1 in enumerate(nodes1):
+            if j > earliest:  # To avoid repetition.
+                break
+            if node1 == node2:
+                best_matches = match_nodes(nodes1[j + 1:], nodes2[i + 1:])
+                if best_matches:
+                    for match in best_matches:
+                        match.append((node1.nodeid, node2.nodeid))
+                else:
+                    best_matches = [[(node1.nodeid, node2.nodeid)]]
+                earliest = j
+                longest = max(longest, len(best_matches[0]))
+                matches.extend(best_matches)
+    if matches:
+        max_len = len(max(matches, key=len))
+        return [m for m in matches if len(m) == max_len]
     else:
-        return [[node.to_tuple() for node in match[1:]]]
+        return []
 
-def get_matched_nodeids_from_orderids(sorted_small_nodes, sorted_large_nodes, matched_orderids):
-    """ Converts matched pairs of indices in sorted_small_nodes and sorted_large_nodes
-        into matched pairs of nodeids."""
-    orderid2nodeid_func = lambda order_pair: (sorted_small_nodes[order_pair[0]].nodeid, sorted_large_nodes[order_pair[1]].nodeid)
-    return list(map(orderid2nodeid_func, matched_orderids))
 
-def find_extra_surface_nodeids(orderids, sorted_large_nodes):
+def find_extra_surface_nodeids(nodeids, sorted_large_nodes):
     """ Finds nodeids present in the aligned matched region of the large DMRS,
         but which have no equivalents in the small DMRS.
 
@@ -100,49 +45,57 @@ def find_extra_surface_nodeids(orderids, sorted_large_nodes):
         :return A list of nodeids.
     """
     extra_nodeids = []
-    first_overlap_orderid = orderids[0]
-    min_cfrom = sorted_nodes[first_overlap_orderid].cfrom
-
-    # Check if any earlier nodes also in the region.
-    while True:
-        prev_cfrom = sorted_nodes[first_overlap_orderid-1].cfrom
-        if prev_cfrom == min_cfrom:
-            first_overlap_orderid -= 1
-            extra_nodeids.append(sorted_nodes[first_overlap_orderid].nodeid)
-        else:
+    max_cto = 0
+    reached_start = False
+    reached_end = False
+    for i, node in enumerate(sorted_large_nodes):
+        if node.nodeid == nodeids[0]:
+            first_overlap_orderid = i
+            min_cfrom = node.cfrom
+            max_cto = node.cto
+            while True and first_overlap_orderid > 0:
+                prev_node = sorted_large_nodes[first_overlap_orderid - 1]
+                prev_cfrom = prev_node.cfrom
+                if prev_cfrom == min_cfrom:
+                    first_overlap_orderid -= 1
+                    extra_nodeids.append(prev_node.nodeid)
+                    max_cto = max(max_cto, prev_node.cto)
+                else:
+                    break
+            reached_start = True
+        elif not reached_start:
+            continue
+        elif reached_end and node.cfrom >= max_cto:
             break
-
-    # Find the last node in the region.
-    last_overlap_orderid = matched_orderids[-1]
-    max_cto = sorted_nodes[last_overlap_orderid].cto
-    for i in range(first_overlap_orderid, len(sorted_nodes)):
-        if sorted_nodes[i].cfrom > max_cto:
-            break
         else:
-            if i not in orderids:
-                extra_nodeids.append(sorted_nodes[i].nodeid)
-            cto = sorted_nodes[i].cto
-            if cto >= max_cto:
-                max_cto = cto
-                if i > last_overlap_orderid:
-                    last_overlap_orderid = i
+            max_cto = max(max_cto, node.cto)
+            if node.nodeid not in nodeids and node.nodeid not in extra_nodeids:
+                extra_nodeids.append(node.nodeid)
+        if node.nodeid == nodeids[-1]:
+            reached_end = True
 
     return extra_nodeids
+
+
+def get_links(dmrs, nodeids):
+    links = []
+    for nodeid in nodeids:
+        node_links = dmrs.get_out(nodeid)
+        for link in node_links:
+            if link.end in nodeids:
+                links.append(link)
+    return links
+
 
 def get_subgraph(dmrs, subgraph_nodeids):
     """ Returns a subgraph of dmrs containing only nodes with subgraph_nodeids
         and all the links between them.
     """
-    links = []
-    for nodeid in subgraph_nodeids:
-        node_links = dmrs.get_out(nodeid)
-        for link in node_links:
-            if link.end in subgraph_nodeids:
-                links.append(link)
     nodes = [dmrs[nodeid] for nodeid in subgraph_nodeids]
-    return DictDmrs(nodes, links)
+    return SortDictDmrs(nodes, links=get_links(dmrs, subgraph_nodeids), node_key=span_pred_key)
 
-#-------------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------------
 
 def get_link_diff(small_dmrs, matched_subgraph, matching_nodeids):
     """ Returns three list of links:
@@ -152,12 +105,12 @@ def get_link_diff(small_dmrs, matched_subgraph, matching_nodeids):
     """
     both = []
     small_only = []
-    subgraph_only= []
+    subgraph_only = []
     for small_nodeid, subgraph_nodeid in matching_nodeids:
         if small_nodeid:
             small_links = small_dmrs.get_out(small_nodeid)
             subgraph_links = list(matched_subgraph.get_out(subgraph_nodeid))
-            links_flag = [False]*len(subgraph_links)
+            links_flag = [False] * len(subgraph_links)
             for link1 in small_links:
                 match_found = False
                 for link2 in subgraph_links:
@@ -170,7 +123,7 @@ def get_link_diff(small_dmrs, matched_subgraph, matching_nodeids):
                     small_only.append(link1)
             for i in range(0, len(subgraph_links)):
                 if not links_flag[i]:
-                    subgraph_only.append(links[i])
+                    subgraph_only.append(subgraph_links[i])
         else:
             subgraph_only.extend(matched_subgraph.get_out(subgraph_nodeid))
 
@@ -180,31 +133,8 @@ def get_link_diff(small_dmrs, matched_subgraph, matching_nodeids):
 
     return small_only, subgraph_only, both
 
-def get_node_diff(small_dmrs, matched_subgraph, matching_nodeids):
-    """ Returns three list of nodeids:
-        1) nodes present only in the small_dmrs
-        2) nodes present only in the matched_subgraph
-        3) nodes from small_dmrs which have a matched_subgraph euivalent.
-    """
 
-    small_only = []
-    subgraph_only = []
-    both = []
-
-    # Find missing sub_nodes
-    for pair in matching_nodeids:
-        if pair[0] is None:
-            subgraph_only.append(matched_subgraph[pair[1]])
-        else:
-            both.append(small_dmrs[pair[0]])
-
-    for nodeid in small_dmrs:
-        if nodeid not in both:
-            small_only.append(small_dmrs[nodeid])
-
-    return small_only, subgraph_only, both
-
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 ## IMPORTANT ##
 def get_matching_nodeids(small_dmrs, large_dmrs, all_surface=False):
     """ Finds matching pairs of nodeids between small_dmrs and large_dmrs.
@@ -216,41 +146,71 @@ def get_matching_nodeids(small_dmrs, large_dmrs, all_surface=False):
         :return A list of lists of matched nodeid pairs (small_dmrs nodeid, large_dmrs nodeid).
                 A list of lists, in case more than one best match found.
     """
-    sorted_small_nodes = sort_nodes(small_dmrs.nodes)
-    sorted_large_nodes = sort_nodes(large_dmrs.nodes)
+    # Convert DMRSs to SortDictDmrs with span_pred_key node if needed.
+    if not isinstance(small_dmrs, SortDictDmrs) or (small_dmrs.node_key != span_pred_key):
+        small_dmrs = small_dmrs.convert_to(abstractSortDictDmrs(node_key=span_pred_key))
+    if not isinstance(large_dmrs, SortDictDmrs) or (large_dmrs.node_key != span_pred_key):
+        large_dmrs = large_dmrs.convert_to(abstractSortDictDmrs(node_key=span_pred_key))
 
-    longest_matches = find_longest_matches(sorted_small_nodes, sorted_large_nodes) # list (of lists) of tuples (id_from_sub, id)
-
+    longest_matches = match_nodes(small_dmrs.nodes,
+                                  large_dmrs.nodes)  # list of lists of nodeid pairs
+    # Returned in reverse span_pred_key order.
     all_matched_nodeids = []
     for match in longest_matches:
-        matched_large_orderids = list(zip(*match))[1] # [(order ids from small dmrs), (order ids from the
-        paired_nodeids = get_matched_nodeids_from_orderids(sorted_small_nodes, sorted_large_nodes, match)
+        matched_large_nodeids = list(reversed((list(zip(*match))[1])))  # span_pred_key order
+
         if all_surface:
-            extra_overlap_nodeids = find_extra_surface_overlap(matched_large_nodeids, sorted_large_nodes)
-            paired_nodeids.extend([(None, nodeid) for nodeid in extra_overlap_nodeids])
-        all_matched_nodeids.append(paired_nodeids)
+            extra_overlap_nodeids = find_extra_surface_nodeids(matched_large_nodeids,
+                                                               large_dmrs.nodes)
+            match.extend([(None, nodeid) for nodeid in extra_overlap_nodeids])
+        all_matched_nodeids.append(match)
 
     return all_matched_nodeids
+
 
 def get_matched_subgraph(matching_nodeids, large_dmrs):
     present_large_nodeids = list(zip(*matching_nodeids))[1]
     return get_subgraph(large_dmrs, present_large_nodeids)
 
-def get_fscore(small_dmrs, matched_subgraph, matching_nodeids):
-    num_extra_nodes = len([pair for pair in matching_nodeids if pair[0] is None])
-    num_matched_nodes = len(matching_nodeids)-num_extra_nodes
-    num_missing_nodes = len([nodeid for nodeid in small_dmrs if nodeid not in list(zip(*matching_nodeids))[0]])
 
-    only_small_links, only_subgraph_links, shared_links = get_link_diff(small_dmrs, matched_subgraph, matching_nodeids)
+def get_best_subgraph(nodeid_matches, small_dmrs, large_dmrs):
+    best_fscore = 0
+    best_score = None
+    best_graphs = []
+    for match in nodeid_matches:
+        subgraph = get_matched_subgraph(match, large_dmrs)
+        score = get_score(small_dmrs, subgraph, match)
+        fscore = get_fscore(*score)
+        if fscore > best_fscore:
+            best_graphs = [subgraph]
+            best_fscore = fscore
+            best_score = score
+        elif fscore == best_fscore:
+            best_graphs.append(subgraph)
+    return best_graphs, best_score
+
+
+def get_score(small_dmrs, matched_subgraph, matching_nodeids):
+    num_extra_nodes = len([pair for pair in matching_nodeids if pair[0] is None])
+    num_matched_nodes = len(matching_nodeids) - num_extra_nodes
+    num_missing_nodes = len(
+        [nodeid for nodeid in small_dmrs if nodeid not in list(zip(*matching_nodeids))[0]])
+
+    only_small_links, only_subgraph_links, shared_links = get_link_diff(small_dmrs,
+                                                                        matched_subgraph,
+                                                                        matching_nodeids)
     num_extra_links = len(only_subgraph_links)
     num_missing_links = len(only_small_links)
     num_shared_links = len(shared_links)
 
-    num_matched = num_matched_nodes + num_shared_links
-    num_selected = num_matched + num_extra_links + num_extra_nodes
-    num_relevant = num_matched + num_missing_links + num_missing_nodes
+    num_correct = num_matched_nodes + num_shared_links
+    num_matched = num_correct + num_extra_links + num_extra_nodes
+    num_expected = num_correct + num_missing_links + num_missing_nodes
 
-    precision = num_matched/num_selected
-    recall = num_matched/num_relevant
+    return num_correct, num_matched, num_expected
 
-    return 2*precision*recall/(precision+recall) # f_score
+
+def get_fscore(num_correct, num_matched, num_expected):
+    precision = num_correct / num_matched
+    recall = num_correct / num_expected
+    return 2 * precision * recall / (precision + recall)  # f_score

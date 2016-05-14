@@ -174,12 +174,12 @@ def visualise(dmrs, format):
         dot_strs.append('node[shape=box];\n')
         for nodeid in dmrs:
             node = dmrs[nodeid]
-            dot_strs.append('Node{} [label=<{}{}<BR /><FONT POINT-SIZE="10">{}</FONT>>];\n'.format(nodeid, node.pred, '("{}")'.format(node.carg) if node.carg else '', node.sortinfo))
+            dot_strs.append('Node{} [label=<{}{}<BR /><FONT POINT-SIZE="10">{}</FONT>>];\n'.format(str(nodeid).replace('-', 'M'), node.pred, '("{}")'.format(node.carg) if node.carg else '', node.sortinfo))
         dot_strs.append('edge[fontsize=10];\n')
         if dmrs.top is not None:
-            dot_strs.append('NodeTop -> Node{} [style=dotted];\n'.format(dmrs.top.nodeid))
+            dot_strs.append('NodeTop -> Node{} [style=dotted];\n'.format(str(dmrs.top.nodeid).replace('-', 'M')))
         for link in dmrs.links:
-            dot_strs.append('Node{} -> Node{} [label="{}"];\n'.format(link.start, link.end, link.labelstring))
+            dot_strs.append('Node{} -> Node{} [label="{}"];\n'.format(str(link.start).replace('-', 'M'), str(link.end).replace('-', 'M'), link.labelstring))
         dot_strs.append('}\n')
         dot_str = ''.join(dot_strs)
         return dot_str.encode()

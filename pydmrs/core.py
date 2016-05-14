@@ -1,9 +1,9 @@
 import bisect
 from collections import namedtuple
 import copy
-from functools import total_ordering
 from operator import attrgetter
 from itertools import chain
+from warnings import warn
 from pydmrs.components import *
 from pydmrs._exceptions import *
 
@@ -66,6 +66,12 @@ class Link(namedtuple('LinkNamedTuple', ('start', 'end', 'rargname', 'post'))):
             rargname = rargname.upper()
         if isinstance(post, str):
             post = post.upper()
+        if start == end:
+            warn("Link start must not equal link end.", PydmrsWarning)
+        if rargname in ('', 'NONE', 'NULL', 'NIL'):
+            rargname = None
+        if post in ('', 'NONE', 'NULL', 'NIL'):
+            post = None
         return super().__new__(cls, start, end, rargname, post)
 
     def __str__(self):
@@ -83,17 +89,19 @@ class Link(namedtuple('LinkNamedTuple', ('start', 'end', 'rargname', 'post'))):
         return "{}/{}".format(self.rargname, self.post)
 
 
-@total_ordering
 class Node(object):
     """
     A DMRS node
     """
     def __init__(self, nodeid=None, pred=None, sortinfo=None, cfrom=None, cto=None, surface=None, base=None, carg=None):
         self.nodeid = nodeid
-        self.cfrom = cfrom
-        self.cto = cto
         self.surface = surface
         self.base = base
+
+        if cto and cfrom and cto < cfrom:
+            raise PydmrsValueError('Incorrect span: cto < cfrom.')
+        self.cfrom = cfrom
+        self.cto = cto
 
         if isinstance(pred, str):
             self.pred = Pred.from_string(pred)
@@ -134,16 +142,55 @@ class Node(object):
             and self.carg == other.carg \
             and self.sortinfo == other.sortinfo
 
-    def __le__(self, other):
+    def is_more_specific(self, other):
         """
-        Checks whether this node underspecifies or equals the other node (predicate, carg, sortinfo)
+        Checks whether the other object is a more specific node (predicate, carg, sortinfo)
         """
-        return isinstance(other, Node) \
-            and ((self.pred is other.pred is None) \
-                 or (self.pred <= other.pred)) \
-            and (self.carg == '?' or self.carg == other.carg) \
-            and ((self.sortinfo is other.sortinfo is None) \
-                 or (self.sortinfo <= other.sortinfo))
+        if not isinstance(other, Node):
+            raise PydmrsTypeError()
+        result = False
+        if other.pred is not None and \
+            ((self.pred is None and type(other.pred) == Pred) or
+             (self.pred is not None and self.pred.is_more_specific(other.pred))):
+            result = True
+        elif (self.pred is None) != (other.pred is None) or self.pred != other.pred:
+            return False
+        if self.carg != '?' and other.carg == '?':
+            result = True
+        elif self.carg != other.carg:
+            return False
+        if other.sortinfo is not None and \
+            ((self.sortinfo is None and type(other.sortinfo) == Sortinfo) or
+             self.sortinfo is not None and self.sortinfo.is_more_specific(other.sortinfo)):
+            result = True
+        elif (self.sortinfo is None) != (other.sortinfo is None) or self.sortinfo != other.sortinfo:
+            return False
+        return result
+
+    def is_less_specific(self, other):
+        """
+        Checks whether the other object is a less specific node (predicate, carg, sortinfo)
+        """
+        if not isinstance(other, Node):
+            raise PydmrsTypeError()
+        result = False
+        if self.pred is not None and \
+            ((other.pred is None and type(self.pred) == Pred) or
+             (other.pred is not None and self.pred.is_less_specific(other.pred))):
+            result = True
+        elif (self.pred is None) != (other.pred is None) or self.pred != other.pred:
+            return False
+        if self.carg == '?' and other.carg != '?':
+            result = True
+        elif self.carg != other.carg:
+            return False
+        if self.sortinfo is not None and \
+            ((other.sortinfo is None and type(self.sortinfo) == Sortinfo) or
+             other.sortinfo is not None and self.sortinfo.is_less_specific(other.sortinfo)):
+            result = True
+        elif (self.sortinfo is None) != (other.sortinfo is None) or self.sortinfo != other.sortinfo:
+            return False
+        return result
 
     @property
     def span(self):
@@ -604,6 +651,7 @@ class ListDmrs(Dmrs):
         for n in self.nodes:
             if n.nodeid == nodeid:
                 return n
+        raise KeyError(nodeid)
 
     def __iter__(self):
         """

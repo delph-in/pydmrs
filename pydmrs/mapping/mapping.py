@@ -16,18 +16,18 @@ class AnchorNode(Node):
         super().__init__(nodeid=nodeid, pred=pred, sortinfo=sortinfo, carg=carg)
         self.anchor = anchor
 
-    def mapping(self, dmrs, nodeid):
+    def map(self, dmrs, nodeid):
         """
         Overrides the values of the target node if they are not underspecified in this anchor node.
         :param dmrs Target DMRS graph.
         :param nodeid Target node id.
         """
         node = dmrs[nodeid]
-        if self <= node:
+        if self == node or self.is_less_specific(node):
             return
         if isinstance(self.pred, RealPred):
             if isinstance(node.pred, RealPred):
-                node.pred = RealPred(node.pred.lemma if self.pred.lemma == '?' else self.pred.lemma, node.pred.pos if self.pred.pos == 'u' else self.pred.pos, node.pred.sense if self.pred.sense == '?' else self.pred.sense)
+                node.pred = RealPred(node.pred.lemma if self.pred.lemma == '?' else self.pred.lemma, node.pred.pos if self.pred.pos in ('u', '?') else self.pred.pos, node.pred.sense if self.pred.sense in ('unknown', '?') else self.pred.sense)
             else:
                 node.pred = copy.deepcopy(self.pred)
         elif isinstance(self.pred, GPred):
@@ -39,12 +39,12 @@ class AnchorNode(Node):
             node.pred = None
         if isinstance(self.sortinfo, EventSortinfo):
             if isinstance(node.sortinfo, EventSortinfo):
-                node.sortinfo = EventSortinfo(node.sortinfo.sf if self.sortinfo.sf == 'u' else self.sortinfo.sf, node.sortinfo.tense if self.sortinfo.tense == 'u' else self.sortinfo.tense, node.sortinfo.mood if self.sortinfo.mood == 'u' else self.sortinfo.mood, node.sortinfo.perf if self.sortinfo.perf == 'u' else self.sortinfo.perf, node.sortinfo.prog if self.sortinfo.prog == 'u' else self.sortinfo.prog)
+                node.sortinfo = EventSortinfo(node.sortinfo.sf if self.sortinfo.sf in ('u', '?') else self.sortinfo.sf, node.sortinfo.tense if self.sortinfo.tense in ('u', '?') else self.sortinfo.tense, node.sortinfo.mood if self.sortinfo.mood in ('u', '?') else self.sortinfo.mood, node.sortinfo.perf if self.sortinfo.perf in ('u', '?') else self.sortinfo.perf, node.sortinfo.prog if self.sortinfo.prog in ('u', '?') else self.sortinfo.prog)
             else:
                 node.sortinfo = copy.deepcopy(self.sortinfo)
         elif isinstance(self.sortinfo, InstanceSortinfo):
             if isinstance(node.sortinfo, InstanceSortinfo):
-                node.sortinfo = InstanceSortinfo(node.sortinfo.pers if self.sortinfo.pers == 'u' else self.sortinfo.pers, node.sortinfo.num if self.sortinfo.num == 'u' else self.sortinfo.num, node.sortinfo.gend if self.sortinfo.gend == 'u' else self.sortinfo.gend, node.sortinfo.ind if self.sortinfo.ind == 'u' else self.sortinfo.ind, node.sortinfo.pt if self.sortinfo.pt == 'u' else self.sortinfo.pt)
+                node.sortinfo = InstanceSortinfo(node.sortinfo.pers if self.sortinfo.pers in ('u', '?') else self.sortinfo.pers, node.sortinfo.num if self.sortinfo.num in ('u', '?') else self.sortinfo.num, node.sortinfo.gend if self.sortinfo.gend in ('u', '?') else self.sortinfo.gend, node.sortinfo.ind if self.sortinfo.ind in ('u', '?') else self.sortinfo.ind, node.sortinfo.pt if self.sortinfo.pt in ('u', '?') else self.sortinfo.pt)
             else:
                 node.sortinfo = copy.deepcopy(self.sortinfo)
         elif not isinstance(self.sortinfo, Sortinfo):
@@ -65,14 +65,14 @@ class SubgraphNode(AnchorNode):
         """
         super().__init__(anchor, nodeid, pred, sortinfo=sortinfo, carg=carg)
 
-    def mapping(self, dmrs, nodeid):
+    def map(self, dmrs, nodeid):
         """
         Overrides the values of the target node if they are not underspecified in this subgraph node, and removes the subgraph attached to it.
         :param dmrs Target DMRS graph (requires the top node specified).
         :param nodeid Target node id.
         """
         assert dmrs.top is not None, 'Top node has to be specified for subgraph node to map.'
-        super().mapping(dmrs, nodeid)
+        super().map(dmrs, nodeid)
         node = dmrs[nodeid]
         dmrs.remove_node(nodeid)
         dmrs.remove_nodes(dmrs.disconnected_nodeids(start_id=dmrs.top.nodeid))
@@ -137,7 +137,7 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=True, iterative=True
         replace_matching = {}
         for nodeid in search_matching:
             if isinstance(search_dmrs[nodeid], AnchorNode):
-                replace_dmrs[sub_mapping[nodeid]].mapping(result_dmrs, search_matching[nodeid])
+                replace_dmrs[sub_mapping[nodeid]].map(result_dmrs, search_matching[nodeid])
                 replace_matching[sub_mapping[nodeid]] = search_matching[nodeid]
             elif search_matching[nodeid] is not None:
                 result_dmrs.remove_node(search_matching[nodeid])
