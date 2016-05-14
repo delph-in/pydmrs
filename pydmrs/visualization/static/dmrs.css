@@ -1,0 +1,198 @@
+/* The MIT License (MIT)
+
+Demophin and d3.arcdiagram.js both use the same terms of the MIT license.
+ 
+Demophin: Copyright (c) 2014 Michael Wayne Goodman
+  (see https://github.com/goodmami/demophin)
+ 
+d3.arcdiagram.js: Copyright (c) 2015 Michael Wayne Goodman
+  (see https://github.com/goodmami/d3-arcdiagram)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.*/
+
+html {
+  height: 100%;
+}
+
+body {
+  background-color: #DDD;
+  height: 100%;
+}
+
+
+.grammarname {
+  font-weight: bold;
+}
+
+/*#sentenceinput {
+  font-size: 12pt;
+}
+
+#parseSubmit {
+  height: 12pt;
+}*/
+
+.sentence {
+  text-align: center;
+  font-size: larger;
+  font-weight: bold;
+}
+
+.status {
+  /*position: fixed;
+  bottom: 100%;
+  left: 0px; */
+  width: 100%;
+  height: 20px;
+  font-size: small;
+}
+
+.error {
+  font-weight: bold;
+  font-size: large;
+}
+
+.result {
+  display: block;
+  margin: 10px;
+}
+
+.dmrs {
+  display: inline-block;
+  background-color: #FFF;
+  border-radius: 10px;
+  overflow: auto;
+}
+
+.node {
+  pointer-events: all;
+  cursor: pointer;
+  fill: #000;
+  stroke: none;
+}
+
+.nodeText {
+  stroke: none;
+  font-family: sans-serif;
+  font-size: 16px;
+  text-anchor: middle;
+}
+
+.nodeText:hover {
+  font-weight: bold;
+}
+
+.node.selected {
+  font-weight: bold;
+}
+
+.nodeBox {
+  stroke-width: 2px;
+  fill: none;
+}
+
+.link {
+  stroke: #000;
+  fill: #000;
+  stroke-opacity: .5;
+  fill-opacity: .5;
+}
+
+.linkedge {
+  fill: none;
+  stroke-width: 2px;
+  stroke-linejoin: round;
+  marker-end: url(#arrowhead);
+}
+
+.eqedge {
+  fill: none;
+  stroke-width: 2px;
+  stroke-linejoin: round;
+  stroke-dasharray: 5,5;
+}
+
+.topedge {
+  fill: #f00;
+  stroke-width: 2px;
+  stroke-linejoin: round;
+  stroke-dasharray: 5,5;
+  marker-end: url(#arrowhead);
+}
+
+.linkend {
+  stroke-opacity: .5;
+  fill-opacity: .5;
+}
+
+.rargname {
+  fill: #000;
+  stroke: none;
+  stroke-width: 1px;
+  font-family: sans-serif;
+  font-size: 10px;
+  text-anchor: middle;
+}
+
+.node.in { fill: red; }
+.node.out { fill: blue; }
+.node.labelset { stroke: gold; }
+.node.scope { stroke: violet; }
+.node.out.labelset { fill: green; stroke: gold;}
+.node.in.labelset { fill: darkorange; stroke: gold;}
+
+.link.in { fill: red; stroke: red; }
+.link.out { fill: blue; stroke: blue; }
+.link.labelset { fill: gold; stroke: gold; }
+.link.scope { fill: violet; stroke: violet; }
+.link.in.labelset { fill: darkorange; stroke: darkorange; }
+.link.out.labelset { fill: green; stroke: green; }
+
+/* thanks: http://bl.ocks.org/d3noob/a22c42db65eb00d4e369 */
+.dmrs-tooltip {
+  position: absolute;
+  text-align: center;
+  padding: 2px;
+  font: 12px sans-serif;
+  color: #FFF;
+  background: #444;
+  border: 0px;
+  border-radius: 8px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dmrs-tooltip td {
+	padding: 2px
+}
+
+#visualizations {
+	position: relative;
+	padding: 100px;
+	height: 100%;
+}
+
+#visualizations svg {
+	position: absolute;
+    top: -9999px;
+    bottom: -9999px;
+    left: -9999px;
+    right: -9999px;
+    margin: auto;
+}
