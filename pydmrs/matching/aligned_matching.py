@@ -2,11 +2,16 @@ from pydmrs.core import SortDictDmrs, span_pred_key, abstractSortDictDmrs
 from pydmrs.matching.common import are_equal_links
 
 
-# TODO: Fix documentation.
-
-# Finding the longest node overlap subsequence.
 # ------------------------------------------------------------------------
 def match_nodes(nodes1, nodes2):
+    """
+    :param nodes1: A list of Nodes from the DMRS to be matched, sorted by span_pred_key.
+    :param nodes2: A list of Nodes from the DMRS against which we match, sorted by span_pred_key.
+
+    :return: A list of lists of nodeid pairs. The first element in the pair is from small DMRS, the second from the
+    larger one. The pairs are listed in reverse span_pred_key order of the corresponding nodes.  Returns [] if no
+    match found.
+    """
     if not nodes1 or not nodes2:
         return []
     matches = []
@@ -39,10 +44,10 @@ def find_extra_surface_nodeids(nodeids, sorted_large_nodes):
     """ Finds nodeids present in the aligned matched region of the large DMRS,
         but which have no equivalents in the small DMRS.
 
-        :param orderids Indices of sorted_large_nodes corresponding to matched nodes.
-        :param sorted_large_nodes A list of nodes of the large dmrs sorted by sort_nodes.
+        :param nodeids Nodeids from the large DMRS which have equivalents in the small one.
+        :param sorted_large_nodes A list of nodes of the large DMRS sorted by span_pred_key.
 
-        :return A list of nodeids.
+        :return A list of additional nodeids sharing the span with nodeids but without equivalents in the small DMRS.
     """
     extra_nodeids = []
     max_cto = 0
@@ -78,6 +83,11 @@ def find_extra_surface_nodeids(nodeids, sorted_large_nodes):
 
 
 def get_links(dmrs, nodeids):
+    """
+    :param dmrs: A Dmrs object.
+    :param nodeids: A list of nodeids.
+    :return: A list of all links starting and ending on a node from nodeids.
+    """
     links = []
     for nodeid in nodeids:
         node_links = dmrs.get_out(nodeid)
@@ -88,8 +98,10 @@ def get_links(dmrs, nodeids):
 
 
 def get_subgraph(dmrs, subgraph_nodeids):
-    """ Returns a subgraph of dmrs containing only nodes with subgraph_nodeids
-        and all the links between them.
+    """ Returns a subgraph of dmrs containing only nodes with subgraph_nodeids and all the links between them.
+    :param dmrs: A Dmrs object.
+    :param subgraph_nodeids: A list of nodeids.
+    :return A SortDictDmrs containing only nodes with subgraph_nodeids and links between them.
     """
     nodes = [dmrs[nodeid] for nodeid in subgraph_nodeids]
     return SortDictDmrs(nodes, links=get_links(dmrs, subgraph_nodeids), node_key=span_pred_key)
@@ -98,7 +110,12 @@ def get_subgraph(dmrs, subgraph_nodeids):
 # -------------------------------------------------------------------------------
 
 def get_link_diff(small_dmrs, matched_subgraph, matching_nodeids):
-    """ Returns three list of links:
+    """
+    :param small_dmrs A Dmrs which we're matching.
+    :param matched_subgraph A Dmrs. A subgraph of the larger DMRS returned as a match for small_dmrs.
+    :param matching_nodeids A list of pairs of nodeids. The first nodeid in each pair comes from small_dmrs, the second
+    comes from the large dmrs.
+    :return three list of links:
         1) links present only in the small dmrs
         2) links present only in the matched subgraph
         3) common links.
@@ -169,6 +186,11 @@ def get_matching_nodeids(small_dmrs, large_dmrs, all_surface=False):
 
 
 def get_matched_subgraph(matching_nodeids, large_dmrs):
+    """
+    :param matching_nodeids: A list of pairs of matches nodeids from the small and large dmrs.
+    :param large_dmrs: A Dmrs.
+    :return: A Dmrs. A subgraph of large_dmrs containing only nodes with nodeids in matching_nodeids.
+    """
     present_large_nodeids = list(zip(*matching_nodeids))[1]
     return get_subgraph(large_dmrs, present_large_nodeids)
 
