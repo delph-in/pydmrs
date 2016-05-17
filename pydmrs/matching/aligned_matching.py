@@ -44,7 +44,8 @@ def find_extra_surface_nodeids(nodeids, sorted_large_nodes):
     """ Finds nodeids present in the aligned matched region of the large DMRS,
         but which have no equivalents in the small DMRS.
 
-        :param nodeids Nodeids from the large DMRS which have equivalents in the small one.
+        :param nodeids Nodeids from the large DMRS which have equivalents in the small one, sorted by span_pred_key of
+        their nodes.
         :param sorted_large_nodes A list of nodes of the large DMRS sorted by span_pred_key.
 
         :return A list of additional nodeids sharing the span with nodeids but without equivalents in the small DMRS.

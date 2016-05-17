@@ -34,6 +34,18 @@ class TestAlignedMatching(unittest.TestCase):
         self.assertListEqual(matches[0], [(2, 5), (1, 1)])
         self.assertListEqual(matches[1], [(2, 5), (1, 4)])
 
+    def test_find_extra_surface_nodeids(self):
+        sorted_nodes = self.the_dog_chases_the_cat.nodes  # sorted because from SortDictDmrs
+        nodeids = [1, 5]
+        extras = aligned_matching.find_extra_surface_nodeids(nodeids, sorted_nodes)
+        self.assertListEqual(extras, [2, 3, 4])
+
+        # No extras.
+        sorted_nodes1 = self.the_cat.nodes
+        nodeids1 = [4, 5]
+        extras1 = aligned_matching.find_extra_surface_nodeids(nodeids1, sorted_nodes1)
+        self.assertListEqual(extras1, [])
+
     def test_get_matching_nodeids(self):
         # Match "the cat" onto "the dog chases the cat" (exact fit)
         matches1 = aligned_matching.get_matching_nodeids(self.the_cat, self.the_dog_chases_the_cat)
