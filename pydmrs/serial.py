@@ -107,9 +107,10 @@ def dumps_xml(dmrs, encoding=None):
     if dmrs.cfrom is not None and dmrs.cto is not None:
         xdmrs.set('cfrom', str(dmrs.cfrom))
         xdmrs.set('cto', str(dmrs.cto))
-    for node in dmrs.iter_nodes():
+    for nodeid in sorted(dmrs):
         xnode = ET.SubElement(xdmrs, 'node')
-        xnode.set('nodeid', str(node.nodeid))
+        xnode.set('nodeid', str(nodeid))
+        node = dmrs[nodeid]
         if node.cfrom is not None and node.cto is not None:
             xnode.set('cfrom', str(node.cfrom))
             xnode.set('cto', str(node.cto))
