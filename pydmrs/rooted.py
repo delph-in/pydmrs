@@ -1,14 +1,18 @@
 from copy import copy
 from operator import attrgetter
 from collections import deque
-from pydmrs.core import Link
-from pydmrs._exceptions import PydmrsError
+from configparser import ConfigParser
+
+from pydmrs.core import Link, Pred, Dmrs, ListDmrs, DictDmrs
+from pydmrs._exceptions import PydmrsError, PydmrsValueError
+
+DEFAULT_CONFIG_FILE = '../configs/default_simplification.conf'
 
 def reverse_link(dmrs, link):
     """
     Reverse a Link in a Dmrs graph.
     The start and end nodeids are switched,
-    and "_rev" is appended to the rargname (or removed if already present)
+    and "_REV" is appended to the rargname (or removed if already present)
     """
     if link.rargname[-4:] == "_REV":
         new_rargname = link.rargname[:-4]
@@ -150,8 +154,11 @@ def iter_bottom_up(dmrs, check_acyclic=True, node_key=None):
     By default, raises an error if the graph has cycles.
     By default, nodes are sorted by nodeid (or for SortDictDmrs, by node_key)
     """
+    # Check if the graph is acyclic
     if check_acyclic and not is_acyclic(dmrs):
         raise PydmrsError
+    
+    # Choose how to sort nodes
     if node_key is None:
         if hasattr(dmrs, 'node_key'):
             node_key = dmrs.node_key
@@ -170,3 +177,100 @@ def iter_bottom_up(dmrs, check_acyclic=True, node_key=None):
                 if parent.nodeid not in returned and parent not in queue:
                     queue.append(parent)
             yield new
+
+
+config = ConfigParser()
+config.read(DEFAULT_CONFIG_FILE)
+REVERSE_ARG1 = frozenset(Pred.from_string(x) for x in config.get('Rooted Conversion', 'reverse_arg1').split())
+
+def make_rooted_local(dmrs, reverse_arg1=REVERSE_ARG1):
+    """
+    Attempt to convert a DMRS graph to a rooted graph,
+    by reversing links based on local properties.
+    May leave cycles.
+    """
+    # List of links to reverse (to avoid reversing back)
+    to_reverse = set()
+    
+    # Reverse ARG1 links for particular predicates 
+    for node in dmrs.iter_nodes():
+        if node.pred in reverse_arg1:
+            arg1 = dmrs.get_out(node.nodeid, rargname='ARG1')
+            if len(arg1) > 1:
+                raise PydmrsError('Multiple ARG1s')
+            to_reverse.update(arg1)
+    
+    # Reverse modifiers (EQ links)
+    to_reverse.update(dmrs.get_label(post='EQ'))
+    
+    # Reverse quantifiers
+    to_reverse.update(dmrs.get_label(rargname='RSTR'))
+    
+    # Reverse the links!
+    for link in to_reverse:
+        reverse_link(dmrs, link)
+    
+    return dmrs
+
+def make_rooted_global(dmrs, root=None):
+    """
+    Convert a DMRS graph to a rooted graph,
+    by fixing one node to be the root.
+    If no nodeid is given, defaults to top (and then index)
+    May leave cycles.
+    """
+    # Decide on the root
+    if root is None:
+        if dmrs.top:
+            root = dmrs.top.nodeid
+        elif dmrs.index:
+            root = dmrs.index.nodeid
+        else:
+            raise PydmrsError('No root nodeid given, no top, and no index')
+    
+    previous = set()
+    layer = {root}
+    while layer:
+        children = set()
+        for nid in layer:
+            for link in dmrs.get_in(nid):
+                if link.start not in layer and link.start not in previous:
+                    reverse_link(dmrs, link)
+            children.update(dmrs.get_out_nodes(nid, nodeids=True) - layer)
+        previous = layer
+        layer = children
+    
+    return dmrs
+
+def make_rooted_acyclic(dmrs, reverse_arg1=REVERSE_ARG1, root=None):
+    """
+    Make a DMRS rooted and acyclic, first trying local changes, and then global changes.
+    May leave cycles.
+    """
+    if not dmrs.is_connected():
+        raise PydmrsValueError('DMRS is not connected')
+    
+    make_rooted_local(dmrs, reverse_arg1)
+    
+    if not (is_acyclic(dmrs) and is_rooted(dmrs, check_connected=False)):
+        make_rooted_global(dmrs, root)
+    
+    if not (is_acyclic(dmrs) and is_rooted(dmrs, check_connected=False)):
+        raise PydmrsError('Conversion to a rooted acyclic graph failed')
+
+
+class RootedMixin(Dmrs):
+    """
+    Allows a Dmrs class access to the above functions as class methods
+    """
+    for name, object in copy(globals()).items():
+        try:
+            if object.__module__ == __name__:
+                locals()[name] = object
+        except AttributeError:
+            continue
+
+class DictRootDmrs(RootedMixin, DictDmrs):
+    pass
+class ListRootDmrs(RootedMixin, ListDmrs):
+    pass
