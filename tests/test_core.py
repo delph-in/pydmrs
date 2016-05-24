@@ -6,7 +6,7 @@ from pydmrs.components import Pred, GPred, Sortinfo, EventSortinfo, InstanceSort
 from pydmrs.core import (
     Link, LinkLabel,
     Node, span_pred_key, abstractSortDictDmrs)
-from pydmrs.examples import examples_dmrs
+from examples import examples_dmrs
 
 
 class TestLink(unittest.TestCase):

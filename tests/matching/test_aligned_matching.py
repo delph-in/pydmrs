@@ -2,7 +2,7 @@ import unittest
 
 from pydmrs.core import span_pred_key, abstractSortDictDmrs, ListDmrs, Node, RealPred, \
     InstanceSortinfo, Link
-from pydmrs.examples import examples_dmrs
+from examples import examples_dmrs
 from pydmrs.matching import aligned_matching
 
 

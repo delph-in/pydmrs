@@ -3,7 +3,7 @@ import unittest
 from pydmrs._exceptions import PydmrsTypeError
 from pydmrs.components import InstanceSortinfo, RealPred
 from pydmrs.core import Link, DictDmrs, Node
-from pydmrs.examples import examples_dmrs
+from examples import examples_dmrs
 from pydmrs.matching import general_matching
 
 
