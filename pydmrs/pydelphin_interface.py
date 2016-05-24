@@ -1,14 +1,13 @@
-from configparser import ConfigParser
 from delphin.interfaces import ace
 from delphin.mrs import simplemrs, dmrx
 
 from pydmrs.core import ListDmrs
+from pydmrs.utils import load_config, get_config_option
 
-DEFAULT_CONFIG_FILE = '../configs/default_interface.conf'
+DEFAULT_CONFIG_FILE = 'default_interface.conf'
 
-config = ConfigParser()
-config.read(DEFAULT_CONFIG_FILE)
-DEFAULT_ERG_FILE = config.get('Grammar', 'ERG')
+config = load_config(DEFAULT_CONFIG_FILE)
+DEFAULT_ERG_FILE = config.get(config, 'Grammar', 'ERG')
 
 
 def parse(sentence, cls=ListDmrs, erg_file=DEFAULT_ERG_FILE):
