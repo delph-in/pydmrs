@@ -1,7 +1,7 @@
 from pydmrs.pydelphin_interface import parse, generate
 from pydmrs.mapping.mapping import dmrs_mapping
 from pydmrs.graphlang.graphlang import parse_graphlang
-import pydmrs.examples.examples_dmrs as examples
+import examples.examples_dmrs as examples
 
 
 if __name__ == '__main__':

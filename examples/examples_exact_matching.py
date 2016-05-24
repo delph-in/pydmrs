@@ -1,5 +1,5 @@
 from pydmrs.matching.exact_matching import dmrs_exact_matching
-import pydmrs.examples.examples_dmrs as examples
+import examples.examples_dmrs as examples
 
 
 if __name__ == '__main__':

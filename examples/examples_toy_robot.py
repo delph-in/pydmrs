@@ -1,19 +1,13 @@
 from copy import copy
 
 from pydmrs.core import Link, LinkLabel
-from pydmrs.components import Pred, RealPred
-from pydmrs.simplification.gpred_filtering import gpred_filtering
-from pydmrs.simplification.simplification import DEFAULT_CONFIG_FILE, ConfigParser, get_config_option, parse_gpred_filter_config
+from pydmrs.components import Pred, RealPred, GPred
+from pydmrs.simplification.gpred_filtering import gpred_filtering, DEFAULT_FILTER
 #from pydmrs.mapping.mapping import dmrs_mapping
 from pydmrs.graphlang.graphlang import parse_graphlang
 
-config = ConfigParser()
-assert DEFAULT_CONFIG_FILE[:3] == '../'
-config.read(DEFAULT_CONFIG_FILE[3:])
-gpred_filter_config = get_config_option(config, 'General Predicate Filtering', 'filter')
-gpred_filter = parse_gpred_filter_config(gpred_filter_config)
 # Also remove pronouns
-gpred_filter.append('pron')
+extended_filter = DEFAULT_FILTER | {GPred('pron')}
 
 # Replace the first pred with the second:
 rename = [(RealPred('forwards','p'), RealPred('forward','p','dir'))]
@@ -37,7 +31,7 @@ def simplify(dmrs):
     Simplify an input DMRS to a form that can be converted to robot commands
     """
     # Remove unnecessary GPreds (defaults, plus pronouns)
-    gpred_filtering(dmrs, gpred_filter)
+    gpred_filtering(dmrs, extended_filter)
     
     # Remove quantifiers
     for node in copy(dmrs.nodes):

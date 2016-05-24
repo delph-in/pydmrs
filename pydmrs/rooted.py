@@ -1,12 +1,16 @@
 from copy import copy
 from operator import attrgetter
 from collections import deque
-from configparser import ConfigParser
 
-from pydmrs.core import Link, Pred, Dmrs, ListDmrs, DictDmrs
 from pydmrs._exceptions import PydmrsError, PydmrsValueError
+from pydmrs.core import Link, Pred, Dmrs, ListDmrs, DictDmrs
+from pydmrs.utils import load_config, get_config_option
 
-DEFAULT_CONFIG_FILE = '../configs/default_simplification.conf'
+DEFAULT_CONFIG_FILE = 'default_simplification.conf'
+
+config = load_config(DEFAULT_CONFIG_FILE)
+REVERSE_ARG1 = frozenset(Pred.from_string(x) for x in get_config_option(config, 'Rooted Conversion', 'reverse_arg1', opt_type=list))
+
 
 def reverse_link(dmrs, link):
     """
@@ -178,10 +182,6 @@ def iter_bottom_up(dmrs, check_acyclic=True, node_key=None):
                     queue.append(parent)
             yield new
 
-
-config = ConfigParser()
-config.read(DEFAULT_CONFIG_FILE)
-REVERSE_ARG1 = frozenset(Pred.from_string(x) for x in config.get('Rooted Conversion', 'reverse_arg1').split())
 
 def make_rooted_local(dmrs, reverse_arg1=REVERSE_ARG1):
     """
