@@ -1,4 +1,3 @@
-from pydmrs.components import RealPred
 from pydmrs.pydelphin_interface import parse, generate
 from pydmrs.mapping.mapping import dmrs_mapping
 from pydmrs.graphlang.graphlang import parse_graphlang
@@ -9,8 +8,8 @@ if __name__ == '__main__':
 
     # basic functionality
     dmrs = examples.the_dog_chases_the_cat()
-    search_dmrs = parse_graphlang('[1]:_the_q_rel')
-    replace_dmrs = parse_graphlang('[1]:_a_q_rel')
+    search_dmrs = parse_graphlang('[1]:_the_q')
+    replace_dmrs = parse_graphlang('[1]:_a_q')
 
     # iterative, all
     assert 'A dog chases a cat.' in generate(dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=True, iterative=True, all_matches=True))
@@ -312,7 +311,7 @@ if __name__ == '__main__':
     assert 'I think he will go.' in generate(dmrs)
 
 
-    # question generation
+    # question generation (with subgraph nodes)
 
     dmrs = parse('Kim gave Sandy a book.')[0]
     search_dmrs = parse_graphlang('*[1]:_v e[p????] -1-> {2}:node')
@@ -331,3 +330,13 @@ if __name__ == '__main__':
     replace_dmrs = parse_graphlang('*[1]:_v e[q????] -3-> {2}:person x[3s___] <-- which_q')
     dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=False)
     assert 'Who did Kim give a book?' in generate(dmrs)
+
+
+    # think example (with equal constraints)
+
+    dmrs = parse('I think I will go.')[0]
+    equalities = {}
+    search_dmrs = parse_graphlang('[1]:node=1 <-1- [2]:_think_v_1 e[????-] -2h-> [3]:_v e[pfi--] -1-> node=1 <-- pred', equalities=equalities)
+    replace_dmrs = parse_graphlang('[1]:node <-1- [2]:_think_v_of e[????+] -2-> nominalization x <-- udef_q; :nominalization =1h=> [3]:_v e[pui-+]')
+    dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=equalities, copy_dmrs=False)
+    assert 'I am thinking of going.' in generate(dmrs)

@@ -9,11 +9,11 @@ class AnchorNode(Node):
     A DMRS graph node with an additional anchor id to identify anchor nodes for DMRS mapping.
     """
 
-    def __init__(self, anchor, nodeid, pred, sortinfo=None, carg=None):
+    def __init__(self, anchor, *args, **kwargs):
         """
         Create a new anchor node instance.
         """
-        super().__init__(nodeid=nodeid, pred=pred, sortinfo=sortinfo, carg=carg)
+        super().__init__(*args, **kwargs)
         self.anchor = anchor
 
     def map(self, dmrs, nodeid):
@@ -75,11 +75,11 @@ class SubgraphNode(AnchorNode):
         super().map(dmrs, nodeid)
         node = dmrs[nodeid]
         dmrs.remove_node(nodeid)
-        dmrs.remove_nodes(dmrs.disconnected_nodeids(start_id=dmrs.top.nodeid))
+        dmrs.remove_nodes(dmrs.disconnected_nodeids())
         dmrs.add_node(node)
 
 
-def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=True, iterative=True, all_matches=True, require_connected=True):
+def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True, iterative=True, all_matches=True, require_connected=True):
     """
     Performs an exact DMRS (sub)graph matching of a (sub)graph against a containing graph.
     :param dmrs DMRS graph to map.
@@ -110,14 +110,14 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=True, iterative=True
     if iterative:
         result_dmrs = copy.deepcopy(dmrs) if copy_dmrs else dmrs
     else:
-        matchings = dmrs_exact_matching(search_dmrs, dmrs)
+        matchings = dmrs_exact_matching(search_dmrs, dmrs, equalities=equalities)
     if not iterative and all_matches:
         result = []
 
     # continue while there is a match for search_dmrs
     while True:
         if iterative:
-            matchings = dmrs_exact_matching(search_dmrs, result_dmrs)
+            matchings = dmrs_exact_matching(search_dmrs, result_dmrs, equalities=equalities)
         else:
             result_dmrs = copy.deepcopy(dmrs) if copy_dmrs else dmrs
 

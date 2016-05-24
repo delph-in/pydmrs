@@ -1,4 +1,3 @@
-from pydmrs.components import RealPred
 from pydmrs.matching.exact_matching import dmrs_exact_matching
 import pydmrs.examples.examples_dmrs as examples
 

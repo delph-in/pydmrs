@@ -14,12 +14,14 @@ def parse_graphlang(string, cls=ListDmrs, queries={}, equalities={}):
     lines = (item for line in string.split('\n') for item in line.split(';') if item)
     for line in lines:
         last_id = -1
-        r = -1
+        r = 0
         start = True
         while r < len(line):
-            l = r + 1  # position of link
-            while line[l] == ' ':
+            l = r  # position of link
+            while l < len(line) and line[l] == ' ':
                 l += 1
+            if l >= len(line):
+                break
             if start:
                 m = l
             else:
@@ -76,10 +78,13 @@ def parse_graphlang(string, cls=ListDmrs, queries={}, equalities={}):
     return cls(nodes=nodes, links=links, index=index, top=top)
 
 
+special_values = ('?', '=')
+
+
 def _parse_value(string, underspecified, queries, equalities, retriever):
-    if not string or string[0] not in '?=':
+    if not string or string[0] not in special_values:
         return string
-    if string in ('?', '='):
+    if string in special_values:
         return underspecified
     if string[1] == string[0]:
         return string[1:]
@@ -110,7 +115,7 @@ def _parse_node(string, nodeid, queries, equalities):
         l += 1
         while string[l] == ' ':
             l += 1
-    if string[l:l+4] == 'node' and (len(string) - l == 4 or string[l+4] == '?'):
+    if string[l:l+4] == 'node' and (len(string) - l == 4 or string[l+4] in special_values):
         value = _parse_value(string[l+4:], None, queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]]))
         assert not value
         pred = Pred()
@@ -162,7 +167,7 @@ def _parse_pred(string, nodeid, queries, equalities):
         string = string[1:-1]
     assert '"' not in string, 'Predicates must not contain quotes.'
     assert string[0] != '\'', 'Predicates with opening single-quote have been deprecated.'
-    if (string[:4] == 'pred' and (len(string) == 4 or string[4] == '?')) or (string[:8] == 'predsort' and (len(string) == 8 or string[8] == '?')):
+    if (string[:4] == 'pred' and (len(string) == 4 or string[4] in special_values)) or (string[:8] == 'predsort' and (len(string) == 8 or string[8] in special_values)):
         i = 8 if string[:8] == 'predsort' else 4
         value = _parse_value(string[i:], None, queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].pred))
         assert not value
@@ -194,14 +199,14 @@ def _parse_pred(string, nodeid, queries, equalities):
     return RealPred(lemma, pos, sense), ref_name
 
 
-_parse_instance_shorthand = {
+_parse_instance_shortform = {
     'p': ('pers', {'_': None, '?': 'u', '1': '1', '2': '2', '3': '3', 'o': '1-or-3'}),
     'n': ('num', {'_': None, '?': 'u', 's': 'sg', 'p': 'pl'}),
     'g': ('gend', {'_': None, '?': 'u', 'f': 'f', 'm': 'm', 'n': 'n', 'o': 'm-or-f'}),
     'i': ('ind', {'_': None, '?': 'u', '+': '+', '-': '-'}),
     't': ('pt', {'_': None, '?': 'u', 's': 'std', 'z': 'zero', 'r': 'refl'})}
 
-_parse_event_shorthand = {
+_parse_event_shortform = {
     's': ('sf', {'_': None, '?': 'u', 'p': 'prop', 'q': 'ques', 'o': 'prop-or-ques', 'c': 'comm'}),
     't': ('tense', {'_': None, '?': 'u', 'u': 'untensed', 't': 'tensed', 'p': 'pres', 'a': 'past', 'f': 'fut'}),
     'm': ('mood', {'_': None, '?': 'u', 'i': 'indicative', 's': 'subjunctive'}),
@@ -220,7 +225,7 @@ def _parse_sortinfo(string, nodeid, queries, equalities):
             return InstanceSortinfo()
         else:
             return Sortinfo()
-    if string[1] == '?':
+    if string[1] in special_values:
         value = _parse_value(string[1:], None, queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].sortinfo))
         assert not value
         if string[0] == 'e':
@@ -234,14 +239,14 @@ def _parse_sortinfo(string, nodeid, queries, equalities):
     if '=' in string:  # explicit key-value specification
         if string[0] == 'e':
             sortinfo = EventSortinfo()
-            shorthand = _parse_event_shorthand
+            shortform = _parse_event_shortform
         else:
             sortinfo = InstanceSortinfo()
-            shorthand = _parse_instance_shorthand
+            shortform = _parse_instance_shortform
         for kv in string[2:-1].split(','):
             key, value = kv.split('=')
-            if key in shorthand:
-                key, values = shorthand[key]
+            if key in shortform:
+                key, values = shortform[key]
                 sortinfo[key] = values[value]
             else:
                 sortinfo[key] = _parse_value(value, 'u', queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].sortinfo[key]))
@@ -249,18 +254,18 @@ def _parse_sortinfo(string, nodeid, queries, equalities):
     else:  # implicit specification
         assert len(string) == 8, 'Invalid number of short-hand sortinfo arguments.'
         if string[0] == 'e':
-            sf = _parse_event_shorthand['s'][1][string[2]]
-            tense = _parse_event_shorthand['t'][1][string[3]]
-            mood = _parse_event_shorthand['m'][1][string[4]]
-            perf = _parse_event_shorthand['p'][1][string[5]]
-            prog = _parse_event_shorthand['r'][1][string[6]]
+            sf = _parse_event_shortform['s'][1][string[2]]
+            tense = _parse_event_shortform['t'][1][string[3]]
+            mood = _parse_event_shortform['m'][1][string[4]]
+            perf = _parse_event_shortform['p'][1][string[5]]
+            prog = _parse_event_shortform['r'][1][string[6]]
             return EventSortinfo(sf, tense, mood, perf, prog)
         else:
-            pers = _parse_instance_shorthand['p'][1][string[2]]
-            num = _parse_instance_shorthand['n'][1][string[3]]
-            gend = _parse_instance_shorthand['g'][1][string[4]]
-            ind = _parse_instance_shorthand['i'][1][string[5]]
-            pt = _parse_instance_shorthand['t'][1][string[6]]
+            pers = _parse_instance_shortform['p'][1][string[2]]
+            num = _parse_instance_shortform['n'][1][string[3]]
+            gend = _parse_instance_shortform['g'][1][string[4]]
+            ind = _parse_instance_shortform['i'][1][string[5]]
+            pt = _parse_instance_shortform['t'][1][string[6]]
             return InstanceSortinfo(pers, num, gend, ind, pt)
 
 
@@ -320,7 +325,7 @@ def _parse_link(string, left_nodeid, right_nodeid, queries, equalities):
             rargname = 'rstr'
             post = 'h'
     else:
-        if string[l] == '?':
+        if string[l] == '?':  # no equal constraint
             rargname = '?'
             post = '?'
             value = _parse_value(string[l:r+1], None, queries, equalities, (lambda matching, dmrs: ','.join(link.labelstring for link in dmrs.get_out(matching[start], itr=True) if link.end == matching[end])))

@@ -83,7 +83,7 @@ class Pred(object):
 
     def is_more_specific(self, other):
         """
-        Checks whether the other object is a more specific pred
+        Checks whether this object is a more specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
@@ -91,7 +91,7 @@ class Pred(object):
 
     def is_less_specific(self, other):
         """
-        Checks whether the other object is a less specific pred
+        Checks whether this object is a less specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
@@ -260,7 +260,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
 
     def is_more_specific(self, other):
         """
-        Checks whether the other object is a more specific pred
+        Checks whether this object is a more specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
@@ -285,7 +285,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
 
     def is_less_specific(self, other):
         """
-        Checks whether the other object is a less specific pred
+        Checks whether this object is a less specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
@@ -406,7 +406,7 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
 
     def is_more_specific(self, other):
         """
-        Checks whether the other object is a more specific pred
+        Checks whether this object is a more specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
@@ -414,7 +414,7 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
 
     def is_less_specific(self, other):
         """
-        Checks whether the other object is a less specific pred
+        Checks whether this object is a less specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
@@ -699,7 +699,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
 
     def is_more_specific(self, other):
         """
-        Checks whether the other object is a more specific sortinfo
+        Checks whether this object is a more specific sortinfo than the other
         (underspecified value: '?' or 'u' or non-existent)
         """
         if not isinstance(other, Sortinfo):
@@ -718,7 +718,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
 
     def is_less_specific(self, other):
         """
-        Checks whether the other object is a less specific sortinfo
+        Checks whether this object is a less specific sortinfo than the other
         (underspecified value: '?' or 'u' or non-existent)
         """
         if not isinstance(other, Sortinfo):

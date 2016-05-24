@@ -1,7 +1,7 @@
 from pydmrs.core import Dmrs
 
 
-def dmrs_exact_matching(sub_dmrs, dmrs, match_top_index=False):
+def dmrs_exact_matching(sub_dmrs, dmrs, equalities=(), match_top_index=False):
     """
     Performs an exact DMRS (sub)graph matching of a (sub)graph against a containing graph.
     :param sub_dmrs DMRS (sub)graph to match.
@@ -124,4 +124,8 @@ def dmrs_exact_matching(sub_dmrs, dmrs, match_top_index=False):
                 return False
         return count == sub_dmrs.count_links()
 
-    return _exhaustive_search(len(matches_items))
+    if isinstance(equalities, dict):
+        equalities = tuple(equalities.values())
+    for result in _exhaustive_search(len(matches_items)):
+        if all(retriever(result, dmrs) == equality[0](result, dmrs) for equality in equalities for retriever in equality):
+            yield result

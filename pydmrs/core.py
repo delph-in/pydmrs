@@ -144,7 +144,7 @@ class Node(object):
 
     def is_more_specific(self, other):
         """
-        Checks whether the other object is a more specific node (predicate, carg, sortinfo)
+        Checks whether this object is a more specific node than the other (predicate, carg, sortinfo)
         """
         if not isinstance(other, Node):
             raise PydmrsTypeError()
@@ -169,7 +169,7 @@ class Node(object):
 
     def is_less_specific(self, other):
         """
-        Checks whether the other object is a less specific node (predicate, carg, sortinfo)
+        Checks whether this object is a less specific node than the other (predicate, carg, sortinfo)
         """
         if not isinstance(other, Node):
             raise PydmrsTypeError()

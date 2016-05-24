@@ -1,4 +1,4 @@
-from pydmrs.pydelphin_interface import parse, generate
+from pydmrs.pydelphin_interface import parse
 from pydmrs.matching.query import dmrs_query
 
 
