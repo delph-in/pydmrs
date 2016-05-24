@@ -8,7 +8,8 @@ from pydmrs.simplification.simplification import DEFAULT_CONFIG_FILE, ConfigPars
 from pydmrs.graphlang.graphlang import parse_graphlang
 
 config = ConfigParser()
-config.read(DEFAULT_CONFIG_FILE)
+assert DEFAULT_CONFIG_FILE[:3] == '../'
+config.read(DEFAULT_CONFIG_FILE[3:])
 gpred_filter_config = get_config_option(config, 'General Predicate Filtering', 'filter')
 gpred_filter = parse_gpred_filter_config(gpred_filter_config)
 # Also remove pronouns

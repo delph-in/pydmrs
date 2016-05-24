@@ -1,12 +1,17 @@
-from pydmrs.core import ListDmrs
+from configparser import ConfigParser
 from delphin.interfaces import ace
 from delphin.mrs import simplemrs, dmrx
 
+from pydmrs.core import ListDmrs
 
-erg_file = 'erg.dat'
+DEFAULT_CONFIG_FILE = '../configs/default_interface.conf'
+
+config = ConfigParser()
+config.read(DEFAULT_CONFIG_FILE)
+DEFAULT_ERG_FILE = config.get('Grammar', 'ERG')
 
 
-def parse(sentence, cls=ListDmrs):
+def parse(sentence, cls=ListDmrs, erg_file=DEFAULT_ERG_FILE):
     results = []
     for result in ace.parse(erg_file, sentence)['RESULTS']:  # cmdargs=['-r', 'root_informal']
         mrs = result['MRS']
@@ -17,7 +22,7 @@ def parse(sentence, cls=ListDmrs):
     return results
 
 
-def generate(dmrs):
+def generate(dmrs, erg_file=DEFAULT_ERG_FILE):
     dmrs_xml = '<dmrs-list>' + dmrs.dumps_xml(encoding='utf-8') + '</dmrs-list>'
     xmrs = dmrx.loads_one(dmrs_xml)
     mrs = simplemrs.dumps_one(xmrs)
