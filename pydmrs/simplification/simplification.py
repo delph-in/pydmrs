@@ -5,7 +5,7 @@ from pydmrs.serial import loads_xml, dumps_xml
 from pydmrs.simplification.gpred_filtering import gpred_filtering
 
 
-DEFAULT_CONFIG_FILE = '../configs/default_simplification.conf'
+DEFAULT_CONFIG_FILE = '../../configs/default_simplification.conf'
 
 
 def get_config_option(config, section, option, opt_type=None, default=None):
