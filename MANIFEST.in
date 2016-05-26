@@ -1,1 +1,2 @@
+recursive-include pydmrs *.py
 include configs/*.conf
