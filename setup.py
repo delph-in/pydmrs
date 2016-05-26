@@ -1,7 +1,7 @@
 import os
 from setuptools import setup, find_packages
 
-VERSION = '1.0.4'
+VERSION = '1.0.5'
 
 setup(
   name = 'pydmrs',
@@ -13,8 +13,8 @@ setup(
   url = 'https://github.com/delph-in/pydmrs',
   download_url = 'https://github.com/delph-in/pydmrs/tarball/'+VERSION,
   keywords = ['NLP', 'Natural Language Processing', 'Computational Linguistics', 'Semantics'],
-  packages = find_packages().append('examples'),
-  data_files = [('configs', ['configs/'+filename for filename in os.listdir('configs')])],
+  packages = find_packages(),
+  package_data = {'pydmrs': ['__config__/*.conf']},
   install_requires = [
     'pydelphin'
   ]
