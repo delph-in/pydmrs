@@ -109,7 +109,7 @@ function parseNodePred(node) {
 			realpred[0].getAttribute('pos'),
 			realpred[0].getAttribute('sense')
 		];
-		pred = pred_elements.join('_')
+		pred = pred_elements.filter(function(val) { return val !== null;}).join('_')
 	}
 	else {
 		gpred = node.getElementsByTagName('gpred')[0].textContent;
