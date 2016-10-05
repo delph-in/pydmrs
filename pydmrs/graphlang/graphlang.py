@@ -1,6 +1,6 @@
 from pydmrs.components import Pred, RealPred, GPred, Sortinfo, EventSortinfo, InstanceSortinfo
 from pydmrs.core import Link, Node, ListDmrs
-from pydmrs.mapping.mapping import AnchorNode, SubgraphNode
+from pydmrs.mapping.mapping import AnchorNode, OptionalNode, SubgraphNode
 
 
 def parse_graphlang(string, cls=ListDmrs, queries={}, equalities={}):
@@ -9,8 +9,7 @@ def parse_graphlang(string, cls=ListDmrs, queries={}, equalities={}):
     links = []
     index = None
     top = None
-    ref_ids = {}
-    ref_names = {}
+    refs = {}
     lines = (item for line in string.split('\n') for item in line.split(';') if item)
     for line in lines:
         last_id = -1
@@ -45,13 +44,8 @@ def parse_graphlang(string, cls=ListDmrs, queries={}, equalities={}):
             r += 1
             if line[m] == ':':
                 ref = line[m+1:r]
-                if ref.isdigit():
-                    ref = int(ref)
-                    assert ref in ref_ids, 'Invalid reference id.'
-                    current_id = ref_ids[ref]
-                else:
-                    assert ref in ref_names, 'Invalid reference name.'
-                    current_id = ref_names[ref]
+                assert ref in refs, 'Invalid reference id.'
+                current_id = refs[ref]
             else:
                 # TODO: index node?
                 if line[m] == '*' and line[m+1] == '*':  # index node
@@ -67,8 +61,8 @@ def parse_graphlang(string, cls=ListDmrs, queries={}, equalities={}):
                 current_id = nodeid
                 nodeid += 1
                 if ref_id is not None:
-                    ref_ids[ref_id] = current_id
-                ref_names[ref_name] = current_id
+                    refs[ref_id] = current_id
+                refs[ref_name] = current_id
             if not start:
                 m = line.index(' ', l, m)
                 link = _parse_link(line[l:m], last_id, current_id, queries, equalities)
@@ -139,7 +133,7 @@ def _parse_node(string, nodeid, queries, equalities):
             m = r + 1
         else:
             carg = None
-        if string[m] == ' ':
+        if m < len(string) and string[m] == ' ':
             while string[m] == ' ':
                 m += 1
             sortinfo = _parse_sortinfo(string[m:], nodeid, queries, equalities)
@@ -149,13 +143,15 @@ def _parse_node(string, nodeid, queries, equalities):
         ref_id = None
         node = Node(nodeid, pred, sortinfo=sortinfo, carg=carg)
     elif ref_id[0] == '[' and ref_id[-1] == ']':
-        ref_id = int(ref_id[1:-1])
+        ref_id = ref_id[1:-1]
         node = AnchorNode(ref_id, nodeid, pred, sortinfo=sortinfo, carg=carg)
+    elif ref_id[0] == '(' and ref_id[-1] == ')':
+        ref_id = ref_id[1:-1]
+        node = OptionalNode(ref_id, nodeid, pred, sortinfo=sortinfo, carg=carg)
     elif ref_id[0] == '{' and ref_id[-1] == '}':
-        ref_id = int(ref_id[1:-1])
+        ref_id = ref_id[1:-1]
         node = SubgraphNode(ref_id, nodeid, pred, sortinfo=sortinfo, carg=carg)
     else:
-        ref_id = int(ref_id)
         node = Node(nodeid, pred, sortinfo=sortinfo, carg=carg)
     return node, ref_id, ref_name
 

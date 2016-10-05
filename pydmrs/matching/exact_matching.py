@@ -1,15 +1,18 @@
 from pydmrs.core import Dmrs
 
 
-def dmrs_exact_matching(sub_dmrs, dmrs, equalities=(), match_top_index=False):
+def dmrs_exact_matching(sub_dmrs, dmrs, optional_nodeids=(), equalities=(), match_top_index=False):
     """
     Performs an exact DMRS (sub)graph matching of a (sub)graph against a containing graph.
     :param sub_dmrs DMRS (sub)graph to match.
     :param dmrs DMRS graph to match against.
+    :param optional_nodeids
+    :param equalities
+    :param match_top_index
     :return Iterator of dictionaries, mapping node ids of the matched (sub)graph to the corresponding matching node id in the containing graph.
     """
 
-    if not isinstance(sub_dmrs, Dmrs) or not isinstance(dmrs, Dmrs) or len(sub_dmrs) > len(dmrs):
+    if not isinstance(sub_dmrs, Dmrs) or not isinstance(dmrs, Dmrs):
         return iter(())
     matching = {}
     matching_values = set()
@@ -19,12 +22,14 @@ def dmrs_exact_matching(sub_dmrs, dmrs, equalities=(), match_top_index=False):
     for sub_node in sub_dmrs.iter_nodes():
         match = [node.nodeid for node in dmrs.iter_nodes() if sub_node == node or sub_node.is_less_specific(node)]
         if match:
+            if sub_node.nodeid in optional_nodeids:
+                match.append(None)
             if len(match) == 1:
                 matching[sub_node.nodeid] = match[0]
                 matching_values.add(match[0])
                 continue
             matches[sub_node.nodeid] = match
-        else:
+        elif sub_node.nodeid not in optional_nodeids:
             return iter(())
 
     # match index and top
@@ -102,7 +107,7 @@ def dmrs_exact_matching(sub_dmrs, dmrs, equalities=(), match_top_index=False):
                 yield result
             matching_values.remove(nodeid)
         matching.pop(sub_nodeid, None)
-        if None in match:  # without assigning if optional node is present
+        if match[-1] is None:  # without assigning if optional node is present
             for result in _exhaustive_search(n):
                 yield result
 

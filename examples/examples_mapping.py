@@ -31,6 +31,14 @@ if __name__ == '__main__':
     assert 'A dog chases a cat.' in generate(dmrs)
 
 
+
+    dmrs = parse('Kim eats and Kim sleeps.')[0]
+    search_dmrs = parse_graphlang('[4]:node=1 <-1- [2]:node <-l- [1]:_and_c e? -r-> [3]:node -1-> node=1 <-- proper_q; :2 <-lh- :1 -rh-> :3')
+    replace_dmrs = parse_graphlang('[4]:node <-1- [2]:node <-l- [1]:_and_c e? -r-> [3]:node -1-> :4; :2 <=lh= :1 =rh=> :3')
+    dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=False)
+    assert 'Kim eats and sleeps.' in generate(dmrs)
+
+
     # some examples inspired by examples from the AMR specification
 
     dmrs = parse('He described the mission as a failure.')[0]
@@ -311,23 +319,34 @@ if __name__ == '__main__':
     assert 'I think he will go.' in generate(dmrs)
 
 
+    # determinerless PP (with optional node)
+
+    dmrs = parse('I found you at last.')[0]
+    search_dmrs = parse_graphlang('[1]:_at_p e[pui--] -2-> _last_n_1 x[3s_+_] <-- idiom_q_i; (2):_long_a_1 e[pui__] =1=> :_last_n_1')
+    replace_dmrs = parse_graphlang('[1]:_final_a_1 e[pui--]')
+    dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=False)
+    assert 'I found you finally.' in generate(dmrs)
+    dmrs_mapping(dmrs, replace_dmrs, search_dmrs, copy_dmrs=False)
+    assert 'I found you at last.' in generate(dmrs)
+
+
     # question generation (with subgraph nodes)
 
     dmrs = parse('Kim gave Sandy a book.')[0]
     search_dmrs = parse_graphlang('*[1]:_v e[p????] -1-> {2}:node')
-    replace_dmrs = parse_graphlang('*[1]:_v e[q????] -1-> {2}:person x[3s___] <-- which_q')
+    replace_dmrs = parse_graphlang('*[1]:_v e[q????] -1-> [2]:person x[3s___] <-- which_q')
     dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=False)
     assert 'Who gave Sandy a book?' in generate(dmrs)
 
     dmrs = parse('Kim gave Sandy a book.')[0]
     search_dmrs = parse_graphlang('*[1]:_v e[p????] -2-> {2}:node')
-    replace_dmrs = parse_graphlang('*[1]:_v e[q????] -2-> {2}:thing x <-- which_q')
+    replace_dmrs = parse_graphlang('*[1]:_v e[q????] -2-> [2]:thing x <-- which_q')
     dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=False)
     assert 'What did Kim give Sandy?' in generate(dmrs)
 
     dmrs = parse('Kim gave Sandy a book.')[0]
     search_dmrs = parse_graphlang('*[1]:_v e[p????] -3-> {2}:node')
-    replace_dmrs = parse_graphlang('*[1]:_v e[q????] -3-> {2}:person x[3s___] <-- which_q')
+    replace_dmrs = parse_graphlang('*[1]:_v e[q????] -3-> [2]:person x[3s___] <-- which_q')
     dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=False)
     assert 'Who did Kim give a book?' in generate(dmrs)
 
@@ -336,7 +355,7 @@ if __name__ == '__main__':
 
     dmrs = parse('I think I will go.')[0]
     equalities = {}
-    search_dmrs = parse_graphlang('[1]:node=1 <-1- [2]:_think_v_1 e[????-] -2h-> [3]:_v e[pfi--] -1-> node=1 <-- pred', equalities=equalities)
+    search_dmrs = parse_graphlang('[1]:node=1 <-1- [2]:_think_v_1 e[????-] -2h-> [3]:_v e[pfi--] -1-> node=1', equalities=equalities)
     replace_dmrs = parse_graphlang('[1]:node <-1- [2]:_think_v_of e[????+] -2-> nominalization x <-- udef_q; :nominalization =1h=> [3]:_v e[pui-+]')
     dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=equalities, copy_dmrs=False)
     assert 'I am thinking of going.' in generate(dmrs)

@@ -1,4 +1,5 @@
 from collections import namedtuple
+
 try:
     from collections.abc import MutableMapping
 except ImportError:  # Python v3.2 or less
@@ -109,7 +110,8 @@ class Pred(object):
         if string[0] == '"' and string[-1] == '"':
             string = string[1:-1]
         if string[0] == "'":
-            warn('Predicates with opening single-quote have been deprecated', PydmrsDeprecationWarning)
+            warn('Predicates with opening single-quote have been deprecated',
+                 PydmrsDeprecationWarning)
             string = string[1:]
         if '"' in string:
             raise PydmrsValueError('Predicates must not contain quotes')
@@ -120,9 +122,9 @@ class Pred(object):
         # Strip trailing '_rel'
         if string[-4:] == '_rel':
             string = string[:-4]
-        
+
         return string
-    
+
     @classmethod
     def from_string(cls, string):
         """
@@ -321,7 +323,8 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         parts = string[1:].rsplit('_', 2)
         # Require at least 2 parts
         if len(parts) < 2:
-            raise PydmrsValueError("RealPred strings must have a part of speech separated by an underscore")
+            raise PydmrsValueError(
+                "RealPred strings must have a part of speech separated by an underscore")
         return RealPred(*parts)
 
 
@@ -410,7 +413,8 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return type(other) == Pred or (isinstance(other, GPred) and (self.name != '?' and other.name == '?'))
+        return type(other) == Pred or (
+        isinstance(other, GPred) and (self.name != '?' and other.name == '?'))
 
     def is_less_specific(self, other):
         """
@@ -443,7 +447,9 @@ class SortinfoMeta(ABCMeta):
     """
     A metaclass for Sortinfo, which defines a 'features' class attribute automatically  
     """
-    def __new__(mcls, name, bases, namespace):  # @NoSelf - 'mcls' is SortinfoMeta, 'cls' is the new class
+
+    def __new__(mcls, name, bases,
+                namespace):  # @NoSelf - 'mcls' is SortinfoMeta, 'cls' is the new class
         """
         Create a new class, and add a 'features' attribute from __slots__
         """
@@ -452,20 +458,20 @@ class SortinfoMeta(ABCMeta):
             raise PydmrsError('Subclasses of Sortinfo must define __slots__')
         if 'features' in namespace:
             raise PydmrsError("Subclasses of Sortinfo must not define a 'features' attribute")
-        
+
         # Force all feature names to be lowercase
         namespace['__slots__'] = tuple(feat.lower() for feat in namespace['__slots__'])
-        
+
         # Create the class, and add the 'features' attribute
         cls = super().__new__(mcls, name, bases, namespace)
         cls.features = tuple(chain.from_iterable(getattr(parent, '__slots__', ())
                                                  for parent in reversed(cls.__mro__)))
-        
+
         # Sortinfo defines a from_normalised_dict method which calls either EventSortinfo or InstanceSortinfo
         # Subclasses need to override this method
         if 'from_normalised_dict' not in namespace:
             cls.from_normalised_dict = cls._from_normalised_dict
-        
+
         return cls
 
 
@@ -477,35 +483,36 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
     """
     __slots__ = ()
     cvarsort = 'i'
-    
+
     # Container methods
-    
+
     def __iter__(self):
         """
         Iterate through all features, including 'cvarsort'
         """
         return chain(('cvarsort',), iter(self.features))
-    
+
     def __len__(self):
         """
         Return the number of features, including 'cvarsort'
         """
         return 1 + len(self.features)
-    
+
     def __contains__(self, feature):
         """
         Check if a feature is present in the class
         """
         return feature == 'cvarsort' or feature in self.features
-    
+
     def is_specified(self, feature):
         """
         Returns True if value of feature is specified and not '?' or 'u'
         """
-        return feature == 'cvarsort' or (feature in self.features and self[feature] not in (None, 'u', '?'))
+        return feature == 'cvarsort' or (
+        feature in self.features and self[feature] not in (None, 'u', '?'))
 
     # For convenience, we can also get features which are not None
-    
+
     def iter_specified(self):
         """
         Return (feature, value) pairs where value is specified and not '?' or 'u'
@@ -514,11 +521,11 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
             val = self[feat]
             if val not in (None, 'u', '?'):
                 yield (feat, val)
-    
+
     # Setters and getters
     # Allows both attribute and dictionary access
     # Features and values must all be lowercase
-    
+
     def __setattr__(self, feature, value):
         """
         Set the value of a feature, converting it to lowercase unless it's None
@@ -527,19 +534,19 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         if value is not None:
             value = value.lower()
         super().__setattr__(feature, value)
-    
+
     def __delattr__(self, feature):
         """
         Set the value of a feature to None
         """
         setattr(self, feature, None)
-        
+
     def __setitem__(self, feature, value):
         """
         Set items as attributes
         """
         setattr(self, feature, value)
-    
+
     def __getitem__(self, feature):
         """
         Get the value of a feature, including 'cvarsort'
@@ -551,24 +558,25 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
             return getattr(self, feature)
         else:
             raise PydmrsKeyError("{} has no feature {}".format(type(self), feature))
-    
+
     def __delitem__(self, feature):
         """
         Set the value of a feature to None
         """
         self[feature] = None
-    
+
     # Initialisation
-    
+
     def __init__(self, *args, **kwargs):
         """
         Initialise values of features, from positional or keyword arguments
         If a feature is not given, its value is set to None
         """
         if len(args) > len(self.features):
-            raise PydmrsTypeError("{} takes {} arguments, but {} were given".format(type(self).__name__,
-                                                                                    len(self.features),
-                                                                                    len(args)))
+            raise PydmrsTypeError(
+                "{} takes {} arguments, but {} were given".format(type(self).__name__,
+                                                                  len(self.features),
+                                                                  len(args)))
         for i, value in enumerate(args):
             setattr(self, self.features[i], value)
         for feature, value in kwargs.items():
@@ -578,7 +586,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
                 setattr(self, feature, None)
 
     # Conversion to strings and dicts
-    
+
     def __str__(self):
         """
         Returns a string of the form:
@@ -589,21 +597,22 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
             return '{}[{}]'.format(self.cvarsort, spec_feats)
         else:
             return self.cvarsort
-    
+
     def __repr__(self):
         """
         Return a string that can be evaluated
         """
-        return '{}({})'.format(type(self).__name__, ', '.join(repr(self[feat]) for feat in self.features))
-    
+        return '{}({})'.format(type(self).__name__,
+                               ', '.join(repr(self[feat]) for feat in self.features))
+
     def as_dict(self):
         """
         Return a dict mapping from features to values, including 'cvarsort'
         """
         return dict(self.items())
-    
+
     # Conversion from strings and dicts
-    
+
     @classmethod
     def from_dict(cls, dictionary):
         """
@@ -612,7 +621,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         """
         normalised = cls.normalise_dict(dictionary)
         return cls.from_normalised_dict(normalised)
-    
+
     @staticmethod
     def normalise_dict(dictionary):
         """
@@ -632,8 +641,14 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
                 dictionary['cvarsort'] = 'e'
             elif any(key in dictionary for key in InstanceSortinfo.features):  # instance evidence
                 dictionary['cvarsort'] = 'x'
+
+        for key, value in dictionary.items():
+            if value == 'plus':
+                dictionary[key] = '+'
+            if value == 'minus':
+                dictionary[key] = '-'
         return dictionary
-    
+
     # In, subclasses, _from_normalised_dict will override from_normalised_dict
     # See SortinfoMeta for details
     @staticmethod
@@ -653,7 +668,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         else:
             # This needs to be updated so that the underspecified cvarsorts i, u, and p are distinguished
             return Sortinfo()
-    
+
     @classmethod
     def _from_normalised_dict(cls, dictionary):
         """
@@ -662,9 +677,10 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         if 'cvarsort' in dictionary and dictionary['cvarsort'] != cls.cvarsort:
             raise PydmrsValueError('{} must have cvarsort {}, not {}'.format(cls.__name__,
                                                                              cls.cvarsort,
-                                                                             dictionary['cvarsort']))
-        return cls(**{key:value for key, value in dictionary.items() if key != 'cvarsort'})
-    
+                                                                             dictionary[
+                                                                                 'cvarsort']))
+        return cls(**{key: value for key, value in dictionary.items() if key != 'cvarsort'})
+
     @classmethod
     def from_string(cls, string):
         """
@@ -674,7 +690,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         # Force lowercase
         string = string.lower()
         # Dictionary mapping from features to values
-        dictionary = {'cvarsort' : string[0]}
+        dictionary = {'cvarsort': string[0]}
         if len(string) > 1:
             if not (string[1] == '[' and string[-1] == ']'):
                 raise PydmrsValueError('Sortinfo string must include features in square brackets')
@@ -683,7 +699,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
                 dictionary[key.strip()] = value.strip()
         # Convert the dictionary
         return cls.from_dict(dictionary)
-    
+
     # Comparison methods
 
     def __eq__(self, other):
@@ -692,7 +708,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         Returns True if all specified features are the same.
         """
         return isinstance(other, Sortinfo) and self.cvarsort == other.cvarsort \
-            and set(self.iter_specified()) == set(other.iter_specified())
+               and set(self.iter_specified()) == set(other.iter_specified())
 
     def __ne__(self, other):
         return not self == other
@@ -752,4 +768,3 @@ class InstanceSortinfo(Sortinfo):
     cvarsort = 'x'
     __slots__ = ('pers', 'num', 'gend', 'ind', 'pt')
     # Person, number, gender, individuated, pronoun type
-

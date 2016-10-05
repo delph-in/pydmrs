@@ -3,10 +3,11 @@ from pydmrs.matching.common import are_equal_links
 
 
 # ------------------------------------------------------------------------
-def match_nodes(nodes1, nodes2):
+def match_nodes(nodes1, nodes2, excluded=[]):
     """
     :param nodes1: A list of Nodes from the DMRS to be matched, sorted by span_pred_key.
     :param nodes2: A list of Nodes from the DMRS against which we match, sorted by span_pred_key.
+    :param excluded: A list of nodeids which should not be used for matching.
 
     :return: A list of lists of nodeid pairs. The first element in the pair is from small DMRS, the second from the
     larger one. The pairs are listed in reverse span_pred_key order of the corresponding nodes.  Returns [] if no
@@ -20,11 +21,13 @@ def match_nodes(nodes1, nodes2):
     for i, node2 in enumerate(nodes2):
         if len(nodes2) - i < longest:  # Not enough nodes left to beat the current longest match.
             break
+        if excluded and node2.nodeid in excluded:
+            continue
         for j, node1 in enumerate(nodes1):
             if j > earliest:  # To avoid repetition.
                 break
             if node1 == node2:
-                best_matches = match_nodes(nodes1[j + 1:], nodes2[i + 1:])
+                best_matches = match_nodes(nodes1[j + 1:], nodes2[i + 1:], excluded=excluded)
                 if best_matches:
                     for match in best_matches:
                         match.append((node1.nodeid, node2.nodeid))
@@ -40,29 +43,43 @@ def match_nodes(nodes1, nodes2):
         return []
 
 
-def find_extra_surface_nodeids(nodeids, sorted_large_nodes):
+def add_quantifier_matches(dmrs1, dmrs2, longest_matches):
+    for m in longest_matches:
+        q_pairs = []
+        for nodeid1, nodeid2 in m:
+            try:
+                q_link1 = dmrs1.get_in(nodeid1, rargname='RSTR', post='H').pop()
+                q_link2 = dmrs2.get_in(nodeid2, rargname='RSTR', post='H').pop()
+            except KeyError:
+                continue
+            if dmrs1[q_link1.start] == dmrs2[q_link2.start]:
+                q_pairs.append((q_link1.start, q_link2.start))
+        m.extend(q_pairs)
+
+
+def find_extra_surface_nodeids(nodeids, large_dmrs):
     """ Finds nodeids present in the aligned matched region of the large DMRS,
         but which have no equivalents in the small DMRS.
 
         :param nodeids Nodeids from the large DMRS which have equivalents in the small one, sorted by span_pred_key of
         their nodes.
-        :param sorted_large_nodes A list of nodes of the large DMRS sorted by span_pred_key.
+        :param large_dmrs The large DMRS.
 
         :return A list of additional nodeids sharing the span with nodeids but without equivalents in the small DMRS.
     """
+    max_cto = large_dmrs[nodeids[-1]].cto
     extra_nodeids = []
-    max_cto = 0
     reached_start = False
     reached_end = False
-    for i, node in enumerate(sorted_large_nodes):
+    for i, node in enumerate(large_dmrs.nodes):
         if node.nodeid == nodeids[0]:
             first_overlap_orderid = i
             min_cfrom = node.cfrom
-            max_cto = node.cto
+            max_cto = max(max_cto, node.cto)
             while True and first_overlap_orderid > 0:
-                prev_node = sorted_large_nodes[first_overlap_orderid - 1]
+                prev_node = large_dmrs.nodes[first_overlap_orderid - 1]
                 prev_cfrom = prev_node.cfrom
-                if prev_cfrom == min_cfrom:
+                if prev_cfrom == min_cfrom and prev_node.cto <= max_cto:
                     first_overlap_orderid -= 1
                     extra_nodeids.append(prev_node.nodeid)
                     max_cto = max(max_cto, prev_node.cto)
@@ -154,12 +171,14 @@ def get_link_diff(small_dmrs, matched_subgraph, matching_nodeids):
 
 # ------------------------------------------------------------------------------
 ## IMPORTANT ##
-def get_matching_nodeids(small_dmrs, large_dmrs, all_surface=False):
-    """ Finds matching pairs of nodeids between small_dmrs and large_dmrs.
+def get_matching_nodeids(small_dmrs, large_dmrs, all_surface=False, large_excluded=None):
+    """ Finds matching pairs of nodeids between small_dmrs and large_dmrs. Starts by matching all
+        nodes but quantifiers, then matches quantifiers for nouns with matches.
         :param small_dmrs A DMRS object used as a match query,
         :param large_dmrs A DMRS object to be searched for a match.
         :param all_surface If true, include all nodes from the aligned surface region.
                            If false, find only the nodes with equivalents in small_dmrs.
+        :param large_excluded The nodeids from the large DMRS to be ignored during matching.
 
         :return A list of lists of matched nodeid pairs (small_dmrs nodeid, large_dmrs nodeid).
                 A list of lists, in case more than one best match found.
@@ -170,8 +189,15 @@ def get_matching_nodeids(small_dmrs, large_dmrs, all_surface=False):
     if not isinstance(large_dmrs, SortDictDmrs) or (large_dmrs.node_key != span_pred_key):
         large_dmrs = large_dmrs.convert_to(abstractSortDictDmrs(node_key=span_pred_key))
 
-    longest_matches = match_nodes(small_dmrs.nodes,
-                                  large_dmrs.nodes)  # list of lists of nodeid pairs
+    # Filter quantifiers.
+    small_no_qs = [n for n in small_dmrs.nodes if not small_dmrs.is_quantifier(n.nodeid)]
+    large_no_qs = [n for n in large_dmrs.nodes if not large_dmrs.is_quantifier(n.nodeid)]
+
+    longest_matches = match_nodes(small_no_qs, large_no_qs,
+                                  excluded=large_excluded)  # list of lists of nodeid pairs
+    add_quantifier_matches(small_dmrs, large_dmrs, longest_matches)
+    max_len = len(max(longest_matches, key=len)) if longest_matches else 0
+    longest_matches = [m for m in longest_matches if len(m) == max_len]
     # Returned in reverse span_pred_key order.
     all_matched_nodeids = []
     for match in longest_matches:
@@ -179,7 +205,7 @@ def get_matching_nodeids(small_dmrs, large_dmrs, all_surface=False):
 
         if all_surface:
             extra_overlap_nodeids = find_extra_surface_nodeids(matched_large_nodeids,
-                                                               large_dmrs.nodes)
+                                                               large_dmrs)
             match.extend([(None, nodeid) for nodeid in extra_overlap_nodeids])
         all_matched_nodeids.append(match)
 
@@ -198,7 +224,7 @@ def get_matched_subgraph(matching_nodeids, large_dmrs):
 
 def get_best_subgraph(nodeid_matches, small_dmrs, large_dmrs):
     best_fscore = 0
-    best_score = None
+    best_score = 0, 0, 0
     best_graphs = []
     for match in nodeid_matches:
         subgraph = get_matched_subgraph(match, large_dmrs)
@@ -234,6 +260,6 @@ def get_score(small_dmrs, matched_subgraph, matching_nodeids):
 
 
 def get_fscore(num_correct, num_matched, num_expected):
-    precision = num_correct / num_matched
-    recall = num_correct / num_expected
-    return 2 * precision * recall / (precision + recall)  # f_score
+    precision = num_correct / num_matched if num_matched > 0 else 0
+    recall = num_correct / num_expected if num_expected > 0 else 0
+    return 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0  # fscore
