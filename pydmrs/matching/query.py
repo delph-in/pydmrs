@@ -1,21 +1,21 @@
-from pydmrs.core import Dmrs
+import sys
+from pydmrs.core import Dmrs, ListDmrs
 from pydmrs.matching.exact_matching import dmrs_exact_matching
 from pydmrs.graphlang.graphlang import parse_graphlang
 
 
 # not all_matches then None if no match
-def dmrs_query(dmrs_iter, search_dmrs_str, results_as_dict=False, results_per_dmrs=False):
+def dmrs_query(dmrs_iter, search_dmrs_graphlang, results_as_dict=False, results_per_dmrs=False):
     """
     Queries DMRS graphs for an underspecified (sub)graph pattern and returns the values of named wildcards (of the form "?[Identifier]") as they are specified in the queried graph.
     :param dmrs_iter An iterator of DMRS graphs to query.
-    :param search_dmrs_str The query DMRS (sub)graph, given as a GraphLang string.
+    :param search_dmrs_graphlang The query DMRS (sub)graph, given as a GraphLang string.
     :param results_as_dict True if a query result should be a dictionary, mapping identifiers to values.
     :param results_per_dmrs True if a (possibly empty) list per DMRS should be returned.
     :return Iterator of dicts containing the matching node ids.
     """
-
     queries = {}
-    search_dmrs = parse_graphlang(search_dmrs_str, queries=queries)
+    search_dmrs = parse_graphlang(search_dmrs_graphlang, queries=queries)
     queries = [(key, queries[key]) for key in sorted(queries)]
     for dmrs in dmrs_iter:
         assert isinstance(dmrs, Dmrs), 'Object in dmrs_iter is not a Dmrs.'
@@ -35,3 +35,10 @@ def dmrs_query(dmrs_iter, search_dmrs_str, results_as_dict=False, results_per_dm
                 yield result
         if results_per_dmrs:
             yield results
+
+
+if __name__ == '__main__':
+    assert len(sys.argv) == 2 and not sys.stdin.isatty(), 'Invalid arguments'
+    search_dmrs = sys.argv[1]
+    dmrs_iter = (ListDmrs.loads_xml(line[:-1]) for line in sys.stdin)
+    sys.stdout.write(str(next(dmrs_query(dmrs_iter, search_dmrs, results_as_dict=True))) + '\n')

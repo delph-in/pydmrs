@@ -15,6 +15,24 @@ class AnchorNode(Node):
         """
         super().__init__(*args, **kwargs)
         self.anchor = anchor
+        self.required = True
+        self.requires_target = True
+
+    def before_map(self, dmrs, nodeid):
+        """
+        Is applied before the target node is mapped.
+        :param dmrs Target DMRS graph.
+        :param nodeid Target node id.
+        """
+        pass
+
+    def after_map(self, dmrs, nodeid):
+        """
+        Is applied after the target node is mapped.
+        :param dmrs Target DMRS graph.
+        :param nodeid Target node id.
+        """
+        pass
 
     def map(self, dmrs, nodeid):
         """
@@ -59,24 +77,38 @@ class SubgraphNode(AnchorNode):
     The attached subgraph consists of the nodes which are connected only via this node to the top node of the graph, and would be disconnected if the subgraph node was removed.
     """
 
-    def __init__(self, anchor, nodeid, pred, sortinfo=None, carg=None):
+    def __init__(self, *args, **kwargs):
         """
         Create a new subgraph node instance.
         """
-        super().__init__(anchor, nodeid, pred, sortinfo=sortinfo, carg=carg)
+        super().__init__(*args, **kwargs)
+        self.requires_target = False
 
-    def map(self, dmrs, nodeid):
+    def before_map(self, dmrs, nodeid):
         """
-        Overrides the values of the target node if they are not underspecified in this subgraph node, and removes the subgraph attached to it.
+        Removes the subgraph attached to the target node.
         :param dmrs Target DMRS graph (requires the top node specified).
         :param nodeid Target node id.
         """
         assert dmrs.top is not None, 'Top node has to be specified for subgraph node to map.'
-        super().map(dmrs, nodeid)
         node = dmrs[nodeid]
         dmrs.remove_node(nodeid)
         dmrs.remove_nodes(dmrs.disconnected_nodeids())
         dmrs.add_node(node)
+
+
+class OptionalNode(AnchorNode):
+    """
+    A DMRS anchor node which is not required.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """
+        Create a new optional node instance.
+        """
+        super().__init__(*args, **kwargs)
+        self.required = False
+        self.requires_target = False
 
 
 def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True, iterative=True, all_matches=True, require_connected=True):
@@ -95,29 +127,32 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True,
 
     # extract anchor node mapping between search_dmrs and replace_dmrs
     sub_mapping = {}
+    optional_nodeids = []
     for search_node in search_dmrs.iter_nodes():
         if not isinstance(search_node, AnchorNode):
             continue
+        if not search_node.required:
+            optional_nodeids.append(search_node.nodeid)
         for replace_node in replace_dmrs.iter_nodes():
             if not isinstance(replace_node, AnchorNode) or replace_node.anchor != search_node.anchor:
                 continue
             sub_mapping[search_node.nodeid] = replace_node.nodeid
             break
         else:
-            assert False, 'Un-matched anchor node.'
+            assert not search_node.requires_target, 'Un-matched anchor node.'
 
     # set up variables according to settings
     if iterative:
         result_dmrs = copy.deepcopy(dmrs) if copy_dmrs else dmrs
     else:
-        matchings = dmrs_exact_matching(search_dmrs, dmrs, equalities=equalities)
+        matchings = dmrs_exact_matching(search_dmrs, dmrs, optional_nodeids=optional_nodeids, equalities=equalities)
     if not iterative and all_matches:
         result = []
 
     # continue while there is a match for search_dmrs
     while True:
         if iterative:
-            matchings = dmrs_exact_matching(search_dmrs, result_dmrs, equalities=equalities)
+            matchings = dmrs_exact_matching(search_dmrs, result_dmrs, optional_nodeids=optional_nodeids, equalities=equalities)
         else:
             result_dmrs = copy.deepcopy(dmrs) if copy_dmrs else dmrs
 
@@ -134,10 +169,14 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True,
 
         # remove nodes in the matched search_dmrs if they are no anchor nodes, otherwise perform mapping()
         # mapping() performs the mapping process (with whatever it involves) specific to this node type (e.g. fill underspecified values)
+        for nodeid in search_dmrs:
+            if isinstance(search_node, AnchorNode):
+                search_dmrs[nodeid].before_map(result_dmrs, search_matching[nodeid])
         replace_matching = {}
         for nodeid in search_matching:
-            if isinstance(search_dmrs[nodeid], AnchorNode):
+            if nodeid in sub_mapping:
                 replace_dmrs[sub_mapping[nodeid]].map(result_dmrs, search_matching[nodeid])
+                replace_dmrs[sub_mapping[nodeid]].after_map(result_dmrs, search_matching[nodeid])
                 replace_matching[sub_mapping[nodeid]] = search_matching[nodeid]
             elif search_matching[nodeid] is not None:
                 result_dmrs.remove_node(search_matching[nodeid])

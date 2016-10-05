@@ -7,7 +7,7 @@ from pydmrs.utils import load_config, get_config_option
 DEFAULT_CONFIG_FILE = 'default_interface.conf'
 
 config = load_config(DEFAULT_CONFIG_FILE)
-DEFAULT_ERG_FILE = config.get(config, 'Grammar', 'ERG')
+DEFAULT_ERG_FILE = get_config_option(config, 'Grammar', 'ERG')
 
 
 def parse(sentence, cls=ListDmrs, erg_file=DEFAULT_ERG_FILE):

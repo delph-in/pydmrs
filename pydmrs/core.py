@@ -697,6 +697,7 @@ class ListDmrs(Dmrs):
         if node.nodeid is None:
             node.nodeid = self.free_nodeid()
         self.nodes.append(node)
+        return node.nodeid
 
     def remove_node(self, nodeid):
         """
@@ -880,6 +881,7 @@ class DictDmrs(Dmrs):
         if node.nodeid is None:
             node.nodeid = self.free_nodeid()
         self._nodes[node.nodeid] = node
+        return node.nodeid
 
     def remove_node(self, nodeid):
         """
@@ -951,8 +953,8 @@ class PointerMixin(Dmrs):
         # Although add_node() is not defined in Dmrs,
         # in subclasses of PointerMixin, super() looks at the Method Resolution Order,
         # which can include other parent classes where add_node() is defined.
-        super().add_node(node)
         node.graph = self
+        return super().add_node(node)
 
 
 class ListPointDmrs(PointerMixin, ListDmrs):
@@ -1093,13 +1095,14 @@ class SortDictDmrs(DictDmrs):
 
     def add_node(self, node):
         # Add node to dictionary
-        super().add_node(node)
+        nodeid = super().add_node(node)
         # Find where the node should be placed in order
         key = self.node_key(node)
         i = bisect.bisect_right(self._node_keys, key)
         # Insert the node accordingly
         self._node_keys.insert(i, key)
         self.nodes.insert(i, node)
+        return nodeid
 
     def remove_node(self, nodeid):
         node = self[nodeid]
