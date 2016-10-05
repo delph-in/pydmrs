@@ -109,7 +109,7 @@ function parseNodePred(node) {
 			realpred[0].getAttribute('pos'),
 			realpred[0].getAttribute('sense')
 		];
-		pred = pred_elements.join('_')
+		pred = pred_elements.filter(function(val) { return val !== null;}).join('_')
 	}
 	else {
 		gpred = node.getElementsByTagName('gpred')[0].textContent;
@@ -124,7 +124,7 @@ function parseNodeProperties(node) {
 	
 	sortinfo = node.getElementsByTagName('sortinfo')[0];
 	
-	property_names = ['ind', 'pers', 'num', 'sf', 'mood', 'tense', 'prog', 'perf'];
+	property_names = ['ind', 'pers', 'num', 'gend', 'sf', 'mood', 'tense', 'prog', 'perf'];
 	properties = {};
 	
 	for (j = 0; j < property_names.length; j++) {

@@ -2,7 +2,7 @@ import os
 from configparser import ConfigParser, NoSectionError, NoOptionError
 import pydmrs
 
-CONFIG_DIR = os.path.normpath(os.path.join(pydmrs.__file__, '../../configs'))
+CONFIG_DIR = os.path.normpath(os.path.join(pydmrs.__file__, '../__config__'))
 
 def get_config_option(config, section, option, opt_type=None, default=None):
     """
@@ -57,7 +57,7 @@ def parse_config(config_string):
 def load_config(filename, default=True):
     """
     Load a default config file
-    :param filename: name of the file (in the configs directory)
+    :param filename: name of the file (in the config directory)
     :param default: if True, append filename to default config directory
     """
     config = ConfigParser()

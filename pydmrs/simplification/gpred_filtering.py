@@ -11,7 +11,7 @@ DEFAULT_CONFIG_FILE = 'default_simplification.conf'
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='DMRS simplification tool')
     parser.add_argument('-c', '--config', default=None,
-                        help='Path to simplifaction configuration file. By default, configuration in configs/default_simplification.conf is used.')
+                        help='Path to simplifaction configuration file. By default, configuration in __config__/default_simplification.conf is used.')
     parser.add_argument('input_dmrs', help='Specify input DMRS file')
     parser.add_argument('output_dmrs', help='Specify output dmrs file.')
     args = parser.parse_args()
