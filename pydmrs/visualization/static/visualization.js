@@ -124,7 +124,7 @@ function parseNodeProperties(node) {
 	
 	sortinfo = node.getElementsByTagName('sortinfo')[0];
 	
-	property_names = ['ind', 'pers', 'num', 'gend', 'sf', 'mood', 'tense', 'prog', 'perf'];
+	property_names = ['ind', 'pers', 'num', 'gend', 'sf', 'mood', 'tense', 'prog', 'perf', 'pt'];
 	properties = {};
 	
 	for (j = 0; j < property_names.length; j++) {
