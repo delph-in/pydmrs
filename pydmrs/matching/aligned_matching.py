@@ -57,6 +57,42 @@ def add_quantifier_matches(dmrs1, dmrs2, longest_matches):
         m.extend(q_pairs)
 
 
+def get_compounds(dmrs, compound_preds):
+    compounds = []
+    for node in dmrs.iter_nodes():
+        if str(node.pred) in compound_preds:
+            arg1 = dmrs.get_out_nodes(node.nodeid, rargname='ARG1').pop().nodeid
+            arg2 = dmrs.get_out_nodes(node.nodeid, rargname='ARG2').pop().nodeid
+            compounds.append({"node": node, "args" : (arg1, arg2)})
+    return compounds
+
+
+def add_compound_matches(small_dmrs, large_dmrs, longest_matches, compound_preds):
+    small_compounds = get_compounds(small_dmrs, compound_preds)
+    large_compounds = get_compounds(large_dmrs, compound_preds)
+
+    for m in longest_matches:
+        cmpd_pairs = []
+        for small_cmpd in small_compounds:
+            query_arg1 = None
+            query_arg2 = None
+            for small, large in m:
+                if small == small_cmpd['args'][0]:
+                    query_arg1 = large
+                elif small == small_cmpd['args'][1]:
+                    query_arg2 = large
+                if query_arg1 and query_arg2:
+                    break
+            else:
+                continue
+            for large_cmpd in large_compounds:
+                if (query_arg1, query_arg2) == large_cmpd['args']:
+                    if small_cmpd['node'] == large_cmpd['node']:
+                        cmpd_pairs.append((small_cmpd['node'].nodeid, large_cmpd['node'].nodeid))
+        m.extend(cmpd_pairs)
+
+
+
 def find_extra_surface_nodeids(nodeids, large_dmrs):
     """ Finds nodeids present in the aligned matched region of the large DMRS,
         but which have no equivalents in the small DMRS.
@@ -192,10 +228,15 @@ def get_matching_nodeids(small_dmrs, large_dmrs, all_surface=False, large_exclud
     # Filter quantifiers.
     small_no_qs = [n for n in small_dmrs.nodes if not small_dmrs.is_quantifier(n.nodeid)]
     large_no_qs = [n for n in large_dmrs.nodes if not large_dmrs.is_quantifier(n.nodeid)]
+    # Filter compound_name and compund predicates.
+    filtered_pred = ['compound', 'compound_name']
+    filtered_small = [n for n in small_no_qs if str(n.pred) not in filtered_pred]
+    filtered_large = [n for n in large_no_qs if str(n.pred) not in filtered_pred]
 
-    longest_matches = match_nodes(small_no_qs, large_no_qs,
+    longest_matches = match_nodes(filtered_small, filtered_large,
                                   excluded=large_excluded)  # list of lists of nodeid pairs
     add_quantifier_matches(small_dmrs, large_dmrs, longest_matches)
+    add_compound_matches(small_dmrs, large_dmrs, longest_matches, filtered_pred)
     max_len = len(max(longest_matches, key=len)) if longest_matches else 0
     longest_matches = [m for m in longest_matches if len(m) == max_len]
     # Returned in reverse span_pred_key order.
