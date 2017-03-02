@@ -115,7 +115,7 @@ def dumps_xml(dmrs, encoding=None):
             xnode.set('cfrom', str(node.cfrom))
             xnode.set('cto', str(node.cto))
         if node.carg:
-            xnode.set('carg', '"{}"'.format(node.carg))
+            xnode.set('carg', '{}'.format(node.carg))
         if isinstance(node.pred, GPred):
             xpred = ET.SubElement(xnode, 'gpred')
             xpred.text = str(node.pred) + '_rel'
