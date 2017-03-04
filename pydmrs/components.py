@@ -592,7 +592,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         Returns a string of the form:
         cvarsort[feature1=value1, feature2=value2, ...]
         """
-        spec_feats = ', '.join('{}={}'.format(*pair) for pair in self.iter_specified())
+        spec_feats = ', '.join('{}={}'.format(feat, self[feat]) for feat in self.features if self[feat] is not None)
         if spec_feats:
             return '{}[{}]'.format(self.cvarsort, spec_feats)
         else:

@@ -3,7 +3,13 @@ from pydmrs.core import Link, Node, ListDmrs
 from pydmrs.mapping.mapping import AnchorNode, OptionalNode, SubgraphNode
 
 
-def parse_graphlang(string, cls=ListDmrs, queries={}, equalities={}):
+def parse_graphlang(string, cls=ListDmrs, queries=None, equalities=None, anchors=None):
+    if queries is None:
+        queries = {}
+    if equalities is None:
+        equalities = {}
+    if anchors is None:
+        anchors = {}
     nodeid = 1
     nodes = []
     links = []
@@ -56,7 +62,7 @@ def parse_graphlang(string, cls=ListDmrs, queries={}, equalities={}):
                     assert top is None
                     top = nodeid
                     m += 1
-                node, ref_id, ref_name = _parse_node(line[m:r], nodeid, queries, equalities)
+                node, ref_id, ref_name = _parse_node(line[m:r], nodeid, queries, equalities, anchors)
                 nodes.append(node)
                 current_id = nodeid
                 nodeid += 1
@@ -93,7 +99,7 @@ def _parse_value(string, underspecified, queries, equalities, retriever):
     return underspecified
 
 
-def _parse_node(string, nodeid, queries, equalities):
+def _parse_node(string, nodeid, queries, equalities, anchors):
     m = string.find('(')
     if m < 0:
         m = string.find(' ')
@@ -142,17 +148,20 @@ def _parse_node(string, nodeid, queries, equalities):
     if not ref_id:
         ref_id = None
         node = Node(nodeid, pred, sortinfo=sortinfo, carg=carg)
-    elif ref_id[0] == '[' and ref_id[-1] == ']':
-        ref_id = ref_id[1:-1]
-        node = AnchorNode(ref_id, nodeid, pred, sortinfo=sortinfo, carg=carg)
-    elif ref_id[0] == '(' and ref_id[-1] == ')':
-        ref_id = ref_id[1:-1]
-        node = OptionalNode(ref_id, nodeid, pred, sortinfo=sortinfo, carg=carg)
-    elif ref_id[0] == '{' and ref_id[-1] == '}':
-        ref_id = ref_id[1:-1]
-        node = SubgraphNode(ref_id, nodeid, pred, sortinfo=sortinfo, carg=carg)
     else:
-        node = Node(nodeid, pred, sortinfo=sortinfo, carg=carg)
+        if ref_id[0] == '[' and ref_id[-1] == ']':
+            ref_id = ref_id[1:-1]
+            node = AnchorNode(ref_id, nodeid, pred, sortinfo=sortinfo, carg=carg)
+        elif ref_id[0] == '(' and ref_id[-1] == ')':
+            ref_id = ref_id[1:-1]
+            node = OptionalNode(ref_id, nodeid, pred, sortinfo=sortinfo, carg=carg)
+        elif ref_id[0] == '{' and ref_id[-1] == '}':
+            ref_id = ref_id[1:-1]
+            node = SubgraphNode(ref_id, nodeid, pred, sortinfo=sortinfo, carg=carg)
+        else:
+            assert False, 'Invalid anchor node type.'
+        assert ref_id not in anchors, 'Reference ids have to be unique.'
+        anchors[ref_id] = node
     return node, ref_id, ref_name
 
 
