@@ -1,8 +1,8 @@
 import unittest
 
+from examples import examples_dmrs
 from pydmrs.core import span_pred_key, abstractSortDictDmrs, ListDmrs, Node, RealPred, \
     InstanceSortinfo, Link
-from examples import examples_dmrs
 from pydmrs.matching import aligned_matching
 
 
@@ -15,6 +15,10 @@ class TestAlignedMatching(unittest.TestCase):
             abstractSortDictDmrs(node_key=span_pred_key))
         self.the_dog_chases_the_cat = examples_dmrs.the_dog_chases_the_cat().convert_to(
             abstractSortDictDmrs(node_key=span_pred_key))
+        self.the_mouse = examples_dmrs.the_mouse() \
+            .convert_to(abstractSortDictDmrs(node_key=span_pred_key))
+        self.dog_cat = examples_dmrs.dog_cat() \
+            .convert_to(abstractSortDictDmrs(node_key=span_pred_key))
         # All other DMRS used here should udnergo conversion as well.
 
     def test_match_nodes(self):
@@ -35,49 +39,43 @@ class TestAlignedMatching(unittest.TestCase):
         self.assertListEqual(matches[1], [(2, 5), (1, 4)])
 
     def test_find_extra_surface_nodeids(self):
-        sorted_nodes = self.the_dog_chases_the_cat.nodes  # sorted because from SortDictDmrs
         nodeids = [1, 5]
-        extras = aligned_matching.find_extra_surface_nodeids(nodeids, sorted_nodes)
+        extras = aligned_matching.find_extra_surface_nodeids(nodeids, self.the_dog_chases_the_cat)
         self.assertListEqual(extras, [2, 3, 4])
 
         # No extras.
-        sorted_nodes1 = self.the_cat.nodes
-        nodeids1 = [4, 5]
-        extras1 = aligned_matching.find_extra_surface_nodeids(nodeids1, sorted_nodes1)
+        nodeids1 = [1, 2]
+        extras1 = aligned_matching.find_extra_surface_nodeids(nodeids1, self.the_cat)
         self.assertListEqual(extras1, [])
 
     def test_get_matching_nodeids(self):
-        # Match "the cat" onto "the dog chases the cat" (exact fit)
+        # Match "the cat" onto "the dog chases the cat" (exact fit, only one match)
         matches1 = aligned_matching.get_matching_nodeids(self.the_cat, self.the_dog_chases_the_cat)
-        self.assertEqual(len(matches1), 2)
-        self.assertCountEqual(matches1[0], [(2, 5), (1, 1)])
-        self.assertCountEqual(matches1[1], [(2, 5), (1, 4)])
+        self.assertEqual(len(matches1), 1)
+        self.assertCountEqual(matches1[0], [(2, 5), (1, 4)])
 
         # all_surface = True
         all_matches1 = aligned_matching.get_matching_nodeids(self.the_cat,
                                                              self.the_dog_chases_the_cat,
                                                              all_surface=True)
-        self.assertListEqual(matches1[1], all_matches1[1])
-        # Extra surface nodes
-        self.assertCountEqual(all_matches1[0], [(2, 5), (1, 1), (None, 2), (None, 3), (None, 4)])
+        # The same as earlier
+        self.assertListEqual(matches1[0], all_matches1[0])
+        # Extra surface nodes: between dog and cat
+
+        all_matches1 = aligned_matching.get_matching_nodeids(self.dog_cat,
+                                                             self.the_dog_chases_the_cat,
+                                                             all_surface=True)
+        self.assertCountEqual(all_matches1[0], [(2, 5), (1, 2), (None, 3), (None, 4)])
 
         # Match "the dog chases the cat" onto "the cat chases the dog" (inexact fit)
         matches2 = aligned_matching.get_matching_nodeids(self.the_dog_chases_the_cat,
                                                          self.the_cat_chases_the_dog)
-        self.assertEqual(len(matches2), 1)
-        self.assertCountEqual(matches2[0], [(4, 4), (3, 3), (1, 1)])
-        all_matches2 = aligned_matching.get_matching_nodeids(self.the_dog_chases_the_cat,
-                                                             self.the_cat_chases_the_dog,
-                                                             all_surface=True)
-        self.assertEqual(len(all_matches2), 1)
-        self.assertCountEqual(all_matches2[0], [(4, 4), (3, 3), (1, 1), (None, 2)])
+        # Two options: "the dog" matches or "the cat" matches, 'chases' doesn't because it's not part of the longest match
+        self.assertEqual(len(matches2), 2)
+        self.assertCountEqual(matches2, [[(5, 2), (4, 1)], [(2, 5), (1, 4)]])
 
         # No match found
-        the_mouse = examples_dmrs.the_mouse() \
-            .convert_to(abstractSortDictDmrs(node_key=span_pred_key))
-        dog_cat = examples_dmrs.dog_cat() \
-            .convert_to(abstractSortDictDmrs(node_key=span_pred_key))
-        matches = aligned_matching.get_matching_nodeids(the_mouse, dog_cat)
+        matches = aligned_matching.get_matching_nodeids(self.the_mouse, self.dog_cat)
         self.assertListEqual(matches, [])
 
         # Should be the same as 'the cat'.
@@ -93,20 +91,13 @@ class TestAlignedMatching(unittest.TestCase):
         matches = aligned_matching.get_matching_nodeids(self.the_cat, self.the_dog_chases_the_cat)
         subgraph1 = aligned_matching.get_matched_subgraph(matches[0], self.the_dog_chases_the_cat)
         score1 = aligned_matching.get_score(self.the_cat, subgraph1, matches[0])
-        self.assertEqual(score1, (2, 2, 3))
-        subgraph2 = aligned_matching.get_matched_subgraph(matches[1], self.the_dog_chases_the_cat)
-        score2 = aligned_matching.get_score(self.the_cat, subgraph2, matches[1])
-        self.assertEqual(score2, (3, 3, 3))
+        self.assertEqual(score1, (3, 3, 3))  # 'the', 'cat' and the link
 
         # all_surface = True
-        all_surface_matches = aligned_matching.get_matching_nodeids(self.the_cat,
+        all_surface_matches = aligned_matching.get_matching_nodeids(self.dog_cat,
                                                                     self.the_dog_chases_the_cat,
                                                                     all_surface=True)
         subgraph1a = aligned_matching.get_matched_subgraph(all_surface_matches[0],
                                                            self.the_dog_chases_the_cat)
         score1a = aligned_matching.get_score(self.the_cat, subgraph1a, all_surface_matches[0])
-        self.assertEqual(score1a, (2, 9, 3))
-        subgraph2a = aligned_matching.get_matched_subgraph(all_surface_matches[1],
-                                                           self.the_dog_chases_the_cat)
-        score2a = aligned_matching.get_score(self.the_cat, subgraph2a, all_surface_matches[1])
-        self.assertEqual(score2a, (3, 3, 3))
+        self.assertEqual(score1a, (2, 7, 3))
