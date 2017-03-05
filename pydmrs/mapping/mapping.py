@@ -70,6 +70,38 @@ class AnchorNode(Node):
         if self.carg != '?':
             node.carg = self.carg
 
+    def unify(self, node):
+        """
+        Overrides the values of this anchor node if they are not underspecified in the target node.
+        :param node Target node.
+        """
+        if isinstance(node.pred, RealPred):
+            if isinstance(self.pred, RealPred):
+                self.pred = RealPred(node.pred.lemma if self.pred.lemma == '?' else self.pred.lemma, node.pred.pos if self.pred.pos in ('u', '?') else self.pred.pos, node.pred.sense if self.pred.sense in ('unknown', '?') else self.pred.sense)
+            else:
+                self.pred = copy.deepcopy(node.pred)
+        elif isinstance(node.pred, GPred):
+            if isinstance(self.pred, GPred):
+                self.pred = GPred(node.pred.name if self.pred.name == '?' else self.pred.name)
+            else:
+                self.pred = copy.deepcopy(node.pred)
+        elif not isinstance(node.pred, Pred):
+            self.pred = None
+        if isinstance(node.sortinfo, EventSortinfo):
+            if isinstance(self.sortinfo, EventSortinfo):
+                self.sortinfo = EventSortinfo(node.sortinfo.sf if self.sortinfo.sf in ('u', '?') else self.sortinfo.sf, node.sortinfo.tense if self.sortinfo.tense in ('u', '?') else self.sortinfo.tense, node.sortinfo.mood if self.sortinfo.mood in ('u', '?') else self.sortinfo.mood, node.sortinfo.perf if self.sortinfo.perf in ('u', '?') else self.sortinfo.perf, node.sortinfo.prog if self.sortinfo.prog in ('u', '?') else self.sortinfo.prog)
+            else:
+                self.sortinfo = copy.deepcopy(node.sortinfo)
+        elif isinstance(node.sortinfo, InstanceSortinfo):
+            if isinstance(self.sortinfo, InstanceSortinfo):
+                self.sortinfo = InstanceSortinfo(node.sortinfo.pers if self.sortinfo.pers in ('u', '?') else self.sortinfo.pers, node.sortinfo.num if self.sortinfo.num in ('u', '?') else self.sortinfo.num, node.sortinfo.gend if self.sortinfo.gend in ('u', '?') else self.sortinfo.gend, node.sortinfo.ind if self.sortinfo.ind in ('u', '?') else self.sortinfo.ind, node.sortinfo.pt if self.sortinfo.pt in ('u', '?') else self.sortinfo.pt)
+            else:
+                self.sortinfo = copy.deepcopy(node.sortinfo)
+        elif not isinstance(node.sortinfo, Sortinfo):
+            self.sortinfo = None
+        if node.carg != '?':
+            self.carg = node.carg
+
 
 class SubgraphNode(AnchorNode):
     """
@@ -170,8 +202,9 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True,
         # remove nodes in the matched search_dmrs if they are no anchor nodes, otherwise perform mapping()
         # mapping() performs the mapping process (with whatever it involves) specific to this node type (e.g. fill underspecified values)
         for nodeid in search_dmrs:
+            search_node = search_dmrs[nodeid]
             if isinstance(search_node, AnchorNode):
-                search_dmrs[nodeid].before_map(result_dmrs, search_matching[nodeid])
+                search_node.before_map(result_dmrs, search_matching[nodeid])
         replace_matching = {}
         for nodeid in search_matching:
             if nodeid in sub_mapping:
