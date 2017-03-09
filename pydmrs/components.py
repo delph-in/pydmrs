@@ -1,5 +1,4 @@
 from collections import namedtuple
-
 try:
     from collections.abc import MutableMapping
 except ImportError:  # Python v3.2 or less
@@ -442,14 +441,14 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
 # (An alternative solution would be to define a descriptor class, with an instance as a class attribute of Sortinfo)
 # (Using a metaclass gives us more freedom - e.g. we can check that subclasses define __slots__)
 # This metaclass inherits from ABCMeta rather than type, because MutableMapping has ABCMeta as a metaclass
+# (In Python v3.6, we could use __init_subclass__ rather than a metaclass.)
 
 class SortinfoMeta(ABCMeta):
     """
     A metaclass for Sortinfo, which defines a 'features' class attribute automatically  
     """
 
-    def __new__(mcls, name, bases,
-                namespace):  # @NoSelf - 'mcls' is SortinfoMeta, 'cls' is the new class
+    def __new__(mcls, name, bases, namespace):  # @NoSelf - 'mcls' is SortinfoMeta, 'cls' is the new class
         """
         Create a new class, and add a 'features' attribute from __slots__
         """
@@ -614,16 +613,16 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
     # Conversion from strings and dicts
 
     @classmethod
-    def from_dict(cls, dictionary):
+    def from_dict(cls, dictionary, **kwargs):
         """
         Instantiates a Sortinfo object from dictionary,
         normalising as necessary
         """
-        normalised = cls.normalise_dict(dictionary)
+        normalised = cls.normalise_dict(dictionary, **kwargs)
         return cls.from_normalised_dict(normalised)
 
     @staticmethod
-    def normalise_dict(dictionary):
+    def normalise_dict(dictionary, convert_plus_minus=True, convert_legacy_prontype=True):
         """
         Normalise a sortinfo dictionary - convert keys to lowercase and correct cvarsort if necessary
         """
@@ -635,21 +634,32 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
             dictionary['cvarsort'] = dictionary['cvarsort'].lower()
         except KeyError:
             raise PydmrsValueError('Sortinfo must have cvarsort')
-        # Correct cvarsort if features are evidence for 'x' or 'e':
-        if dictionary['cvarsort'] not in 'ex' and len(dictionary) > 1:
+        # Correct cvarsort
+        # 'p' is underspecified for 'h' or 'x'
+        if dictionary['cvarsort'] == 'p':
+            dictionary['cvarsort'] = 'x'
+        # Look for features that are evidence for 'x' or 'e'
+        elif dictionary['cvarsort'] not in 'ex' and len(dictionary) > 1:
             if any(key in dictionary for key in EventSortinfo.features):  # event evidence
                 dictionary['cvarsort'] = 'e'
-            elif any(key in dictionary for key in InstanceSortinfo.features):  # instance evidence
+            elif any(key in dictionary for key in InstanceSortinfo.features) \
+                 or 'prontype' in dictionary:  # instance evidence
                 dictionary['cvarsort'] = 'x'
-
-        for key, value in dictionary.items():
-            if value == 'plus':
-                dictionary[key] = '+'
-            if value == 'minus':
-                dictionary[key] = '-'
+        
+        if convert_plus_minus:
+            for key, value in dictionary.items():
+                if value == 'plus':
+                    dictionary[key] = '+'
+                if value == 'minus':
+                    dictionary[key] = '-'
+        
+        if convert_legacy_prontype and 'prontype' in dictionary:
+            pt = dictionary.pop('prontype')
+            dictionary['pt'] = LegacyInstanceSortinfo.prontype_to_pt.get(pt, pt)
+        
         return dictionary
 
-    # In, subclasses, _from_normalised_dict will override from_normalised_dict
+    # In subclasses, _from_normalised_dict will override from_normalised_dict
     # See SortinfoMeta for details
     @staticmethod
     def from_normalised_dict(dictionary):
@@ -663,10 +673,10 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
             return EventSortinfo.from_normalised_dict(dictionary)
         elif cvarsort == 'x':
             if 'prontype' in dictionary:
-                dictionary['pt'] = dictionary.pop('prontype')
-            return InstanceSortinfo.from_normalised_dict(dictionary)
+                return LegacyInstanceSortinfo.from_normalised_dict(dictionary)
+            else:
+                return InstanceSortinfo.from_normalised_dict(dictionary)
         else:
-            # This needs to be updated so that the underspecified cvarsorts i, u, and p are distinguished
             return Sortinfo()
 
     @classmethod
@@ -677,12 +687,11 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         if 'cvarsort' in dictionary and dictionary['cvarsort'] != cls.cvarsort:
             raise PydmrsValueError('{} must have cvarsort {}, not {}'.format(cls.__name__,
                                                                              cls.cvarsort,
-                                                                             dictionary[
-                                                                                 'cvarsort']))
+                                                                             dictionary['cvarsort']))
         return cls(**{key: value for key, value in dictionary.items() if key != 'cvarsort'})
 
     @classmethod
-    def from_string(cls, string):
+    def from_string(cls, string, **kwargs):
         """
         Instantiate from a string of the form:
         cvarsort[feature1=value1, feature2=value2, ...]
@@ -698,7 +707,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
                 key, value = item.split('=')
                 dictionary[key.strip()] = value.strip()
         # Convert the dictionary
-        return cls.from_dict(dictionary)
+        return cls.from_dict(dictionary, **kwargs)
 
     # Comparison methods
 
@@ -768,3 +777,30 @@ class InstanceSortinfo(Sortinfo):
     cvarsort = 'x'
     __slots__ = ('pers', 'num', 'gend', 'ind', 'pt')
     # Person, number, gender, individuated, pronoun type
+    
+    def convert_to_legacy(self):
+        new = LegacyInstanceSortinfo(*(self[x] for x in self.features))
+        # Convert prontype value if there is a conversion (else leave the same)
+        new.prontype = LegacyInstanceSortinfo.pt_to_prontype.get(new.prontype, new.prontype)
+        return new
+
+
+class LegacyInstanceSortinfo(Sortinfo):
+    """
+    Legacy instance sortinfo
+    """
+    cvarsort = 'x'
+    __slots__ = ('pers', 'num', 'gend', 'ind', 'prontype')
+    # Person, number, gender, individuated, pronoun type
+    
+    prontype_to_pt = {'std_pron': 'std',
+                      'zero_pron': 'zero'}
+    pt_to_prontype = {value:key for key,value in prontype_to_pt.items()}
+    
+    def convert_to_nonlegacy(self):
+        new = InstanceSortinfo(*(self[x] for x in self.features))
+        # Convert prontype value if there is a conversion (else leave the same)
+        #if new.pt in self.prontype_to_pt:
+        #    new.pt = self.prontype_to_pt[new.pt]
+        new.pt = self.prontype_to_pt.get(new.pt, new.pt)
+        return new
