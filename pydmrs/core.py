@@ -23,7 +23,7 @@ class LinkLabel(namedtuple('LinkLabelNamedTuple', ('rargname', 'post'))):
             rargname = rargname.upper()
         if isinstance(post, str):
             post = post.upper()
-        return super(cls).__new__(cls, rargname, post)
+        return super(LinkLabel, cls).__new__(cls, rargname, post)
 
     def __str__(self):
         return "{}/{}".format(*self)
@@ -72,7 +72,7 @@ class Link(namedtuple('LinkNamedTuple', ('start', 'end', 'rargname', 'post'))):
             rargname = None
         if post in ('', 'NONE', 'NULL', 'NIL'):
             post = None
-        return super(cls).__new__(cls, start, end, rargname, post)
+        return super(Link, cls).__new__(cls, start, end, rargname, post)
 
     def __str__(self):
         return "({} - {}/{} -> {})".format(self.start, self.rargname, self.post, self.end)

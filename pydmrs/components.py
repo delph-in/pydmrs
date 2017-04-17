@@ -165,7 +165,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
             raise PydmrsValueError('a RealPred must have pos')
         if ' ' in lemma or ' ' in pos or (sense and ' ' in sense):
             raise PydmrsValueError('the values of a RealPred must not contain spaces')
-        return super(RealPred, self).__new__(cls, lemma, pos, sense)
+        return super(RealPred, cls).__new__(cls, lemma, pos, sense)
 
     def __str__(self):
         """
@@ -342,7 +342,7 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         """
         if not name:
             raise PydmrsValueError('a GPred must have non-empty name')
-        return super(GPred, self).__new__(cls, name)
+        return super(GPred, cls).__new__(cls, name)
 
     def __str__(self):
         """
@@ -463,7 +463,7 @@ class SortinfoMeta(ABCMeta):
         namespace['__slots__'] = tuple(feat.lower() for feat in namespace['__slots__'])
 
         # Create the class, and add the 'features' attribute
-        cls = super(mcls).__new__(mcls, name, bases, namespace)
+        cls = super(SortinfoMeta, mcls).__new__(mcls, name, bases, namespace)
         cls.features = tuple(chain.from_iterable(getattr(parent, '__slots__', ())
                                                  for parent in reversed(cls.__mro__)))
 
