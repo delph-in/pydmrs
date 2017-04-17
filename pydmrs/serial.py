@@ -1,11 +1,11 @@
 import xml.etree.ElementTree as ET
 from warnings import warn
-from pydmrs.components import RealPred, GPred
+from pydmrs.components import RealPred, GPred, Sortinfo
 from pydmrs.core import Link, ListDmrs
-from pydmrs._exceptions import *
+from pydmrs._exceptions import PydmrsTypeError, PydmrsValueError, PydmrsWarning
 
 
-def loads_xml(bytestring, encoding=None, cls=ListDmrs, **kwargs):
+def loads_xml(bytestring, encoding=None, cls=ListDmrs, convert_legacy_prontype=True, **kwargs):
     """
     Currently processes "<dmrs>...</dmrs>"
     To be updated for "<dmrslist>...</dmrslist>"...
@@ -34,8 +34,8 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs, **kwargs):
             base = elem.get('base')
             carg = elem.get('carg')
 
-            pred = None
-            sortinfo = None
+            pred = None  # Default value
+            sortinfo = None  # Default value
             for sub in elem:
                 if sub.tag == 'realpred':
                     try:
@@ -52,7 +52,8 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs, **kwargs):
                         pred = RealPred.from_string(sub.text)
                         warn("RealPred string found in a <gpred> tag", PydmrsWarning)
                 elif sub.tag == 'sortinfo':
-                    sortinfo = sub.attrib
+                    if sub.attrib:  # If sub.attrib is empty, leave sortinfo as None
+                        sortinfo = Sortinfo.from_dict(sub.attrib, convert_legacy_prontype=convert_legacy_prontype)
                 else:
                     raise PydmrsValueError(sub.tag)
 
@@ -86,13 +87,13 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs, **kwargs):
     return dmrs
 
 
-def load_xml(filehandle, cls=ListDmrs):
+def load_xml(filehandle, cls=ListDmrs, **kwargs):
     """
     Load a DMRS from a file
     NB: read file as bytes!
     Produces a ListDmrs by default; for a different type, specify cls
     """
-    return cls.loads(filehandle.read(), cls=cls)
+    return cls.loads(filehandle.read(), cls=cls, **kwargs)
 
 
 def dumps_xml(dmrs, encoding=None):
@@ -185,4 +186,4 @@ def visualise(dmrs, format):
         dot_str = ''.join(dot_strs)
         return dot_str.encode()
     else:
-        raise NotImplementedError
+        raise PydmrsValueError('Visualisation format not supported')
