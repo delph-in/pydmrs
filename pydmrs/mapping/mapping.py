@@ -13,7 +13,7 @@ class AnchorNode(Node):
         """
         Create a new anchor node instance.
         """
-        super().__init__(*args, **kwargs)
+        super(AnchorNode, self).__init__(*args, **kwargs)
         self.anchor = anchor
         self.required = True
         self.requires_target = True
@@ -113,7 +113,7 @@ class SubgraphNode(AnchorNode):
         """
         Create a new subgraph node instance.
         """
-        super().__init__(*args, **kwargs)
+        super(SubgraphNode, self).__init__(*args, **kwargs)
         self.requires_target = False
 
     def before_map(self, dmrs, nodeid):
@@ -138,7 +138,7 @@ class OptionalNode(AnchorNode):
         """
         Create a new optional node instance.
         """
-        super().__init__(*args, **kwargs)
+        super(OptionalNode, self).__init__(*args, **kwargs)
         self.required = False
         self.requires_target = False
 
