@@ -13,7 +13,7 @@ def dmrs_exact_matching(sub_dmrs, dmrs, optional_nodeids=(), equalities=(), matc
     """
 
     if not isinstance(sub_dmrs, Dmrs) or not isinstance(dmrs, Dmrs):
-        return iter(())
+        return
     matching = {}
     matching_values = set()
     matches = {}
@@ -30,39 +30,39 @@ def dmrs_exact_matching(sub_dmrs, dmrs, optional_nodeids=(), equalities=(), matc
                 continue
             matches[sub_node.nodeid] = match
         elif sub_node.nodeid not in optional_nodeids:
-            return iter(())
+            return
 
     # match index and top
     if match_top_index and sub_dmrs.index is not None:
         if dmrs.index is None:
-            return iter(())
+            return
         sub_index = sub_dmrs.index.nodeid
         index = dmrs.index.nodeid
         if sub_index in matching:
             if matching[sub_index] != index:
-                return iter(())
+                return
         else:
             if index in matches[sub_index]:
                 matching[sub_index] = index
                 matching_values.add(index)
                 del matches[sub_index]
             else:
-                return iter(())
+                return
     if match_top_index and sub_dmrs.top is not None:
         if dmrs.top is None:
-            return iter(())
+            return
         sub_top = sub_dmrs.top.nodeid
         top = dmrs.top.nodeid
         if sub_top in matching:
             if matching[sub_top] != top:
-                return iter(())
+                return
         else:
             if top in matches[sub_top]:
                 matching[sub_top] = top
                 matching_values.add(top)
                 del matches[sub_top]
             else:
-                return iter(())
+                return
 
     # optimisation for nodes with uniquely matching neighbour nodes
     for sub_nodeid, match in list(matches.items()):
