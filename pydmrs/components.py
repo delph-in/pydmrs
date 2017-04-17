@@ -165,7 +165,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
             raise PydmrsValueError('a RealPred must have pos')
         if ' ' in lemma or ' ' in pos or (sense and ' ' in sense):
             raise PydmrsValueError('the values of a RealPred must not contain spaces')
-        return super().__new__(cls, lemma, pos, sense)
+        return super(RealPred, self).__new__(cls, lemma, pos, sense)
 
     def __str__(self):
         """
@@ -186,7 +186,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
             return "RealPred({}, {})".format(*(repr(x) for x in self))
 
     def __hash__(self):
-        return super().__hash__()
+        return super(RealPred, self).__hash__()
 
     def __eq__(self, other):
         """
@@ -194,7 +194,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return isinstance(other, RealPred) and super().__eq__(other)
+        return isinstance(other, RealPred) and super(RealPred, self).__eq__(other)
 
     def __ne__(self, other):
         """
@@ -202,7 +202,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return not isinstance(other, RealPred) or super().__ne__(other)
+        return not isinstance(other, RealPred) or super(RealPred, self).__ne__(other)
 
     def __le__(self, other):
         """
@@ -216,7 +216,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
             return self[:2] <= other[:2]
         if other.sense is None:
             return self[:2] < other[:2]
-        return super().__le__(other)
+        return super(RealPred, self).__le__(other)
 
     def __lt__(self, other):
         """
@@ -230,7 +230,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
             return self[:2] < other[:2]
         if self.sense is None:
             return self[:2] <= other[:2]
-        return super().__lt__(other)
+        return super(RealPred, self).__lt__(other)
 
     def __ge__(self, other):
         """
@@ -244,7 +244,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
             return self[:2] >= other[:2]
         if self.sense is None:
             return self[:2] > other[:2]
-        return super().__ge__(other)
+        return super(RealPred, self).__ge__(other)
 
     def __gt__(self, other):
         """
@@ -258,7 +258,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
             return self[:2] > other[:2]
         if other.sense is None:
             return self[:2] >= other[:2]
-        return super().__gt__(other)
+        return super(RealPred, self).__gt__(other)
 
     def is_more_specific(self, other):
         """
@@ -342,7 +342,7 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         """
         if not name:
             raise PydmrsValueError('a GPred must have non-empty name')
-        return super().__new__(cls, name)
+        return super(GPred, self).__new__(cls, name)
 
     def __str__(self):
         """
@@ -357,7 +357,7 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         return "GPred({})".format(repr(self.name))
 
     def __hash__(self):
-        return super().__hash__()
+        return super(GPred, self).__hash__()
 
     def __eq__(self, other):
         """
@@ -365,7 +365,7 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return isinstance(other, GPred) and super().__eq__(other)
+        return isinstance(other, GPred) and super(GPred, self).__eq__(other)
 
     def __ne__(self, other):
         """
@@ -373,7 +373,7 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return not isinstance(other, GPred) or super().__ne__(other)
+        return not isinstance(other, GPred) or super(GPred, self).__ne__(other)
 
     def __le__(self, other):
         """
@@ -381,7 +381,7 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return isinstance(other, RealPred) or (isinstance(other, GPred) and super().__le__(other))
+        return isinstance(other, RealPred) or (isinstance(other, GPred) and super(GPred, self).__le__(other))
 
     def __lt__(self, other):
         """
@@ -389,7 +389,7 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return isinstance(other, RealPred) or (isinstance(other, GPred) and super().__lt__(other))
+        return isinstance(other, RealPred) or (isinstance(other, GPred) and super(GPred, self).__lt__(other))
 
     def __ge__(self, other):
         """
@@ -397,7 +397,7 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return isinstance(other, Pred) or (isinstance(other, GPred) and super().__ge__(other))
+        return isinstance(other, Pred) or (isinstance(other, GPred) and super(GPred, self).__ge__(other))
 
     def __gt__(self, other):
         """
@@ -405,7 +405,7 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return isinstance(other, Pred) or (isinstance(other, GPred) and super().__gt__(other))
+        return isinstance(other, Pred) or (isinstance(other, GPred) and super(GPred, self).__gt__(other))
 
     def is_more_specific(self, other):
         """
@@ -414,7 +414,7 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
         return type(other) == Pred or (
-        isinstance(other, GPred) and (self.name != '?' and other.name == '?'))
+            isinstance(other, GPred) and (self.name != '?' and other.name == '?'))
 
     def is_less_specific(self, other):
         """
@@ -463,7 +463,7 @@ class SortinfoMeta(ABCMeta):
         namespace['__slots__'] = tuple(feat.lower() for feat in namespace['__slots__'])
 
         # Create the class, and add the 'features' attribute
-        cls = super().__new__(mcls, name, bases, namespace)
+        cls = super(mcls).__new__(mcls, name, bases, namespace)
         cls.features = tuple(chain.from_iterable(getattr(parent, '__slots__', ())
                                                  for parent in reversed(cls.__mro__)))
 
@@ -533,7 +533,7 @@ class Sortinfo(with_metaclass(SortinfoMeta, MutableMapping)):
         feature = feature.lower()
         if value is not None:
             value = value.lower()
-        super().__setattr__(feature, value)
+        super(Sortinfo, self).__setattr__(feature, value)
 
     def __delattr__(self, feature):
         """

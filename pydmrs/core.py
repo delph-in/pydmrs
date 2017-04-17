@@ -23,7 +23,7 @@ class LinkLabel(namedtuple('LinkLabelNamedTuple', ('rargname', 'post'))):
             rargname = rargname.upper()
         if isinstance(post, str):
             post = post.upper()
-        return super().__new__(cls, rargname, post)
+        return super(cls).__new__(cls, rargname, post)
 
     def __str__(self):
         return "{}/{}".format(*self)
@@ -72,7 +72,7 @@ class Link(namedtuple('LinkNamedTuple', ('start', 'end', 'rargname', 'post'))):
             rargname = None
         if post in ('', 'NONE', 'NULL', 'NIL'):
             post = None
-        return super().__new__(cls, start, end, rargname, post)
+        return super(cls).__new__(cls, start, end, rargname, post)
 
     def __str__(self):
         return "({} - {}/{} -> {})".format(self.start, self.rargname, self.post, self.end)
@@ -222,7 +222,7 @@ class PointerNode(Node):
     """
 
     def __init__(self, *args, graph=None, **kwargs):
-        super().__init__(*args, **kwargs)
+        super(PointerNode, self).__init__(*args, **kwargs)
         self.graph = graph
 
     @property
@@ -642,7 +642,7 @@ class ListDmrs(Dmrs):
         """
         self.nodes = []
         self.links = []
-        super().__init__(*args, **kwargs)
+        super(ListDmrs, self).__init__(*args, **kwargs)
 
     def __getitem__(self, nodeid):
         """
@@ -777,7 +777,7 @@ class SetDict(dict):
         Get a set in the dictionary,
         defaulting to the empty set if not found
         """
-        return super().get(key, set())
+        return super(SetDict, self).get(key, set())
 
 
 class DictDmrs(Dmrs):
@@ -791,7 +791,7 @@ class DictDmrs(Dmrs):
         self._nodes = {}
         self.outgoing = SetDict()
         self.incoming = SetDict()
-        super().__init__(*args, **kwargs)
+        super(DictDmrs, self).__init__(*args, **kwargs)
 
     def __getitem__(self, nodeid):
         """
@@ -954,7 +954,7 @@ class PointerMixin(Dmrs):
         # in subclasses of PointerMixin, super() looks at the Method Resolution Order,
         # which can include other parent classes where add_node() is defined.
         node.graph = self
-        return super().add_node(node)
+        return super(PointerMixin, self).add_node(node)
 
 
 class ListPointDmrs(PointerMixin, ListDmrs):
@@ -1051,7 +1051,7 @@ class SortDictDmrs(DictDmrs):
                                         x.rargname if x.rargname else '',  # in case None
                                         x.post)
 
-        super().__init__(*args, **kwargs)
+        super(SortDictDmrs, self).__init__(*args, **kwargs)
 
         # To allow this instance to use the loads_xml method,
         # while keeping the same node_key and link_key
@@ -1077,7 +1077,7 @@ class SortDictDmrs(DictDmrs):
 
     def add_link(self, link):
         # Add link to dictionaries
-        super().add_link(link)
+        super(SortDictDmrs, self).add_link(link)
         # Find where the link should be placed in order
         key = self.link_key(link)
         i = bisect.bisect_right(self._link_keys, key)
@@ -1087,7 +1087,7 @@ class SortDictDmrs(DictDmrs):
 
     def remove_link(self, link):
         # Remove the link from dictionaries
-        super().remove_link(link)
+        super(SortDictDmrs, self).remove_link(link)
         # Remove the link from the sorted lists
         i = bisect.bisect_left(self._link_keys, self.link_key(link))
         self.links.pop(i)
@@ -1095,7 +1095,7 @@ class SortDictDmrs(DictDmrs):
 
     def add_node(self, node):
         # Add node to dictionary
-        nodeid = super().add_node(node)
+        nodeid = super(SortDictDmrs, self).add_node(node)
         # Find where the node should be placed in order
         key = self.node_key(node)
         i = bisect.bisect_right(self._node_keys, key)
@@ -1108,7 +1108,7 @@ class SortDictDmrs(DictDmrs):
         node = self[nodeid]
 
         # Remove the node and associated links from dictionaries
-        super().remove_node(nodeid)
+        super(SortDictDmrs, self).remove_node(nodeid)
 
         # Remove the node and key from the sorted lists
         i = bisect.bisect_left(self._node_keys, self.node_key(node))
