@@ -1020,7 +1020,10 @@ class SortDictDmrs(DictDmrs):
     nodes = None
     links = None
 
-    def __init__(self, *args, node_key=None, link_key=None, **kwargs):
+    def __init__(self, *args, **kwargs):
+        node_key = kwargs.pop('node_key', None)
+        link_key = kwargs.pop('link_key', None)
+
         # Sorted lists
         self.nodes = []
         self.links = []
