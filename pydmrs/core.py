@@ -221,9 +221,9 @@ class PointerNode(Node):
     to allow access to links
     """
 
-    def __init__(self, *args, graph=None, **kwargs):
+    def __init__(self, *args, **kwargs):
+        self.graph = kwargs.pop('graph', None)
         super(PointerNode, self).__init__(*args, **kwargs)
-        self.graph = graph
 
     @property
     def incoming(self):
