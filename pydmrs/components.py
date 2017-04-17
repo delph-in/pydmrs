@@ -1,3 +1,4 @@
+from future.utils import with_metaclass
 from collections import namedtuple
 
 try:
@@ -475,7 +476,7 @@ class SortinfoMeta(ABCMeta):
         return cls
 
 
-class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
+class Sortinfo(with_metaclass(SortinfoMeta, MutableMapping)):
     """
     A superclass for all Sortinfo classes.
     Instances of Sortinfo denote completely underspecified sortinfo.
