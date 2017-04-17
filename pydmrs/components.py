@@ -1,4 +1,4 @@
-from future.utils import with_metaclass
+from six import with_metaclass
 from collections import namedtuple
 try:
     from collections.abc import MutableMapping
