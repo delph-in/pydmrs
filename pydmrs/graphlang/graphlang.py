@@ -159,7 +159,7 @@ def _parse_node(string, nodeid, queries, equalities, anchors):
             ref_id = ref_id[1:-1]
             node = SubgraphNode(ref_id, nodeid, pred, sortinfo=sortinfo, carg=carg)
         else:
-            assert False, 'Invalid anchor node type.'
+            node = Node(nodeid, pred, sortinfo=sortinfo, carg=carg)
         assert ref_id not in anchors, 'Reference ids have to be unique.'
         anchors[ref_id] = node
     return node, ref_id, ref_name
