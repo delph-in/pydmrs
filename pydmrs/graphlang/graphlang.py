@@ -4,26 +4,25 @@ from pydmrs.mapping.mapping import AnchorNode, OptionalNode, SubgraphNode
 
 
 default_sortinfo_classes = dict(
-    i=Sortinfo,
     e=EventSortinfo,
     x=InstanceSortinfo
 )
 
 default_sortinfo_shortforms = dict(
-    e=[
-        ('sf', 's', {'_': None, '?': 'u', 'p': 'prop', 'q': 'ques', 'o': 'prop-or-ques', 'c': 'comm'}),
-        ('tense', 't', {'_': None, '?': 'u', 'u': 'untensed', 't': 'tensed', 'p': 'pres', 'a': 'past', 'f': 'fut'}),
-        ('mood', 'm', {'_': None, '?': 'u', 'i': 'indicative', 's': 'subjunctive'}),
-        ('perf', 'p', {'_': None, '?': 'u', '+': '+', '-': '-'}),
-        ('prog', 'r', {'_': None, '?': 'u', '+': '+', '-': '-', 'b': 'bool'})
-    ],
-    x=[
-        ('pers', 'p', {'_': None, '?': 'u', '1': '1', '2': '2', '3': '3', 'o': '1-or-3'}),
-        ('num', 'n', {'_': None, '?': 'u', 's': 'sg', 'p': 'pl'}),
-        ('gend', 'g', {'_': None, '?': 'u', 'f': 'f', 'm': 'm', 'n': 'n', 'o': 'm-or-f'}),
-        ('ind', 'i', {'_': None, '?': 'u', '+': '+', '-': '-'}),
-        ('pt', 't', {'_': None, '?': 'u', 's': 'std', 'z': 'zero', 'r': 'refl'})
-    ]
+    e=dict(
+        sf={'p': 'prop', 'q': 'ques', 'o': 'prop-or-ques', 'c': 'comm'},
+        tense={'u': 'untensed', 't': 'tensed', 'p': 'pres', 'a': 'past', 'f': 'fut'},
+        mood={'i': 'indicative', 's': 'subjunctive'},
+        perf={'+': '+', '-': '-'},
+        prog={'+': '+', '-': '-', 'b': 'bool'}
+    ),
+    x=dict(
+        pers={'1': '1', '2': '2', '3': '3', 'o': '1-or-3'},
+        num={'s': 'sg', 'p': 'pl'},
+        gend={'f': 'f', 'm': 'm', 'n': 'n', 'o': 'm-or-f'},
+        ind={'+': '+', '-': '-'},
+        pt={'s': 'std', 'z': 'zero', 'r': 'refl'}
+    )
 )
 
 
@@ -249,37 +248,17 @@ def _parse_pred(string, nodeid, queries, equalities):
     return RealPred(lemma, pos, sense), ref_name
 
 
-# _parse_instance_shortform = {
-#     'p': ('pers', {'_': None, '?': 'u', '1': '1', '2': '2', '3': '3', 'o': '1-or-3'}),
-#     'n': ('num', {'_': None, '?': 'u', 's': 'sg', 'p': 'pl'}),
-#     'g': ('gend', {'_': None, '?': 'u', 'f': 'f', 'm': 'm', 'n': 'n', 'o': 'm-or-f'}),
-#     'i': ('ind', {'_': None, '?': 'u', '+': '+', '-': '-'}),
-#     't': ('pt', {'_': None, '?': 'u', 's': 'std', 'z': 'zero', 'r': 'refl'})}
-
-# _parse_event_shortform = {
-#     's': ('sf', {'_': None, '?': 'u', 'p': 'prop', 'q': 'ques', 'o': 'prop-or-ques', 'c': 'comm'}),
-#     't': ('tense', {'_': None, '?': 'u', 'u': 'untensed', 't': 'tensed', 'p': 'pres', 'a': 'past', 'f': 'fut'}),
-#     'm': ('mood', {'_': None, '?': 'u', 'i': 'indicative', 's': 'subjunctive'}),
-#     'p': ('perf', {'_': None, '?': 'u', '+': '+', '-': '-'}),
-#     'r': ('prog', {'_': None, '?': 'u', '+': '+', '-': '-', 'b': 'bool'})}
-
-
 def _parse_sortinfo(string, nodeid, queries, equalities, sortinfo_classes, sortinfo_shortforms):
     assert string.islower(), 'Sortinfos must be lower-case.'
     assert ' ' not in string, 'Sortinfos must not contain spaces.'
+    if string[0] == 'i':
+        assert len(string) == 1, 'Sortinfo type i cannot be specified.'
+        return Sortinfo()
     assert string[0] in sortinfo_classes
-    # assert string[0] in 'iex', 'Invalid sortinfo type.'
     sortinfo = sortinfo_classes[string[0]]()
     if len(string) == 1:
         return sortinfo
-        # if string[0] == 'e':
-        #     return EventSortinfo()
-        # elif string[0] == 'x':
-        #     return InstanceSortinfo()
-        # else:
-        #     return Sortinfo()
-    assert string[0] != 'i', 'Sortinfo type i cannot be specified.'
-    shortform = sortinfo_shortforms.get(string[0], list())
+    shortform = sortinfo_shortforms.get(string[0], dict())
     index = 1
     if string[1] in special_values:
         index = string.find('[')
@@ -293,56 +272,32 @@ def _parse_sortinfo(string, nodeid, queries, equalities, sortinfo_classes, sorti
             sortinfo[feature] = 'u'
         if index < 0:
             return sortinfo
-        # elif string[0] == 'e':
-        #     return EventSortinfo('u', 'u', 'u', 'u', 'u')
-        # elif string[0] == 'x':
-        #     return InstanceSortinfo('u', 'u', 'u', 'u', 'u')
-        # else:
-        #     return Sortinfo()
     assert string[index] == '[' and string[-1] == ']', 'Square brackets missing.'
     if '=' in string:  # explicit key-value specification
-        # elif string[0] == 'e':
-        #     sortinfo = EventSortinfo()
-        #     shortform = _parse_event_shortform
-        # else:
-        #     sortinfo = InstanceSortinfo()
-        #     shortform = _parse_instance_shortform
-        for kv in string[index+1:-1].split(','):
+        for kv in string[index + 1: -1].split(','):
             key, value = kv.split('=')
-            for feature, short, values in shortform:
-                if key == short or key == feature:
-                    assert value in values
-                    sortinfo[feature] = values[value]
-                    break
-            else:
-                assert False
-            # if key in shortform:
-            #     key, values = shortform[key]
-            #     sortinfo[key] = values[value]
-            # else:
-            #     sortinfo[key] = _parse_value(value, 'u', queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].sortinfo[key]))
+            if value == '_':
+                value = None
+            elif value == '?':
+                value = 'u'
+            elif key in shortform:
+                assert value in shortform[key]
+                value = shortform[key][value]
+            sortinfo[key] = value
         return sortinfo
     else:  # implicit specification
         assert index == 1  # general underspecification makes no sense
-        assert len(string) == len(shortform) + 3
-        for n, (feature, _, values) in enumerate(shortform):
-            sortinfo[feature] = values[string[n + 2]]
+        assert len(string) == len(sortinfo.features) + 3
+        for n, feature in enumerate(sortinfo.features, 2):
+            value = string[n]
+            if value == '_':
+                value = None
+            elif value == '?':
+                value = 'u'
+            elif feature in shortform and string[n] in shortform[feature]:
+                value = shortform[feature][value]
+            sortinfo[feature] = value
         return sortinfo
-        # assert len(string) == 8, 'Invalid number of short-hand sortinfo arguments.'
-        # if string[0] == 'e':
-        #     sf = _parse_event_shortform['s'][1][string[2]]
-        #     tense = _parse_event_shortform['t'][1][string[3]]
-        #     mood = _parse_event_shortform['m'][1][string[4]]
-        #     perf = _parse_event_shortform['p'][1][string[5]]
-        #     prog = _parse_event_shortform['r'][1][string[6]]
-        #     return EventSortinfo(sf, tense, mood, perf, prog)
-        # else:
-        #     pers = _parse_instance_shortform['p'][1][string[2]]
-        #     num = _parse_instance_shortform['n'][1][string[3]]
-        #     gend = _parse_instance_shortform['g'][1][string[4]]
-        #     ind = _parse_instance_shortform['i'][1][string[5]]
-        #     pt = _parse_instance_shortform['t'][1][string[6]]
-        #     return InstanceSortinfo(pers, num, gend, ind, pt)
 
 
 def _parse_link(string, left_nodeid, right_nodeid, queries, equalities):
