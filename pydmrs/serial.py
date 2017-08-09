@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ET
 from warnings import warn
-from pydmrs.components import RealPred, GPred, Sortinfo
+from pydmrs.components import Pred, RealPred, GPred, Sortinfo
 from pydmrs.core import Link, ListDmrs
 from pydmrs._exceptions import PydmrsTypeError, PydmrsValueError, PydmrsWarning
 
@@ -117,7 +117,10 @@ def dumps_xml(dmrs, encoding=None):
             xnode.set('cto', str(node.cto))
         if node.carg:
             xnode.set('carg', '{}'.format(node.carg))
-        if isinstance(node.pred, GPred):
+        if type(node.pred) is Pred:
+            xpred = ET.SubElement(xnode, 'gpred')
+            xpred.text = str(node.pred) + '_rel'
+        elif isinstance(node.pred, GPred):
             xpred = ET.SubElement(xnode, 'gpred')
             xpred.text = str(node.pred) + '_rel'
         elif isinstance(node.pred, RealPred):

@@ -33,36 +33,57 @@ def dmrs_exact_matching(sub_dmrs, dmrs, optional_nodeids=(), equalities=(), matc
             return
 
     # match index and top
-    if match_top_index and sub_dmrs.index is not None:
-        if dmrs.index is None:
-            return
-        sub_index = sub_dmrs.index.nodeid
-        index = dmrs.index.nodeid
-        if sub_index in matching:
-            if matching[sub_index] != index:
-                return
+    if match_top_index:
+        if sub_dmrs.top is None:
+            if dmrs.top is not None:
+                top = dmrs.top.nodeid
+                if top in matching.values():
+                    return
+                for sub_nodeid, match in matches.items():
+                    if top in match:
+                        match.remove(top)
+                    if not match and sub_nodeid not in optional_nodeids:
+                        return
         else:
-            if index in matches[sub_index]:
-                matching[sub_index] = index
-                matching_values.add(index)
-                del matches[sub_index]
+            if dmrs.top is None:
+                return
+            sub_top = sub_dmrs.top.nodeid
+            top = dmrs.top.nodeid
+            if sub_top in matching:
+                if matching[sub_top] != top:
+                    return
             else:
-                return
-    if match_top_index and sub_dmrs.top is not None:
-        if dmrs.top is None:
-            return
-        sub_top = sub_dmrs.top.nodeid
-        top = dmrs.top.nodeid
-        if sub_top in matching:
-            if matching[sub_top] != top:
-                return
+                if top in matches[sub_top]:
+                    matching[sub_top] = top
+                    matching_values.add(top)
+                    del matches[sub_top]
+                else:
+                    return
+        if sub_dmrs.index is None:
+            if dmrs.index is not None:
+                index = dmrs.index.nodeid
+                if index in matching.values():
+                    return
+                for sub_nodeid, match in matches.items():
+                    if index in match:
+                        match.remove(index)
+                    if not match and sub_nodeid not in optional_nodeids:
+                        return
         else:
-            if top in matches[sub_top]:
-                matching[sub_top] = top
-                matching_values.add(top)
-                del matches[sub_top]
-            else:
+            if dmrs.index is None:
                 return
+            sub_index = sub_dmrs.index.nodeid
+            index = dmrs.index.nodeid
+            if sub_index in matching:
+                if matching[sub_index] != index:
+                    return
+            else:
+                if index in matches[sub_index]:
+                    matching[sub_index] = index
+                    matching_values.add(index)
+                    del matches[sub_index]
+                else:
+                    return
 
     # optimisation for nodes with uniquely matching neighbour nodes
     for sub_nodeid, match in list(matches.items()):

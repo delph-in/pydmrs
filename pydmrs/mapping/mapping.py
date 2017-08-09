@@ -1,4 +1,5 @@
 import copy
+from pydmrs._exceptions import PydmrsError
 from pydmrs.components import Pred, RealPred, GPred, Sortinfo, EventSortinfo, InstanceSortinfo
 from pydmrs.core import Link, Node
 from pydmrs.matching.exact_matching import dmrs_exact_matching
@@ -9,12 +10,12 @@ class AnchorNode(Node):
     A DMRS graph node with an additional anchor id to identify anchor nodes for DMRS mapping.
     """
 
-    def __init__(self, anchor, *args, **kwargs):
+    def __init__(self, anchors, *args, **kwargs):
         """
         Create a new anchor node instance.
         """
         super(AnchorNode, self).__init__(*args, **kwargs)
-        self.anchor = anchor
+        self.anchors = anchors
         self.required = True
         self.requires_target = True
 
@@ -70,37 +71,64 @@ class AnchorNode(Node):
         if self.carg != '?':
             node.carg = self.carg
 
-    def unify(self, node):
+    def unify(self, other, hierarchy=None):
         """
-        Overrides the values of this anchor node if they are not underspecified in the target node.
-        :param node Target node.
+        Unify nodes.
+        :param other: The node to unify with.
+        :param hierarchy: An optional predicate hierarchy.
         """
-        if isinstance(node.pred, RealPred):
-            if isinstance(self.pred, RealPred):
-                self.pred = RealPred(node.pred.lemma if self.pred.lemma == '?' else self.pred.lemma, node.pred.pos if self.pred.pos in ('u', '?') else self.pred.pos, node.pred.sense if self.pred.sense in ('unknown', '?') else self.pred.sense)
-            else:
-                self.pred = copy.deepcopy(node.pred)
-        elif isinstance(node.pred, GPred):
-            if isinstance(self.pred, GPred):
-                self.pred = GPred(node.pred.name if self.pred.name == '?' else self.pred.name)
-            else:
-                self.pred = copy.deepcopy(node.pred)
-        elif not isinstance(node.pred, Pred):
-            self.pred = None
-        if isinstance(node.sortinfo, EventSortinfo):
-            if isinstance(self.sortinfo, EventSortinfo):
-                self.sortinfo = EventSortinfo(node.sortinfo.sf if self.sortinfo.sf in ('u', '?') else self.sortinfo.sf, node.sortinfo.tense if self.sortinfo.tense in ('u', '?') else self.sortinfo.tense, node.sortinfo.mood if self.sortinfo.mood in ('u', '?') else self.sortinfo.mood, node.sortinfo.perf if self.sortinfo.perf in ('u', '?') else self.sortinfo.perf, node.sortinfo.prog if self.sortinfo.prog in ('u', '?') else self.sortinfo.prog)
-            else:
-                self.sortinfo = copy.deepcopy(node.sortinfo)
-        elif isinstance(node.sortinfo, InstanceSortinfo):
-            if isinstance(self.sortinfo, InstanceSortinfo):
-                self.sortinfo = InstanceSortinfo(node.sortinfo.pers if self.sortinfo.pers in ('u', '?') else self.sortinfo.pers, node.sortinfo.num if self.sortinfo.num in ('u', '?') else self.sortinfo.num, node.sortinfo.gend if self.sortinfo.gend in ('u', '?') else self.sortinfo.gend, node.sortinfo.ind if self.sortinfo.ind in ('u', '?') else self.sortinfo.ind, node.sortinfo.pt if self.sortinfo.pt in ('u', '?') else self.sortinfo.pt)
-            else:
-                self.sortinfo = copy.deepcopy(node.sortinfo)
-        elif not isinstance(node.sortinfo, Sortinfo):
-            self.sortinfo = None
-        if node.carg != '?':
-            self.carg = node.carg
+        hierarchy = hierarchy or dict()
+        if (
+            type(self.pred) is RealPred and
+            type(other.pred) is RealPred and
+            (self.pred.lemma == other.pred.lemma or self.pred.lemma == '?' or other.pred.lemma == '?') and
+            (self.pred.pos == other.pred.pos or self.pred.pos in ('u', '?') or other.pred.pos in ('u', '?')) and
+            (self.pred.sense == other.pred.sense or self.pred.sense in ('unknown', '?') or other.pred.sense in ('unknown', '?'))
+        ):
+            # RealPred and predicate values are either equal or underspecified
+            lemma = other.pred.lemma if self.pred.lemma == '?' else self.pred.lemma
+            pos = other.pred.pos if self.pred.pos in ('u', '?') else self.pred.pos
+            sense = other.pred.sense if self.pred.sense in ('unknown', '?') else self.pred.sense
+            self.pred = RealPred(lemma, pos, sense)
+        elif (
+            type(self.pred) is GPred and
+            type(other.pred) is GPred and
+            (self.pred.name == other.pred.name or self.pred.name == '?' or other.pred.name == '?')
+        ):
+            # GPred and predicate values are either equal or underspecified
+            name = other.pred.name if self.pred.name == '?' else self.pred.name
+            self.pred = GPred(name)
+        elif type(self.pred) is Pred or str(other.pred) in hierarchy.get(str(self.pred), ()):
+            # predicate is underspecified, or predicate is more general according to the hierarchy
+            self.pred = other.pred
+        elif type(other.pred) is Pred or str(self.pred) in hierarchy.get(str(other.pred), ()):
+            # other is underspecified, or predicate is more specific according to the hierarchy
+            pass
+        else:
+            raise PydmrsError("Node predicates cannot be unified: {}, {}".format(self.pred, other.pred))
+
+        if type(self.sortinfo) is not Sortinfo and isinstance(other.sortinfo, type(self.sortinfo)) and all(self.sortinfo[key] == other.sortinfo[key] or self.sortinfo[key] in ('u', '?') or other.sortinfo[key] in ('u', '?') for key in self.sortinfo.features):
+            # same sortinfo type and values are either equal or underspecified
+            self.sortinfo = type(self.sortinfo)(*(other.sortinfo[key] if self.sortinfo[key] in ('u', '?') else self.sortinfo[key] for key in self.sortinfo.features))
+        elif type(self.sortinfo) is Sortinfo and isinstance(other.sortinfo, Sortinfo):
+            # sortinfo is underspecified
+            self.sortinfo = other.sortinfo
+        elif type(other.sortinfo) is Sortinfo and isinstance(self.sortinfo, Sortinfo):
+            # other is underspecified
+            pass
+        elif self.sortinfo is None and other.sortinfo is None:
+            pass
+        else:
+            raise PydmrsError("Node sortinfos cannot be unified: {}, {}".format(self.sortinfo, other.sortinfo))
+
+        if self.carg == other.carg or other.carg == '?':
+            # same carg, or other is underspecified
+            pass
+        elif self.carg == '?':
+            # carg is underspecified
+            self.carg = other.carg
+        else:
+            raise PydmrsError("Node cargs cannot be unified: {}, {}".format(self.carg, other.carg))
 
 
 class SubgraphNode(AnchorNode):
@@ -166,36 +194,41 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True,
         if not search_node.required:
             optional_nodeids.append(search_node.nodeid)
         for replace_node in replace_dmrs.iter_nodes():
-            if not isinstance(replace_node, AnchorNode) or replace_node.anchor != search_node.anchor:
+            if not isinstance(replace_node, AnchorNode) or all(anchor not in replace_node.anchors for anchor in search_node.anchors):
                 continue
+            assert search_node.nodeid not in sub_mapping, 'Node matches multiple nodes.' + str(search_node)
             sub_mapping[search_node.nodeid] = replace_node.nodeid
-            break
-        else:
+        if search_node.nodeid not in sub_mapping:
             assert not search_node.requires_target, 'Un-matched anchor node.'
 
     # set up variables according to settings
     if iterative:
         result_dmrs = copy.deepcopy(dmrs) if copy_dmrs else dmrs
     else:
-        matchings = dmrs_exact_matching(search_dmrs, dmrs, optional_nodeids=optional_nodeids, equalities=equalities)
+        matchings = dmrs_exact_matching(search_dmrs, dmrs, optional_nodeids=optional_nodeids, equalities=equalities, match_top_index=True)
     if not iterative and all_matches:
         result = []
 
     # continue while there is a match for search_dmrs
+    count = 0
     while True:
         if iterative:
-            matchings = dmrs_exact_matching(search_dmrs, result_dmrs, optional_nodeids=optional_nodeids, equalities=equalities)
+            matchings = dmrs_exact_matching(search_dmrs, result_dmrs, optional_nodeids=optional_nodeids, equalities=equalities, match_top_index=True)
         else:
             result_dmrs = copy.deepcopy(dmrs) if copy_dmrs else dmrs
 
         # return mapping(s) if there are no more matches left
         try:
             search_matching = next(matchings)
+            count += 1
         except StopIteration:
             if not all_matches:
                 return None
             elif iterative:
-                return result_dmrs
+                if copy_dmrs:
+                    return result_dmrs
+                else:
+                    return count > 0
             else:
                 return result
 
@@ -247,4 +280,7 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True,
             if all_matches and not iterative:
                 result.append(result_dmrs)
             elif not all_matches:
-                return result_dmrs
+                if copy_dmrs:
+                    return result_dmrs
+                else:
+                    return True

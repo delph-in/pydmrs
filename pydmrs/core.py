@@ -688,7 +688,13 @@ class ListDmrs(Dmrs):
 
     def remove_link(self, link):
         """Remove a link"""
-        self.links.remove(link)
+        if len(link) == 2:
+            for n, link in enumerate(self.links):
+                if link.start == link[0] and link.end == link[1]:
+                    break
+            self.links.pop(n)
+        else:
+            self.links.remove(link)
 
     def add_node(self, node):
         """Add a node"""
@@ -869,6 +875,10 @@ class DictDmrs(Dmrs):
         """
         Remove a link.
         """
+        if len(link) == 2:
+            for link in self.outgoing.get(link[0]):
+                if link.end == link[1]:
+                    break
         self.outgoing.remove(link.start, link)
         self.incoming.remove(link.end, link)
 
@@ -1089,6 +1099,10 @@ class SortDictDmrs(DictDmrs):
         self.links.insert(i, link)
 
     def remove_link(self, link):
+        if len(link) == 2:
+            for link in self.outgoing.get(link[0]):
+                if link.end == link[1]:
+                    break
         # Remove the link from dictionaries
         super(SortDictDmrs, self).remove_link(link)
         # Remove the link from the sorted lists

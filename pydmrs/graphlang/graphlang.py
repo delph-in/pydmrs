@@ -3,13 +3,56 @@ from pydmrs.core import Link, Node, ListDmrs
 from pydmrs.mapping.mapping import AnchorNode, OptionalNode, SubgraphNode
 
 
-def parse_graphlang(string, cls=ListDmrs, queries=None, equalities=None, anchors=None):
+default_sortinfo_classes = dict(
+    i=Sortinfo,
+    e=EventSortinfo,
+    x=InstanceSortinfo
+)
+
+default_sortinfo_shortforms = dict(
+    e=[
+        ('sf', 's', {'_': None, '?': 'u', 'p': 'prop', 'q': 'ques', 'o': 'prop-or-ques', 'c': 'comm'}),
+        ('tense', 't', {'_': None, '?': 'u', 'u': 'untensed', 't': 'tensed', 'p': 'pres', 'a': 'past', 'f': 'fut'}),
+        ('mood', 'm', {'_': None, '?': 'u', 'i': 'indicative', 's': 'subjunctive'}),
+        ('perf', 'p', {'_': None, '?': 'u', '+': '+', '-': '-'}),
+        ('prog', 'r', {'_': None, '?': 'u', '+': '+', '-': '-', 'b': 'bool'})
+    ],
+    x=[
+        ('pers', 'p', {'_': None, '?': 'u', '1': '1', '2': '2', '3': '3', 'o': '1-or-3'}),
+        ('num', 'n', {'_': None, '?': 'u', 's': 'sg', 'p': 'pl'}),
+        ('gend', 'g', {'_': None, '?': 'u', 'f': 'f', 'm': 'm', 'n': 'n', 'o': 'm-or-f'}),
+        ('ind', 'i', {'_': None, '?': 'u', '+': '+', '-': '-'}),
+        ('pt', 't', {'_': None, '?': 'u', 's': 'std', 'z': 'zero', 'r': 'refl'})
+    ]
+)
+
+
+def parse_graphlang(
+    string,
+    cls=ListDmrs,
+    queries=None,
+    equalities=None,
+    anchors=None,
+    sortinfo_classes=None,
+    sortinfo_shortforms=None
+):
     if queries is None:
         queries = {}
     if equalities is None:
         equalities = {}
     if anchors is None:
         anchors = {}
+    if sortinfo_classes is None:
+        sortinfo_classes = default_sortinfo_classes
+        assert sortinfo_shortforms is None
+        sortinfo_shortforms = default_sortinfo_shortforms
+    else:
+        if sortinfo_shortforms is None:
+            sortinfo_shortforms = dict()
+        else:
+            assert all(cvarsort in sortinfo_classes for cvarsort in sortinfo_shortforms)
+        assert 'i' not in sortinfo_classes
+        sortinfo_classes['i'] = Sortinfo
     nodeid = 1
     nodes = []
     links = []
@@ -62,12 +105,13 @@ def parse_graphlang(string, cls=ListDmrs, queries=None, equalities=None, anchors
                     assert top is None
                     top = nodeid
                     m += 1
-                node, ref_id, ref_name = _parse_node(line[m:r], nodeid, queries, equalities, anchors)
+                node, ref_ids, ref_name = _parse_node(line[m:r], nodeid, queries, equalities, anchors, sortinfo_classes, sortinfo_shortforms)
                 nodes.append(node)
                 current_id = nodeid
                 nodeid += 1
-                if ref_id is not None:
-                    refs[ref_id] = current_id
+                if ref_ids is not None:
+                    for ref_id in ref_ids:
+                        refs[ref_id] = current_id
                 refs[ref_name] = current_id
             if not start:
                 m = line.index(' ', l, m)
@@ -99,7 +143,7 @@ def _parse_value(string, underspecified, queries, equalities, retriever):
     return underspecified
 
 
-def _parse_node(string, nodeid, queries, equalities, anchors):
+def _parse_node(string, nodeid, queries, equalities, anchors, sortinfo_classes, sortinfo_shortforms):
     m = string.find('(')
     if m < 0:
         m = string.find(' ')
@@ -108,10 +152,10 @@ def _parse_node(string, nodeid, queries, equalities, anchors):
     else:
         l = string.find(':', 0, m)
     if l < 0:
-        ref_id = None
+        ref_ids = None
         l = 0
     else:
-        ref_id = string[:l]
+        ref_ids = string[:l]
         l += 1
         while string[l] == ' ':
             l += 1
@@ -142,27 +186,28 @@ def _parse_node(string, nodeid, queries, equalities, anchors):
         if m < len(string) and string[m] == ' ':
             while string[m] == ' ':
                 m += 1
-            sortinfo = _parse_sortinfo(string[m:], nodeid, queries, equalities)
+            sortinfo = _parse_sortinfo(string[m:], nodeid, queries, equalities, sortinfo_classes, sortinfo_shortforms)
         else:
             sortinfo = None
-    if not ref_id:
-        ref_id = None
+    if not ref_ids:
+        ref_ids = None
         node = Node(nodeid, pred, sortinfo=sortinfo, carg=carg)
     else:
-        if ref_id[0] == '[' and ref_id[-1] == ']':
-            ref_id = ref_id[1:-1]
-            node = AnchorNode(ref_id, nodeid, pred, sortinfo=sortinfo, carg=carg)
-        elif ref_id[0] == '(' and ref_id[-1] == ')':
-            ref_id = ref_id[1:-1]
-            node = OptionalNode(ref_id, nodeid, pred, sortinfo=sortinfo, carg=carg)
-        elif ref_id[0] == '{' and ref_id[-1] == '}':
-            ref_id = ref_id[1:-1]
-            node = SubgraphNode(ref_id, nodeid, pred, sortinfo=sortinfo, carg=carg)
+        if ref_ids[0] == '[' and ref_ids[-1] == ']':
+            ref_ids = ref_ids[1:-1].split(',')
+            node = AnchorNode(ref_ids, nodeid, pred, sortinfo=sortinfo, carg=carg)
+        elif ref_ids[0] == '(' and ref_ids[-1] == ')':
+            ref_ids = ref_ids[1:-1].split(',')
+            node = OptionalNode(ref_ids, nodeid, pred, sortinfo=sortinfo, carg=carg)
+        elif ref_ids[0] == '{' and ref_ids[-1] == '}':
+            ref_ids = ref_ids[1:-1].split(',')
+            node = SubgraphNode(ref_ids, nodeid, pred, sortinfo=sortinfo, carg=carg)
         else:
             node = Node(nodeid, pred, sortinfo=sortinfo, carg=carg)
-        assert ref_id not in anchors, 'Reference ids have to be unique.'
-        anchors[ref_id] = node
-    return node, ref_id, ref_name
+        for ref_id in ref_ids:
+            assert ref_id not in anchors, 'Reference ids have to be unique.'
+            anchors[ref_id] = node
+    return node, ref_ids, ref_name
 
 
 def _parse_pred(string, nodeid, queries, equalities):
@@ -204,74 +249,100 @@ def _parse_pred(string, nodeid, queries, equalities):
     return RealPred(lemma, pos, sense), ref_name
 
 
-_parse_instance_shortform = {
-    'p': ('pers', {'_': None, '?': 'u', '1': '1', '2': '2', '3': '3', 'o': '1-or-3'}),
-    'n': ('num', {'_': None, '?': 'u', 's': 'sg', 'p': 'pl'}),
-    'g': ('gend', {'_': None, '?': 'u', 'f': 'f', 'm': 'm', 'n': 'n', 'o': 'm-or-f'}),
-    'i': ('ind', {'_': None, '?': 'u', '+': '+', '-': '-'}),
-    't': ('pt', {'_': None, '?': 'u', 's': 'std', 'z': 'zero', 'r': 'refl'})}
+# _parse_instance_shortform = {
+#     'p': ('pers', {'_': None, '?': 'u', '1': '1', '2': '2', '3': '3', 'o': '1-or-3'}),
+#     'n': ('num', {'_': None, '?': 'u', 's': 'sg', 'p': 'pl'}),
+#     'g': ('gend', {'_': None, '?': 'u', 'f': 'f', 'm': 'm', 'n': 'n', 'o': 'm-or-f'}),
+#     'i': ('ind', {'_': None, '?': 'u', '+': '+', '-': '-'}),
+#     't': ('pt', {'_': None, '?': 'u', 's': 'std', 'z': 'zero', 'r': 'refl'})}
 
-_parse_event_shortform = {
-    's': ('sf', {'_': None, '?': 'u', 'p': 'prop', 'q': 'ques', 'o': 'prop-or-ques', 'c': 'comm'}),
-    't': ('tense', {'_': None, '?': 'u', 'u': 'untensed', 't': 'tensed', 'p': 'pres', 'a': 'past', 'f': 'fut'}),
-    'm': ('mood', {'_': None, '?': 'u', 'i': 'indicative', 's': 'subjunctive'}),
-    'p': ('perf', {'_': None, '?': 'u', '+': '+', '-': '-'}),
-    'r': ('prog', {'_': None, '?': 'u', '+': '+', '-': '-', 'b': 'bool'})}
+# _parse_event_shortform = {
+#     's': ('sf', {'_': None, '?': 'u', 'p': 'prop', 'q': 'ques', 'o': 'prop-or-ques', 'c': 'comm'}),
+#     't': ('tense', {'_': None, '?': 'u', 'u': 'untensed', 't': 'tensed', 'p': 'pres', 'a': 'past', 'f': 'fut'}),
+#     'm': ('mood', {'_': None, '?': 'u', 'i': 'indicative', 's': 'subjunctive'}),
+#     'p': ('perf', {'_': None, '?': 'u', '+': '+', '-': '-'}),
+#     'r': ('prog', {'_': None, '?': 'u', '+': '+', '-': '-', 'b': 'bool'})}
 
 
-def _parse_sortinfo(string, nodeid, queries, equalities):
+def _parse_sortinfo(string, nodeid, queries, equalities, sortinfo_classes, sortinfo_shortforms):
     assert string.islower(), 'Sortinfos must be lower-case.'
     assert ' ' not in string, 'Sortinfos must not contain spaces.'
-    assert string[0] in 'iex', 'Invalid sortinfo type.'
+    assert string[0] in sortinfo_classes
+    # assert string[0] in 'iex', 'Invalid sortinfo type.'
+    sortinfo = sortinfo_classes[string[0]]()
     if len(string) == 1:
-        if string[0] == 'e':
-            return EventSortinfo()
-        elif string[0] == 'x':
-            return InstanceSortinfo()
-        else:
-            return Sortinfo()
+        return sortinfo
+        # if string[0] == 'e':
+        #     return EventSortinfo()
+        # elif string[0] == 'x':
+        #     return InstanceSortinfo()
+        # else:
+        #     return Sortinfo()
+    assert string[0] != 'i', 'Sortinfo type i cannot be specified.'
+    shortform = sortinfo_shortforms.get(string[0], list())
+    index = 1
     if string[1] in special_values:
-        value = _parse_value(string[1:], None, queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].sortinfo))
-        assert not value
-        if string[0] == 'e':
-            return EventSortinfo('u', 'u', 'u', 'u', 'u')
-        elif string[0] == 'x':
-            return InstanceSortinfo('u', 'u', 'u', 'u', 'u')
+        index = string.find('[')
+        if index > 0:
+            value = _parse_value(string[1:index], None, queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].sortinfo))
+            assert not value
         else:
-            return Sortinfo()
-    assert string[0] in 'ex', 'Sortinfo type i cannot be specified.'
-    assert string[1] == '[' and string[-1] == ']', 'Square brackets missing.'
+            value = _parse_value(string[1:], None, queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].sortinfo))
+            assert not value
+        for feature in sortinfo_classes[string[0]].features:
+            sortinfo[feature] = 'u'
+        if index < 0:
+            return sortinfo
+        # elif string[0] == 'e':
+        #     return EventSortinfo('u', 'u', 'u', 'u', 'u')
+        # elif string[0] == 'x':
+        #     return InstanceSortinfo('u', 'u', 'u', 'u', 'u')
+        # else:
+        #     return Sortinfo()
+    assert string[index] == '[' and string[-1] == ']', 'Square brackets missing.'
     if '=' in string:  # explicit key-value specification
-        if string[0] == 'e':
-            sortinfo = EventSortinfo()
-            shortform = _parse_event_shortform
-        else:
-            sortinfo = InstanceSortinfo()
-            shortform = _parse_instance_shortform
-        for kv in string[2:-1].split(','):
+        # elif string[0] == 'e':
+        #     sortinfo = EventSortinfo()
+        #     shortform = _parse_event_shortform
+        # else:
+        #     sortinfo = InstanceSortinfo()
+        #     shortform = _parse_instance_shortform
+        for kv in string[index+1:-1].split(','):
             key, value = kv.split('=')
-            if key in shortform:
-                key, values = shortform[key]
-                sortinfo[key] = values[value]
+            for feature, short, values in shortform:
+                if key == short or key == feature:
+                    assert value in values
+                    sortinfo[feature] = values[value]
+                    break
             else:
-                sortinfo[key] = _parse_value(value, 'u', queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].sortinfo[key]))
+                assert False
+            # if key in shortform:
+            #     key, values = shortform[key]
+            #     sortinfo[key] = values[value]
+            # else:
+            #     sortinfo[key] = _parse_value(value, 'u', queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].sortinfo[key]))
         return sortinfo
     else:  # implicit specification
-        assert len(string) == 8, 'Invalid number of short-hand sortinfo arguments.'
-        if string[0] == 'e':
-            sf = _parse_event_shortform['s'][1][string[2]]
-            tense = _parse_event_shortform['t'][1][string[3]]
-            mood = _parse_event_shortform['m'][1][string[4]]
-            perf = _parse_event_shortform['p'][1][string[5]]
-            prog = _parse_event_shortform['r'][1][string[6]]
-            return EventSortinfo(sf, tense, mood, perf, prog)
-        else:
-            pers = _parse_instance_shortform['p'][1][string[2]]
-            num = _parse_instance_shortform['n'][1][string[3]]
-            gend = _parse_instance_shortform['g'][1][string[4]]
-            ind = _parse_instance_shortform['i'][1][string[5]]
-            pt = _parse_instance_shortform['t'][1][string[6]]
-            return InstanceSortinfo(pers, num, gend, ind, pt)
+        assert index == 1  # general underspecification makes no sense
+        assert len(string) == len(shortform) + 3
+        for n, (feature, _, values) in enumerate(shortform):
+            sortinfo[feature] = values[string[n + 2]]
+        return sortinfo
+        # assert len(string) == 8, 'Invalid number of short-hand sortinfo arguments.'
+        # if string[0] == 'e':
+        #     sf = _parse_event_shortform['s'][1][string[2]]
+        #     tense = _parse_event_shortform['t'][1][string[3]]
+        #     mood = _parse_event_shortform['m'][1][string[4]]
+        #     perf = _parse_event_shortform['p'][1][string[5]]
+        #     prog = _parse_event_shortform['r'][1][string[6]]
+        #     return EventSortinfo(sf, tense, mood, perf, prog)
+        # else:
+        #     pers = _parse_instance_shortform['p'][1][string[2]]
+        #     num = _parse_instance_shortform['n'][1][string[3]]
+        #     gend = _parse_instance_shortform['g'][1][string[4]]
+        #     ind = _parse_instance_shortform['i'][1][string[5]]
+        #     pt = _parse_instance_shortform['t'][1][string[6]]
+        #     return InstanceSortinfo(pers, num, gend, ind, pt)
 
 
 def _parse_link(string, left_nodeid, right_nodeid, queries, equalities):
