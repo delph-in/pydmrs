@@ -280,8 +280,7 @@ def _parse_sortinfo(string, nodeid, queries, equalities, sortinfo_classes, sorti
                 value = None
             elif value == '?':
                 value = 'u'
-            elif key in shortform:
-                assert value in shortform[key]
+            elif key in shortform and value in shortform[key]:
                 value = shortform[key][value]
             sortinfo[key] = value
         return sortinfo
