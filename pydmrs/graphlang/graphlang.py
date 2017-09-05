@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 from pydmrs.components import Pred, RealPred, GPred, Sortinfo, EventSortinfo, InstanceSortinfo
 from pydmrs.core import Link, Node, ListDmrs
 from pydmrs.mapping.mapping import AnchorNode, OptionalNode, SubgraphNode
@@ -202,6 +203,7 @@ def _parse_node(string, nodeid, queries, equalities, anchors, sortinfo_classes, 
             ref_ids = ref_ids[1:-1].split(',')
             node = SubgraphNode(ref_ids, nodeid, pred, sortinfo=sortinfo, carg=carg)
         else:
+            ref_ids = ref_ids.split(',')
             node = Node(nodeid, pred, sortinfo=sortinfo, carg=carg)
         for ref_id in ref_ids:
             assert ref_id not in anchors, 'Reference ids have to be unique.'

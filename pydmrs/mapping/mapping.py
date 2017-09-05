@@ -107,7 +107,7 @@ class AnchorNode(Node):
         else:
             raise PydmrsError("Node predicates cannot be unified: {}, {}".format(self.pred, other.pred))
 
-        if type(self.sortinfo) is not Sortinfo and isinstance(other.sortinfo, type(self.sortinfo)) and all(self.sortinfo[key] == other.sortinfo[key] or self.sortinfo[key] in ('u', '?') or other.sortinfo[key] in ('u', '?') for key in self.sortinfo.features):
+        if type(self.sortinfo) is not Sortinfo and isinstance(other.sortinfo, type(self.sortinfo)) and all((self.sortinfo[key] == other.sortinfo[key]) or (self.sortinfo[key] in ('u', '?')) or (other.sortinfo[key] in ('u', '?')) for key in self.sortinfo.features):
             # same sortinfo type and values are either equal or underspecified
             self.sortinfo = type(self.sortinfo)(*(other.sortinfo[key] if self.sortinfo[key] in ('u', '?') else self.sortinfo[key] for key in self.sortinfo.features))
         elif type(self.sortinfo) is Sortinfo and isinstance(other.sortinfo, Sortinfo):
