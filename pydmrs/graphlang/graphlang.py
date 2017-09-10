@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 from pydmrs.components import Pred, RealPred, GPred, Sortinfo, EventSortinfo, InstanceSortinfo
 from pydmrs.core import Link, Node, ListDmrs
 from pydmrs.mapping.mapping import AnchorNode, OptionalNode, SubgraphNode
@@ -378,12 +377,12 @@ def _parse_link(string, left_nodeid, right_nodeid, queries, equalities):
         if string[l] == 'n':  # ARG/ARGN (underspecified ARG)
             rargname = 'arg'
         elif string[l] in '1234':  # ARG{1,2,3,4}
-            rargname = 'arg' + string[l]
+            rargname = 'arg' + str(string[l])
         elif string[l] in 'lr':  # {L,R}-{INDEX,HNDL}
             if l == r:
-                rargname = string[l].upper() + '-index'
+                rargname = str(string[l]).upper() + '-index'
             else:
-                rargname = string[l].upper() + '-hndl'
+                rargname = str(string[l]).upper() + '-hndl'
         elif string[l] != '?':
             assert False, 'Invalid link specification symbol.'
     return Link(start, end, rargname, post)

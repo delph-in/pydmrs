@@ -19,9 +19,9 @@ class LinkLabel(namedtuple('LinkLabelNamedTuple', ('rargname', 'post'))):
         """
         Create new instance, forcing strings to be uppercase
         """
-        if isinstance(rargname, str) or isinstance(rargname, unicode):
+        if isinstance(rargname, str):
             rargname = rargname.upper()
-        if isinstance(post, str) or isinstance(post, unicode):
+        if isinstance(post, str):
             post = post.upper()
         return super(LinkLabel, cls).__new__(cls, rargname, post)
 
@@ -62,9 +62,9 @@ class Link(namedtuple('LinkNamedTuple', ('start', 'end', 'rargname', 'post'))):
         """
         Create a new instance, forcing strings to be uppercase
         """
-        if isinstance(rargname, str) or isinstance(rargname, unicode):
+        if isinstance(rargname, str):
             rargname = rargname.upper()
-        if isinstance(post, str) or isinstance(post, unicode):
+        if isinstance(post, str):
             post = post.upper()
         if start == end:
             warn("Link start must not equal link end.", PydmrsWarning)
