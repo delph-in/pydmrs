@@ -178,7 +178,7 @@ def _parse_node(string, nodeid, queries, equalities, anchors, sortinfo_classes, 
             else:
                 carg = string[m+1:r]
             assert '"' not in carg
-            carg = _parse_value(carg, None, queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].carg))
+            carg = _parse_value(carg, '?', queries, equalities, (lambda matching, dmrs: dmrs[matching[nodeid]].carg))
             m = r + 1
         else:
             carg = None

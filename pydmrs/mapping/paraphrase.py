@@ -28,7 +28,13 @@ def paraphrase(dmrs, paraphrases):
     """
     assert isinstance(dmrs, Dmrs), 'Object in dmrs_iter is not a Dmrs.'
     for (search_dmrs, replace_dmrs) in paraphrases:
-        dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=False)  # equalities=!!!
+        while True:
+            paraphrased_dmrs = dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=True, all_matches=False)
+            if paraphrased_dmrs is None:
+                break
+            else:
+                dmrs = paraphrased_dmrs
+    return dmrs
 
 
 if __name__ == '__main__':
@@ -36,4 +42,4 @@ if __name__ == '__main__':
     paraphrases = read_paraphrases_file(sys.argv[1])
     dmrs_iter = (ListDmrs.loads_xml(line[:-1]) for line in sys.stdin)
     for dmrs in dmrs_iter:
-        sys.stdout.write(str(next(paraphrase(dmrs, paraphrases))) + '\n')
+        sys.stdout.write(str(paraphrase(dmrs, paraphrases)) + '\n')

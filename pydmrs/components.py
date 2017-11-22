@@ -506,10 +506,9 @@ class Sortinfo(with_metaclass(SortinfoMeta, MutableMapping)):
 
     def is_specified(self, feature):
         """
-        Returns True if value of feature is specified and not '?' or 'u'
+        Returns True if value of feature is not '?' or 'u'
         """
-        return feature == 'cvarsort' or (
-        feature in self.features and self[feature] not in (None, 'u', '?'))
+        return feature == 'cvarsort' or feature not in self.features or self[feature] not in ('u', '?')
 
     # For convenience, we can also get features which are not None
 
@@ -726,7 +725,7 @@ class Sortinfo(with_metaclass(SortinfoMeta, MutableMapping)):
     def is_more_specific(self, other):
         """
         Checks whether this object is a more specific sortinfo than the other
-        (underspecified value: '?' or 'u' or non-existent)
+        (underspecified value: '?' or 'u')
         """
         if not isinstance(other, Sortinfo):
             raise PydmrsTypeError()
@@ -745,7 +744,7 @@ class Sortinfo(with_metaclass(SortinfoMeta, MutableMapping)):
     def is_less_specific(self, other):
         """
         Checks whether this object is a less specific sortinfo than the other
-        (underspecified value: '?' or 'u' or non-existent)
+        (underspecified value: '?' or 'u')
         """
         if not isinstance(other, Sortinfo):
             raise PydmrsTypeError()

@@ -171,7 +171,7 @@ class OptionalNode(AnchorNode):
         self.requires_target = False
 
 
-def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True, iterative=True, all_matches=True, require_connected=True):
+def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True, iterative=True, all_matches=True, require_connected=True, max_matches=100):
     """
     Performs an exact DMRS (sub)graph matching of a (sub)graph against a containing graph.
     :param dmrs DMRS graph to map.
@@ -181,6 +181,7 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True,
     :param iterative True if all possible mappings should be performed iteratively to the same DMRS graph, instead of a separate copy per mapping (iterative=False requires copy_dmrs=True).
     :param all_matches True if all possible matches should be returned, instead of only the first (or None).
     :param require_connected True if mappings resulting in a disconnected DMRS graph should be ignored.
+    :param max_matches: Maximum number of matches.
     :return Mapped DMRS graph (resp. a list of graphs in case of iterative=False and all_matches=True)
     """
     assert copy_dmrs or iterative, 'Invalid argument combination.'
@@ -211,7 +212,7 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True,
 
     # continue while there is a match for search_dmrs
     count = 0
-    while True:
+    for _ in range(max_matches):
         if iterative:
             matchings = dmrs_exact_matching(search_dmrs, result_dmrs, optional_nodeids=optional_nodeids, equalities=equalities, match_top_index=True)
         else:
@@ -223,12 +224,21 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True,
             count += 1
         except StopIteration:
             if not all_matches:
-                return None
-            elif iterative:
                 if copy_dmrs:
-                    return result_dmrs
+                    return None
                 else:
-                    return count > 0
+                    return False
+            elif iterative:
+                if not require_connected or result_dmrs.is_connected():
+                    if copy_dmrs:
+                        return result_dmrs
+                    else:
+                        return count > 0
+                else:
+                    if copy_dmrs:
+                        return None
+                    else:
+                        return False
             else:
                 return result
 
@@ -284,3 +294,5 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True,
                     return result_dmrs
                 else:
                     return True
+
+    raise Exception('More than {} matches!'.format(max_matches))
