@@ -1,8 +1,7 @@
 import xml.etree.ElementTree as ET
-from warnings import warn
-from pydmrs.components import RealPred, GPred, Sortinfo
-from pydmrs.core import Link, ListDmrs
-from pydmrs._exceptions import PydmrsTypeError, PydmrsValueError, PydmrsWarning
+
+from pydmrs.core import Link, ListDmrs, Node
+from pydmrs._exceptions import PydmrsValueError
 
 
 def loads_xml(bytestring, encoding=None, cls=ListDmrs, convert_legacy_prontype=True, **kwargs):
@@ -27,55 +26,15 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs, convert_legacy_prontype=T
 
     for elem in xml:
         if elem.tag == 'node':
-            nodeid = int(elem.get('nodeid')) if 'nodeid' in elem.attrib else None
-            cfrom = int(elem.get('cfrom')) if 'cfrom' in elem.attrib else None
-            cto = int(elem.get('cto')) if 'cto' in elem.attrib else None
-            surface = elem.get('surface')
-            base = elem.get('base')
-            carg = elem.get('carg')
-
-            pred = None  # Default value
-            sortinfo = None  # Default value
-            for sub in elem:
-                if sub.tag == 'realpred':
-                    try:
-                        pred = RealPred(sub.get('lemma'), sub.get('pos'), sub.get('sense'))
-                    except PydmrsValueError:
-                        # If the whole pred name is under 'lemma', rather than split between 'lemma', 'pos', 'sense'
-                        pred = RealPred.from_string(sub.get('lemma'))
-                        warn("RealPred given as string rather than lemma, pos, sense", PydmrsWarning)
-                elif sub.tag == 'gpred':
-                    try:
-                        pred = GPred.from_string(sub.text)
-                    except PydmrsValueError:
-                        # If the string is actually for a RealPred, not a GPred
-                        pred = RealPred.from_string(sub.text)
-                        warn("RealPred string found in a <gpred> tag", PydmrsWarning)
-                elif sub.tag == 'sortinfo':
-                    if sub.attrib:  # If sub.attrib is empty, leave sortinfo as None
-                        sortinfo = Sortinfo.from_dict(sub.attrib, convert_legacy_prontype=convert_legacy_prontype)
-                else:
-                    raise PydmrsValueError(sub.tag)
-
-            dmrs.add_node(cls.Node(nodeid=nodeid, pred=pred, carg=carg, sortinfo=sortinfo, cfrom=cfrom, cto=cto, surface=surface, base=base))
+            node = Node.from_xml(elem, convert_legacy_prontype)
+            dmrs.add_node(node)
 
         elif elem.tag == 'link':
-            start = int(elem.get('from'))
-            end = int(elem.get('to'))
-
-            if start == 0:
-                top_id = end
+            link = Link.from_xml(elem)
+            if link.start == 0:
+                top_id = link.end
             else:
-                rargname = None
-                post = None
-                for sub in elem:
-                    if sub.tag == 'rargname':
-                        rargname = sub.text
-                    elif sub.tag == 'post':
-                        post = sub.text
-                    else:
-                        raise PydmrsValueError(sub.tag)
-                dmrs.add_link(Link(start, end, rargname, post))
+                dmrs.add_link(link)
         else:
             raise PydmrsValueError(elem.tag)
 
@@ -109,31 +68,9 @@ def dumps_xml(dmrs, encoding=None):
         xdmrs.set('cfrom', str(dmrs.cfrom))
         xdmrs.set('cto', str(dmrs.cto))
     for nodeid in sorted(dmrs):
-        xnode = ET.SubElement(xdmrs, 'node')
-        xnode.set('nodeid', str(nodeid))
         node = dmrs[nodeid]
-        if node.cfrom is not None and node.cto is not None:
-            xnode.set('cfrom', str(node.cfrom))
-            xnode.set('cto', str(node.cto))
-        if node.carg:
-            xnode.set('carg', '{}'.format(node.carg))
-        if isinstance(node.pred, GPred):
-            xpred = ET.SubElement(xnode, 'gpred')
-            xpred.text = str(node.pred) + '_rel'
-        elif isinstance(node.pred, RealPred):
-            xpred = ET.SubElement(xnode, 'realpred')
-            xpred.set('lemma', node.pred.lemma)
-            xpred.set('pos', node.pred.pos)
-            if node.pred.sense:
-                xpred.set('sense', node.pred.sense)
-        else:
-            raise PydmrsTypeError("predicates must be RealPred or GPred objects")
-        xsortinfo = ET.SubElement(xnode, 'sortinfo')
-        if node.sortinfo:
-            for key in node.sortinfo:
-                value = node.sortinfo[key]
-                if value:
-                    xsortinfo.set(key, value)
+        xnode = node.to_xml()
+        xdmrs.append(xnode)
     if dmrs.top is not None:
         xlink = ET.SubElement(xdmrs, 'link')
         xlink.set('from', '0')
@@ -142,13 +79,8 @@ def dumps_xml(dmrs, encoding=None):
         xpost = ET.SubElement(xlink, 'post')
         xpost.text = 'H'
     for link in dmrs.iter_links():
-        xlink = ET.SubElement(xdmrs, 'link')
-        xlink.set('from', str(link.start))
-        xlink.set('to', str(link.end))
-        xrargname = ET.SubElement(xlink, 'rargname')
-        xrargname.text = link.rargname
-        xpost = ET.SubElement(xlink, 'post')
-        xpost.text = link.post
+        xlink = link.to_xml()
+        xdmrs.append(xlink)
     bytestring = ET.tostring(xdmrs)
     if encoding:
         return bytestring.decode(encoding)
