@@ -29,17 +29,19 @@ class Match(object):
             self.nodeid_pairs.extend(match.nodeid_pairs)
             self.link_pairs.extend(match.link_pairs)
         else:
-            nodes1, nodes2 = map(list, zip(*self.nodeid_pairs))
+            nodesA, nodesB = map(list, zip(*self.nodeid_pairs))
             for node_pair in match.nodeid_pairs:
-                if node_pair[0] not in nodes1 and node_pair[1] not in nodes2:
+                if node_pair[0] not in nodesA and node_pair[1] not in nodesB:
                     self.nodeid_pairs.append(node_pair)
-                    nodes1.append(node_pair[0])
-                    nodes2.append(node_pair[1])
+                    nodesA.append(node_pair[0])
+                    nodesB.append(node_pair[1])
 
+            linksA, linksB = map(set, zip(*self.link_pairs))
             for link1, link2 in match.link_pairs:
-                if link1.start in nodes1 and link1.end in nodes1:
-                    if link2.start in nodes2 and link2.end in nodes2:
-                        self.link_pairs.append((link1, link2))
+                if link1 not in linksA and link2 not in linksB:
+                    if link1.start in nodesA and link1.end in nodesA:
+                        if link2.start in nodesB and link2.end in nodesB:
+                            self.link_pairs.append((link1, link2))
 
     def is_compatible(self, match2):
         """ Checks if two matches are possible simultaneously. Two matches are conflicting
