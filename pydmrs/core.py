@@ -104,7 +104,8 @@ class Link(namedtuple('LinkNamedTuple', ('start', 'end', 'rargname', 'post'))):
         post = None
         for sub in elem:
             if sub.tag == 'rargname':
-                rargname = sub.text
+                if sub.text != 'MOD':
+                    rargname = sub.text
             elif sub.tag == 'post':
                 post = sub.text
             else:
