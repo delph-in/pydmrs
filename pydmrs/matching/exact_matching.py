@@ -1,16 +1,18 @@
 from pydmrs.core import Dmrs
 
 
-def dmrs_exact_matching(sub_dmrs, dmrs, optional_nodeids=(), equalities=(), match_top_index=False):
+def dmrs_exact_matching(sub_dmrs, dmrs, optional_nodeids=(), equalities=(), hierarchy=None, match_top_index=False):
     """
     Performs an exact DMRS (sub)graph matching of a (sub)graph against a containing graph.
     :param sub_dmrs DMRS (sub)graph to match.
     :param dmrs DMRS graph to match against.
     :param optional_nodeids
     :param equalities
+    :param hierarchy
     :param match_top_index
     :return Iterator of dictionaries, mapping node ids of the matched (sub)graph to the corresponding matching node id in the containing graph.
     """
+    hierarchy = hierarchy or dict()
 
     if not isinstance(sub_dmrs, Dmrs) or not isinstance(dmrs, Dmrs):
         return
@@ -20,7 +22,7 @@ def dmrs_exact_matching(sub_dmrs, dmrs, optional_nodeids=(), equalities=(), matc
 
     # find matchable nodes and add unambiguous matchings
     for sub_node in sub_dmrs.iter_nodes():
-        match = [node.nodeid for node in dmrs.iter_nodes() if sub_node == node or sub_node.is_less_specific(node)]
+        match = [node.nodeid for node in dmrs.iter_nodes() if sub_node == node or sub_node.is_less_specific(node, hierarchy=hierarchy)]
         if match:
             if sub_node.nodeid in optional_nodeids:
                 match.append(None)

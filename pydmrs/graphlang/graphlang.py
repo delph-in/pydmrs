@@ -194,16 +194,16 @@ def _parse_node(string, nodeid, queries, equalities, anchors, sortinfo_classes, 
     else:
         if ref_ids[0] == '[' and ref_ids[-1] == ']':
             ref_ids = ref_ids[1:-1].split(',')
-            node = AnchorNode(ref_ids, nodeid, pred, sortinfo=sortinfo, carg=carg)
+            node = AnchorNode(anchors=ref_ids, nodeid=nodeid, pred=pred, sortinfo=sortinfo, carg=carg)
         elif ref_ids[0] == '(' and ref_ids[-1] == ')':
             ref_ids = ref_ids[1:-1].split(',')
-            node = OptionalNode(ref_ids, nodeid, pred, sortinfo=sortinfo, carg=carg)
+            node = OptionalNode(anchors=ref_ids, nodeid=nodeid, pred=pred, sortinfo=sortinfo, carg=carg)
         elif ref_ids[0] == '{' and ref_ids[-1] == '}':
             ref_ids = ref_ids[1:-1].split(',')
-            node = SubgraphNode(ref_ids, nodeid, pred, sortinfo=sortinfo, carg=carg)
+            node = SubgraphNode(anchors=ref_ids, nodeid=nodeid, pred=pred, sortinfo=sortinfo, carg=carg)
         else:
             ref_ids = ref_ids.split(',')
-            node = Node(nodeid, pred, sortinfo=sortinfo, carg=carg)
+            node = Node(nodeid=nodeid, pred=pred, sortinfo=sortinfo, carg=carg)
         for ref_id in ref_ids:
             assert ref_id not in anchors, 'Reference ids have to be unique.'
             anchors[ref_id] = node

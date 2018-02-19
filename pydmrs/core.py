@@ -142,7 +142,7 @@ class Node(object):
             and self.carg == other.carg \
             and self.sortinfo == other.sortinfo
 
-    def is_more_specific(self, other):
+    def is_more_specific(self, other, hierarchy=None):
         """
         Checks whether this object is a more specific node than the other (predicate, carg, sortinfo)
         """
@@ -151,7 +151,7 @@ class Node(object):
         result = False
         if other.pred is not None and \
             ((self.pred is None and type(other.pred) == Pred) or
-             (self.pred is not None and self.pred.is_more_specific(other.pred))):
+             (self.pred is not None and self.pred.is_more_specific(other.pred, hierarchy=hierarchy))):
             result = True
         elif (self.pred is None) != (other.pred is None) or self.pred != other.pred:
             return False
@@ -167,7 +167,7 @@ class Node(object):
             return False
         return result
 
-    def is_less_specific(self, other):
+    def is_less_specific(self, other, hierarchy=None):
         """
         Checks whether this object is a less specific node than the other (predicate, carg, sortinfo)
         """
@@ -176,7 +176,7 @@ class Node(object):
         result = False
         if self.pred is not None and \
             ((other.pred is None and type(self.pred) == Pred) or
-             (other.pred is not None and self.pred.is_less_specific(other.pred))):
+             (other.pred is not None and self.pred.is_less_specific(other.pred, hierarchy=hierarchy))):
             result = True
         elif (self.pred is None) != (other.pred is None) or self.pred != other.pred:
             return False
@@ -329,7 +329,9 @@ class Dmrs(object):
     def __getitem__(self, nodeid): raise NotImplementedError
     def __iter__(self): raise NotImplementedError
     def __len__(self): raise NotImplementedError
-    def count_links(self): raise NotImplementedError
+
+    def count_links(self):
+        return sum(1 for _ in self.iter_links())
 
     def __contains__(self, nodeid):
         """
@@ -600,20 +602,20 @@ class Dmrs(object):
         Convert to a different DMRS format, optionally copying the nodes
         instead of keeping the same instances.
         """
-        if copy_nodes:
-            nodes = (copy.deepcopy(node) for node in self.iter_nodes())
-        elif self.Node == cls.Node:
-            nodes = self.iter_nodes()
-        else:
+        if self.Node is not cls.Node:
             nodes = (node.convert_to(cls.Node) for node in self.iter_nodes())
-        return cls(nodes,
-                   self.iter_links(),
-                   self.cfrom,
-                   self.cto,
-                   self.surface,
-                   self.ident,
-                   self.index.nodeid if self.index else None,
-                   self.top.nodeid if self.top else None)
+        elif copy_nodes:
+            nodes = (copy.deepcopy(node) for node in self.iter_nodes())
+        else:
+            nodes = self.iter_nodes()
+        return cls(nodes=nodes,
+                   links=self.iter_links(),
+                   cfrom=self.cfrom,
+                   cto=self.cto,
+                   surface=self.surface,
+                   ident=self.ident,
+                   index=(self.index.nodeid if self.index else None),
+                   top=(self.top.nodeid if self.top else None))
 
     def visualise(self, format='dot', filehandle=None):
         """
@@ -1002,6 +1004,7 @@ def span_pred_key(node):
     This sorts nodes by: cfrom (ascending), cto (descending), predstring (ascending)
     """
     return (node.cfrom, -node.cto, str(node.pred))
+
 
 def abstractSortDictDmrs(node_key=None, link_key=None):
     """

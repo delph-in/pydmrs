@@ -3,6 +3,7 @@ from pydmrs._exceptions import PydmrsError
 from pydmrs.components import Pred, RealPred, GPred, Sortinfo, EventSortinfo, InstanceSortinfo
 from pydmrs.core import Link, Node
 from pydmrs.matching.exact_matching import dmrs_exact_matching
+from pydmrs._exceptions import *
 
 
 class AnchorNode(Node):
@@ -35,14 +36,14 @@ class AnchorNode(Node):
         """
         pass
 
-    def map(self, dmrs, nodeid):
+    def map(self, dmrs, nodeid, hierarchy=None):
         """
         Overrides the values of the target node if they are not underspecified in this anchor node.
         :param dmrs Target DMRS graph.
         :param nodeid Target node id.
         """
         node = dmrs[nodeid]
-        if self == node or self.is_less_specific(node):
+        if self == node or self.is_less_specific(node, hierarchy=hierarchy):
             return
         if isinstance(self.pred, RealPred):
             if isinstance(node.pred, RealPred):
@@ -171,12 +172,14 @@ class OptionalNode(AnchorNode):
         self.requires_target = False
 
 
-def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True, iterative=True, all_matches=True, require_connected=True, max_matches=100):
+def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), hierarchy=None, copy_dmrs=True, iterative=True, all_matches=True, require_connected=True, max_matches=100):
     """
     Performs an exact DMRS (sub)graph matching of a (sub)graph against a containing graph.
     :param dmrs DMRS graph to map.
     :param search_dmrs DMRS subgraph to replace.
     :param replace_dmrs DMRS subgraph to replace with.
+    :param equalities
+    :param hierarchy
     :param copy_dmrs True if DMRS graph argument should be copied before being mapped.
     :param iterative True if all possible mappings should be performed iteratively to the same DMRS graph, instead of a separate copy per mapping (iterative=False requires copy_dmrs=True).
     :param all_matches True if all possible matches should be returned, instead of only the first (or None).
@@ -205,8 +208,9 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True,
     # set up variables according to settings
     if iterative:
         result_dmrs = copy.deepcopy(dmrs) if copy_dmrs else dmrs
+        matchings = dmrs_exact_matching(search_dmrs, dmrs, optional_nodeids=optional_nodeids, equalities=equalities, hierarchy=hierarchy, match_top_index=True)
     else:
-        matchings = dmrs_exact_matching(search_dmrs, dmrs, optional_nodeids=optional_nodeids, equalities=equalities, match_top_index=True)
+        matchings = dmrs_exact_matching(search_dmrs, dmrs, optional_nodeids=optional_nodeids, equalities=equalities, hierarchy=hierarchy, match_top_index=True)
     if not iterative and all_matches:
         result = []
 
@@ -214,7 +218,8 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True,
     count = 0
     for _ in range(max_matches):
         if iterative:
-            matchings = dmrs_exact_matching(search_dmrs, result_dmrs, optional_nodeids=optional_nodeids, equalities=equalities, match_top_index=True)
+            pass
+            # matchings = dmrs_exact_matching(search_dmrs, result_dmrs, optional_nodeids=optional_nodeids, equalities=equalities, hierarchy=hierarchy, match_top_index=True)
         else:
             result_dmrs = copy.deepcopy(dmrs) if copy_dmrs else dmrs
 
@@ -251,7 +256,7 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), copy_dmrs=True,
         replace_matching = {}
         for nodeid in search_matching:
             if nodeid in sub_mapping:
-                replace_dmrs[sub_mapping[nodeid]].map(result_dmrs, search_matching[nodeid])
+                replace_dmrs[sub_mapping[nodeid]].map(result_dmrs, search_matching[nodeid], hierarchy=hierarchy)
                 replace_dmrs[sub_mapping[nodeid]].after_map(result_dmrs, search_matching[nodeid])
                 replace_matching[sub_mapping[nodeid]] = search_matching[nodeid]
             elif search_matching[nodeid] is not None:

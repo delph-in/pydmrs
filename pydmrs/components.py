@@ -40,7 +40,7 @@ class Pred(object):
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return type(other) == Pred
+        return type(other) is Pred
 
     def __ne__(self, other):
         """
@@ -48,7 +48,7 @@ class Pred(object):
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return type(other) != Pred
+        return type(other) is not Pred
 
     def __le__(self, other):
         """
@@ -82,21 +82,25 @@ class Pred(object):
             raise PydmrsTypeError()
         return False
 
-    def is_more_specific(self, other):
+    def is_more_specific(self, other, hierarchy=None):
         """
         Checks whether this object is a more specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
+        if hierarchy is not None and str(self) in hierarchy.get(str(other), ()):
+            return True
         return False
 
-    def is_less_specific(self, other):
+    def is_less_specific(self, other, hierarchy=None):
         """
         Checks whether this object is a less specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return type(other) != Pred
+        if hierarchy is not None and str(other) in hierarchy.get(str(self), ()):
+            return True
+        return type(other) is not Pred
 
     @staticmethod
     def normalise_string(string):
@@ -260,15 +264,17 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
             return self[:2] >= other[:2]
         return super(RealPred, self).__gt__(other)
 
-    def is_more_specific(self, other):
+    def is_more_specific(self, other, hierarchy=None):
         """
         Checks whether this object is a more specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        if type(other) == Pred:
+        if hierarchy is not None and str(self) in hierarchy.get(str(other), ()):
             return True
-        if not isinstance(other, RealPred):
+        elif type(other) is Pred:
+            return True
+        elif not isinstance(other, RealPred):
             return False
         result = False
         if self.lemma != '?' and other.lemma == '?':
@@ -285,13 +291,15 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
             return False
         return result
 
-    def is_less_specific(self, other):
+    def is_less_specific(self, other, hierarchy=None):
         """
         Checks whether this object is a less specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        if not isinstance(other, RealPred):
+        if hierarchy is not None and str(other) in hierarchy.get(str(self), ()):
+            return True
+        elif not isinstance(other, RealPred):
             return False
         result = False
         if self.lemma == '?' and other.lemma != '?':
@@ -407,21 +415,25 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
             raise PydmrsTypeError()
         return isinstance(other, Pred) or (isinstance(other, GPred) and super(GPred, self).__gt__(other))
 
-    def is_more_specific(self, other):
+    def is_more_specific(self, other, hierarchy=None):
         """
         Checks whether this object is a more specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return type(other) == Pred or (
+        if hierarchy is not None and str(self) in hierarchy.get(str(other), ()):
+            return True
+        return type(other) is Pred or (
             isinstance(other, GPred) and (self.name != '?' and other.name == '?'))
 
-    def is_less_specific(self, other):
+    def is_less_specific(self, other, hierarchy=None):
         """
         Checks whether this object is a less specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
+        if hierarchy is not None and str(other) in hierarchy.get(str(self), ()):
+            return True
         return isinstance(other, GPred) and (self.name == '?' and other.name != '?')
 
     @staticmethod

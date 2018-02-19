@@ -23,17 +23,16 @@ def read_paraphrases_file(filename):
     return paraphrases
 
 
-def paraphrase(dmrs, paraphrases):
+def paraphrase(dmrs, paraphrases, hierarchy=None):
     """
     """
     assert isinstance(dmrs, Dmrs), 'Object in dmrs_iter is not a Dmrs.'
     for (search_dmrs, replace_dmrs) in paraphrases:
-        while True:
-            paraphrased_dmrs = dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=True, all_matches=False)
-            if paraphrased_dmrs is None:
-                break
-            else:
-                dmrs = paraphrased_dmrs
+        paraphrased_dmrs = dmrs_mapping(dmrs, search_dmrs, replace_dmrs, hierarchy=hierarchy)
+        if paraphrased_dmrs is None:
+            break
+        else:
+            dmrs = paraphrased_dmrs
     return dmrs
 
 
