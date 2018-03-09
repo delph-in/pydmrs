@@ -12,7 +12,7 @@ def read_paraphrases_file(filename):
     lines = iter(file)
     for line in lines:
         try:
-            # GRAPHLANG !!!!!!!!! equalities etc
+            # equalities etc
             paraphrases.append((parse_graphlang(line), parse_graphlang(next(lines))))
         except StopIteration:
             assert False, 'Invalid paraphrases file format.'

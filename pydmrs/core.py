@@ -93,6 +93,7 @@ class Node(object):
     """
     A DMRS node
     """
+
     def __init__(self, nodeid=None, pred=None, sortinfo=None, cfrom=None, cto=None, surface=None, base=None, carg=None):
         self.nodeid = nodeid
         self.surface = surface

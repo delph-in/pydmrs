@@ -520,7 +520,7 @@ class Sortinfo(with_metaclass(SortinfoMeta, MutableMapping)):
         """
         Returns True if value of feature is not '?' or 'u'
         """
-        return feature == 'cvarsort' or feature not in self.features or self[feature] not in ('u', '?')
+        return feature == 'cvarsort' or (feature in self.features and self[feature] not in ('u', '?'))
 
     # For convenience, we can also get features which are not None
 
@@ -529,13 +529,23 @@ class Sortinfo(with_metaclass(SortinfoMeta, MutableMapping)):
         Return (feature, value) pairs where value is specified and not '?' or 'u'
         """
         for feat in self.features:
-            val = self[feat]
-            if val not in (None, 'u', '?'):
-                yield (feat, val)
+            if hasattr(self, feat):
+                val = self[feat]
+                if val != 'u' and val != '?':
+                    yield feat, val
 
     # Setters and getters
     # Allows both attribute and dictionary access
     # Features and values must all be lowercase
+
+    def __getattribute__(self, feature):
+        try:
+            return super(Sortinfo, self).__getattribute__(feature)
+        except AttributeError:
+            if feature in self.features:
+                return None
+            else:
+                raise
 
     def __setattr__(self, feature, value):
         """
@@ -565,8 +575,10 @@ class Sortinfo(with_metaclass(SortinfoMeta, MutableMapping)):
         feature = feature.lower()
         if feature == 'cvarsort':
             return self.cvarsort
-        elif feature in self.features:
+        elif hasattr(self, feature):
             return getattr(self, feature)
+        elif feature in self.features:
+            return None
         else:
             raise PydmrsKeyError("{} has no feature {}".format(type(self), feature))
 
@@ -592,9 +604,6 @@ class Sortinfo(with_metaclass(SortinfoMeta, MutableMapping)):
             setattr(self, self.features[i], value)
         for feature, value in kwargs.items():
             setattr(self, feature, value)
-        for feature in self.features:
-            if not hasattr(self, feature):
-                setattr(self, feature, None)
 
     # Conversion to strings and dicts
 
@@ -613,8 +622,7 @@ class Sortinfo(with_metaclass(SortinfoMeta, MutableMapping)):
         """
         Return a string that can be evaluated
         """
-        return '{}({})'.format(type(self).__name__,
-                               ', '.join(repr(self[feat]) for feat in self.features))
+        return '{}({})'.format(type(self).__name__, ', '.join(repr(self[feat]) for feat in self.features if hasattr(self, feat)))
 
     def as_dict(self):
         """
@@ -748,10 +756,13 @@ class Sortinfo(with_metaclass(SortinfoMeta, MutableMapping)):
         for key, value in other.iter_specified():
             if not self.is_specified(key) or value != self[key]:
                 return False
+        result = False
         for key, value in self.iter_specified():
             if not other.is_specified(key):
-                return True
-        return False
+                result = True
+            elif value != other[key]:
+                return False
+        return result
 
     def is_less_specific(self, other):
         """
@@ -767,10 +778,13 @@ class Sortinfo(with_metaclass(SortinfoMeta, MutableMapping)):
         for key, value in self.iter_specified():
             if not other.is_specified(key) or value != other[key]:
                 return False
+        result = False
         for key, value in other.iter_specified():
             if not self.is_specified(key):
-                return True
-        return False
+                result = True
+            elif value != self[key]:
+                return False
+        return result
 
 
 class EventSortinfo(Sortinfo):

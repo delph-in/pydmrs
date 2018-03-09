@@ -87,6 +87,19 @@ def dmrs_exact_matching(sub_dmrs, dmrs, optional_nodeids=(), equalities=(), hier
                 else:
                     return
 
+    change = True
+    while change:
+        change = False
+        for sub_nodeid, match in list(matches.items()):
+            for k, m in enumerate(match):
+                if m in matching_values:
+                    del match[k]
+            if len(match) == 1:
+                m = matches.pop(sub_nodeid)[0]
+                matching[sub_nodeid] = m
+                matching_values.add(m)
+                change = True
+
     # optimisation for nodes with uniquely matching neighbour nodes
     for sub_nodeid, match in list(matches.items()):
         neighbours = []
