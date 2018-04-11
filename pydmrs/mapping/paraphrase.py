@@ -12,7 +12,7 @@ def read_paraphrases_file(filename):
     lines = iter(file)
     for line in lines:
         try:
-            # GRAPHLANG !!!!!!!!! equalities etc
+            # equalities etc
             paraphrases.append((parse_graphlang(line), parse_graphlang(next(lines))))
         except StopIteration:
             assert False, 'Invalid paraphrases file format.'
@@ -23,18 +23,22 @@ def read_paraphrases_file(filename):
     return paraphrases
 
 
-def paraphrase(dmrs_iter, paraphrases):
+def paraphrase(dmrs, paraphrases, hierarchy=None):
     """
     """
-    for dmrs in dmrs_iter:
-        assert isinstance(dmrs, Dmrs), 'Object in dmrs_iter is not a Dmrs.'
-        for (search_dmrs, replace_dmrs) in paraphrases:
-            dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=False)  # equalities=!!!
-        yield dmrs
+    assert isinstance(dmrs, Dmrs), 'Object in dmrs_iter is not a Dmrs.'
+    for (search_dmrs, replace_dmrs) in paraphrases:
+        paraphrased_dmrs = dmrs_mapping(dmrs, search_dmrs, replace_dmrs, hierarchy=hierarchy)
+        if paraphrased_dmrs is None:
+            break
+        else:
+            dmrs = paraphrased_dmrs
+    return dmrs
 
 
 if __name__ == '__main__':
     assert len(sys.argv) == 2 and not sys.stdin.isatty(), 'Invalid arguments'
     paraphrases = read_paraphrases_file(sys.argv[1])
-    dmrs_iter = (ListDmrs.loads_xml(line[:-1]) for line in sys.stdin)
-    sys.stdout.write(str(next(paraphrase(dmrs_iter, paraphrases))) + '\n')
+    for line in sys.stdin:
+        dmrs = ListDmrs.loads_xml(line[:-1])
+        sys.stdout.write(str(paraphrase(dmrs, paraphrases)) + '\n')
