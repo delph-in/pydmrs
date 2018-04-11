@@ -3,7 +3,6 @@ from pydmrs._exceptions import PydmrsError
 from pydmrs.components import Pred, RealPred, GPred, Sortinfo, EventSortinfo, InstanceSortinfo
 from pydmrs.core import Link, Node
 from pydmrs.matching.exact_matching import dmrs_exact_matching
-from pydmrs._exceptions import *
 
 
 class AnchorNode(Node):
