@@ -39,6 +39,6 @@ def paraphrase(dmrs, paraphrases, hierarchy=None):
 if __name__ == '__main__':
     assert len(sys.argv) == 2 and not sys.stdin.isatty(), 'Invalid arguments'
     paraphrases = read_paraphrases_file(sys.argv[1])
-    dmrs_iter = (ListDmrs.loads_xml(line[:-1]) for line in sys.stdin)
-    for dmrs in dmrs_iter:
+    for line in sys.stdin:
+        dmrs = ListDmrs.loads_xml(line[:-1])
         sys.stdout.write(str(paraphrase(dmrs, paraphrases)) + '\n')
