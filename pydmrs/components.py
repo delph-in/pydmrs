@@ -39,7 +39,7 @@ class Pred(object):
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return type(other) == Pred
+        return type(other) is Pred
 
     def __ne__(self, other):
         """
@@ -47,7 +47,7 @@ class Pred(object):
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return type(other) != Pred
+        return type(other) is not Pred
 
     def __le__(self, other):
         """
@@ -81,21 +81,25 @@ class Pred(object):
             raise PydmrsTypeError()
         return False
 
-    def is_more_specific(self, other):
+    def is_more_specific(self, other, hierarchy=None):
         """
         Checks whether this object is a more specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
+        if hierarchy is not None and str(self) in hierarchy.get(str(other), ()):
+            return True
         return False
 
-    def is_less_specific(self, other):
+    def is_less_specific(self, other, hierarchy=None):
         """
         Checks whether this object is a less specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return type(other) != Pred
+        if hierarchy is not None and str(other) in hierarchy.get(str(self), ()):
+            return True
+        return type(other) is not Pred
 
     @staticmethod
     def normalise_string(string):
@@ -259,15 +263,17 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
             return self[:2] >= other[:2]
         return super().__gt__(other)
 
-    def is_more_specific(self, other):
+    def is_more_specific(self, other, hierarchy=None):
         """
         Checks whether this object is a more specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        if type(other) == Pred:
+        if hierarchy is not None and str(self) in hierarchy.get(str(other), ()):
             return True
-        if not isinstance(other, RealPred):
+        elif type(other) is Pred:
+            return True
+        elif not isinstance(other, RealPred):
             return False
         result = False
         if self.lemma != '?' and other.lemma == '?':
@@ -284,13 +290,15 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
             return False
         return result
 
-    def is_less_specific(self, other):
+    def is_less_specific(self, other, hierarchy=None):
         """
         Checks whether this object is a less specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        if not isinstance(other, RealPred):
+        if hierarchy is not None and str(other) in hierarchy.get(str(self), ()):
+            return True
+        elif not isinstance(other, RealPred):
             return False
         result = False
         if self.lemma == '?' and other.lemma != '?':
@@ -406,21 +414,24 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
             raise PydmrsTypeError()
         return isinstance(other, Pred) or (isinstance(other, GPred) and super().__gt__(other))
 
-    def is_more_specific(self, other):
+    def is_more_specific(self, other, hierarchy=None):
         """
         Checks whether this object is a more specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
-        return type(other) == Pred or (
-        isinstance(other, GPred) and (self.name != '?' and other.name == '?'))
+        if hierarchy is not None and str(self) in hierarchy.get(str(other), ()):
+            return True
+        return type(other) is Pred or (isinstance(other, GPred) and (self.name != '?' and other.name == '?'))
 
-    def is_less_specific(self, other):
+    def is_less_specific(self, other, hierarchy=None):
         """
         Checks whether this object is a less specific pred than the other
         """
         if not isinstance(other, Pred):
             raise PydmrsTypeError()
+        if hierarchy is not None and str(other) in hierarchy.get(str(self), ()):
+            return True
         return isinstance(other, GPred) and (self.name == '?' and other.name != '?')
 
     @staticmethod
@@ -505,10 +516,9 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
 
     def is_specified(self, feature):
         """
-        Returns True if value of feature is specified and not '?' or 'u'
+        Returns True if value of feature is not '?' or 'u'
         """
-        return feature == 'cvarsort' or (
-        feature in self.features and self[feature] not in (None, 'u', '?'))
+        return feature == 'cvarsort' or (feature in self.features and self[feature] not in ('u', '?'))
 
     # For convenience, we can also get features which are not None
 
@@ -517,13 +527,23 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         Return (feature, value) pairs where value is specified and not '?' or 'u'
         """
         for feat in self.features:
-            val = self[feat]
-            if val not in (None, 'u', '?'):
-                yield (feat, val)
+            if hasattr(self, feat):
+                val = self[feat]
+                if val != 'u' and val != '?':
+                    yield feat, val
 
     # Setters and getters
     # Allows both attribute and dictionary access
     # Features and values must all be lowercase
+
+    def __getattribute__(self, feature):
+        try:
+            return super().__getattribute__(feature)
+        except AttributeError:
+            if feature in self.features:
+                return None
+            else:
+                raise
 
     def __setattr__(self, feature, value):
         """
@@ -553,8 +573,10 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         feature = feature.lower()
         if feature == 'cvarsort':
             return self.cvarsort
-        elif feature in self.features:
+        elif hasattr(self, feature):
             return getattr(self, feature)
+        elif feature in self.features:
+            return None
         else:
             raise PydmrsKeyError("{} has no feature {}".format(type(self), feature))
 
@@ -580,9 +602,6 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
             setattr(self, self.features[i], value)
         for feature, value in kwargs.items():
             setattr(self, feature, value)
-        for feature in self.features:
-            if not hasattr(self, feature):
-                setattr(self, feature, None)
 
     # Conversion to strings and dicts
 
@@ -601,8 +620,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         """
         Return a string that can be evaluated
         """
-        return '{}({})'.format(type(self).__name__,
-                               ', '.join(repr(self[feat]) for feat in self.features))
+        return '{}({})'.format(type(self).__name__, ', '.join(repr(self[feat]) for feat in self.features if hasattr(self, feat)))
 
     def as_dict(self):
         """
@@ -725,7 +743,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
     def is_more_specific(self, other):
         """
         Checks whether this object is a more specific sortinfo than the other
-        (underspecified value: '?' or 'u' or non-existent)
+        (underspecified value: '?' or 'u')
         """
         if not isinstance(other, Sortinfo):
             raise PydmrsTypeError()
@@ -736,15 +754,18 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         for key, value in other.iter_specified():
             if not self.is_specified(key) or value != self[key]:
                 return False
+        result = False
         for key, value in self.iter_specified():
             if not other.is_specified(key):
-                return True
-        return False
+                result = True
+            elif value != other[key]:
+                return False
+        return result
 
     def is_less_specific(self, other):
         """
         Checks whether this object is a less specific sortinfo than the other
-        (underspecified value: '?' or 'u' or non-existent)
+        (underspecified value: '?' or 'u')
         """
         if not isinstance(other, Sortinfo):
             raise PydmrsTypeError()
@@ -755,10 +776,13 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         for key, value in self.iter_specified():
             if not other.is_specified(key) or value != other[key]:
                 return False
+        result = False
         for key, value in other.iter_specified():
             if not self.is_specified(key):
-                return True
-        return False
+                result = True
+            elif value != self[key]:
+                return False
+        return result
 
 
 class EventSortinfo(Sortinfo):

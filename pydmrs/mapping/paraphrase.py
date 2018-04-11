@@ -1,8 +1,10 @@
 import sys
+from pydmrs.core import Dmrs, ListDmrs
 from pydmrs.mapping.mapping import dmrs_mapping
+from pydmrs.graphlang.graphlang import parse_graphlang
 
 
-def read_paraphases_file(filename):
+def read_paraphrases_file(filename):
     """
     """
     paraphrases = []
@@ -11,7 +13,7 @@ def read_paraphases_file(filename):
     for line in lines:
         try:
             # GRAPHLANG !!!!!!!!! equalities etc
-            paraphrases.append((line, next(lines)))
+            paraphrases.append((parse_graphlang(line), parse_graphlang(next(lines))))
         except StopIteration:
             assert False, 'Invalid paraphrases file format.'
         try:
@@ -27,12 +29,12 @@ def paraphrase(dmrs_iter, paraphrases):
     for dmrs in dmrs_iter:
         assert isinstance(dmrs, Dmrs), 'Object in dmrs_iter is not a Dmrs.'
         for (search_dmrs, replace_dmrs) in paraphrases:
-            dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=!!!, copy_dmrs=False)
+            dmrs_mapping(dmrs, search_dmrs, replace_dmrs, copy_dmrs=False)  # equalities=!!!
         yield dmrs
 
 
 if __name__ == '__main__':
     assert len(sys.argv) == 2 and not sys.stdin.isatty(), 'Invalid arguments'
-    paraphrases = read_paraphrase_file(sys.argv[1])
+    paraphrases = read_paraphrases_file(sys.argv[1])
     dmrs_iter = (ListDmrs.loads_xml(line[:-1]) for line in sys.stdin)
-    sys.stdout.write(str(next(dmrs_query(dmrs_iter, search_dmrs, results_as_dict=True))) + '\n')
+    sys.stdout.write(str(next(paraphrase(dmrs_iter, paraphrases))) + '\n')

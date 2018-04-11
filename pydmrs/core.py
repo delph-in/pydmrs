@@ -117,6 +117,7 @@ class Node(object):
     """
     A DMRS node
     """
+
     def __init__(self, nodeid=None, pred=None, sortinfo=None, cfrom=None, cto=None, surface=None, base=None, carg=None):
         self.nodeid = nodeid
         self.surface = surface
@@ -166,7 +167,7 @@ class Node(object):
             and self.carg == other.carg \
             and self.sortinfo == other.sortinfo
 
-    def is_more_specific(self, other):
+    def is_more_specific(self, other, hierarchy=None):
         """
         Checks whether this object is a more specific node than the other (predicate, carg, sortinfo)
         """
@@ -175,7 +176,7 @@ class Node(object):
         result = False
         if other.pred is not None and \
             ((self.pred is None and type(other.pred) == Pred) or
-             (self.pred is not None and self.pred.is_more_specific(other.pred))):
+             (self.pred is not None and self.pred.is_more_specific(other.pred, hierarchy=hierarchy))):
             result = True
         elif (self.pred is None) != (other.pred is None) or self.pred != other.pred:
             return False
@@ -191,7 +192,7 @@ class Node(object):
             return False
         return result
 
-    def is_less_specific(self, other):
+    def is_less_specific(self, other, hierarchy=None):
         """
         Checks whether this object is a less specific node than the other (predicate, carg, sortinfo)
         """
@@ -200,7 +201,7 @@ class Node(object):
         result = False
         if self.pred is not None and \
             ((other.pred is None and type(self.pred) == Pred) or
-             (other.pred is not None and self.pred.is_less_specific(other.pred))):
+             (other.pred is not None and self.pred.is_less_specific(other.pred, hierarchy=hierarchy))):
             result = True
         elif (self.pred is None) != (other.pred is None) or self.pred != other.pred:
             return False
@@ -416,7 +417,9 @@ class Dmrs(object):
     def __getitem__(self, nodeid): raise NotImplementedError
     def __iter__(self): raise NotImplementedError
     def __len__(self): raise NotImplementedError
-    def count_links(self): raise NotImplementedError
+
+    def count_links(self):
+        return sum(1 for _ in self.iter_links())
 
     def __contains__(self, nodeid):
         """
@@ -687,20 +690,20 @@ class Dmrs(object):
         Convert to a different DMRS format, optionally copying the nodes
         instead of keeping the same instances.
         """
-        if copy_nodes:
-            nodes = (copy.deepcopy(node) for node in self.iter_nodes())
-        elif self.Node == cls.Node:
-            nodes = self.iter_nodes()
-        else:
+        if self.Node is not cls.Node:
             nodes = (node.convert_to(cls.Node) for node in self.iter_nodes())
-        return cls(nodes,
-                   self.iter_links(),
-                   self.cfrom,
-                   self.cto,
-                   self.surface,
-                   self.ident,
-                   self.index.nodeid if self.index else None,
-                   self.top.nodeid if self.top else None)
+        elif copy_nodes:
+            nodes = (copy.deepcopy(node) for node in self.iter_nodes())
+        else:
+            nodes = self.iter_nodes()
+        return cls(nodes=nodes,
+                   links=self.iter_links(),
+                   cfrom=self.cfrom,
+                   cto=self.cto,
+                   surface=self.surface,
+                   ident=self.ident,
+                   index=(self.index.nodeid if self.index else None),
+                   top=(self.top.nodeid if self.top else None))
 
     def visualise(self, format='dot', filehandle=None):
         """
@@ -775,7 +778,13 @@ class ListDmrs(Dmrs):
 
     def remove_link(self, link):
         """Remove a link"""
-        self.links.remove(link)
+        if len(link) == 2:
+            for n, link in enumerate(self.links):
+                if link.start == link[0] and link.end == link[1]:
+                    break
+            self.links.pop(n)
+        else:
+            self.links.remove(link)
 
     def add_node(self, node):
         """Add a node"""
@@ -871,6 +880,7 @@ class DictDmrs(Dmrs):
     """
     A DMRS graph implemented with dicts for nodes and links
     """
+
     def __init__(self, *args, **kwargs):
         """
         Initialise dictionaries from lists
@@ -956,6 +966,10 @@ class DictDmrs(Dmrs):
         """
         Remove a link.
         """
+        if len(link) == 2:
+            for link in self.outgoing.get(link[0]):
+                if link.end == link[1]:
+                    break
         self.outgoing.remove(link.start, link)
         self.incoming.remove(link.end, link)
 
@@ -1080,6 +1094,7 @@ def span_pred_key(node):
     """
     return (node.cfrom, -node.cto, str(node.pred))
 
+
 def abstractSortDictDmrs(node_key=None, link_key=None):
     """
     For constructing SortDictDmrs objects with the same node_key and link_key functions.
@@ -1097,12 +1112,14 @@ def abstractSortDictDmrs(node_key=None, link_key=None):
     wrapper.Node = SortDictDmrs.Node
     return wrapper
 
+
 class SortDictDmrs(DictDmrs):
     """
     A DMRS graph implemented with both dicts and lists for nodes and links,
     with lists sorted according to some key.
     By default, nodes and links are sorted by nodeid.
     """
+
     # To override @property binding from DictDmrs
     nodes = None
     links = None
@@ -1126,17 +1143,17 @@ class SortDictDmrs(DictDmrs):
         # If link_key not specified but node_key specified,
         # sort according to start and end keys
         elif node_key is not None:
-            self.link_key = lambda x : (node_key(self[x.start]),
-                                        node_key(self[x.end]),
-                                        x.rargname if x.rargname else '',  # in case None
-                                        x.post)
+            self.link_key = lambda x: (node_key(self[x.start]),
+                                       node_key(self[x.end]),
+                                       x.rargname if x.rargname else '',  # in case None
+                                       x.post)
         # If link_key not specified and node_key not specified,
         # we don't need to look up the node to find the nodeid
         else:
-            self.link_key = lambda x : (x.start,
-                                        x.end,
-                                        x.rargname if x.rargname else '',  # in case None
-                                        x.post)
+            self.link_key = lambda x: (x.start,
+                                       x.end,
+                                       x.rargname if x.rargname else '',  # in case None
+                                       x.post)
 
         super().__init__(*args, **kwargs)
 
@@ -1173,6 +1190,10 @@ class SortDictDmrs(DictDmrs):
         self.links.insert(i, link)
 
     def remove_link(self, link):
+        if len(link) == 2:
+            for link in self.outgoing.get(link[0]):
+                if link.end == link[1]:
+                    break
         # Remove the link from dictionaries
         super().remove_link(link)
         # Remove the link from the sorted lists
