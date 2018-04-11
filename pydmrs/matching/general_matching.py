@@ -29,17 +29,19 @@ class Match(object):
             self.nodeid_pairs.extend(match.nodeid_pairs)
             self.link_pairs.extend(match.link_pairs)
         else:
-            nodes1, nodes2 = map(list, zip(*self.nodeid_pairs))
+            nodesA, nodesB = map(list, zip(*self.nodeid_pairs))
             for node_pair in match.nodeid_pairs:
-                if node_pair[0] not in nodes1 and node_pair[1] not in nodes2:
+                if node_pair[0] not in nodesA and node_pair[1] not in nodesB:
                     self.nodeid_pairs.append(node_pair)
-                    nodes1.append(node_pair[0])
-                    nodes2.append(node_pair[1])
+                    nodesA.append(node_pair[0])
+                    nodesB.append(node_pair[1])
 
+            linksA, linksB = map(set, zip(*self.link_pairs))
             for link1, link2 in match.link_pairs:
-                if link1.start in nodes1 and link1.end in nodes1:
-                    if link2.start in nodes2 and link2.end in nodes2:
-                        self.link_pairs.append((link1, link2))
+                if link1 not in linksA and link2 not in linksB:
+                    if link1.start in nodesA and link1.end in nodesA:
+                        if link2.start in nodesB and link2.end in nodesB:
+                            self.link_pairs.append((link1, link2))
 
     def is_compatible(self, match2):
         """ Checks if two matches are possible simultaneously. Two matches are conflicting
@@ -142,25 +144,18 @@ def find_match(start_id1, start_id2, dmrs1, dmrs2, matched_nodes, matched_links)
     node_queue = []
 
     links1 = dmrs1.get_out(start_id1)
+    links1.update(dmrs1.get_in(start_id1))
     links2 = dmrs2.get_out(start_id2)
+    links2.update(dmrs2.get_in(start_id2))
     for link1 in links1:
         if link1 not in [pair[0] for pair in matched_links]:
             for link2 in links2:
                 if link2 not in [pair[1] for pair in matched_links]:
                     if are_equal_links(link1, link2, dmrs1, dmrs2):
                         matched_links.append((link1, link2))
-                        node_queue.append((link1.end, link2.end))
-                        break
-
-    links1 = dmrs1.get_in(start_id1)
-    links2 = dmrs2.get_in(start_id2)
-    for link1 in links1:
-        if link1 not in [pair[0] for pair in matched_links]:
-            for link2 in links2:
-                if link2 not in [pair[1] for pair in matched_links]:
-                    if are_equal_links(link1, link2, dmrs1, dmrs2):
-                        matched_links.append((link1, link2))
-                        node_queue.append((link1.start, link2.start))
+                        paired1 = link1.start if link1.end == start_id1 else link1.end
+                        paired2 = link2.start if link2.end == start_id2 else link2.end
+                        node_queue.append((paired1, paired2))
                         break
 
     for nodeid1, nodeid2 in node_queue:

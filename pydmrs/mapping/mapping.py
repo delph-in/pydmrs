@@ -41,6 +41,7 @@ class AnchorNode(Node):
         Overrides the values of the target node if they are not underspecified in this anchor node.
         :param dmrs Target DMRS graph.
         :param nodeid Target node id.
+        :param hierarchy: An optional predicate hierarchy.
         """
         node = dmrs[nodeid]
         if self == node or self.is_less_specific(node, hierarchy=hierarchy):
@@ -179,7 +180,7 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), hierarchy=None,
     :param search_dmrs DMRS subgraph to replace.
     :param replace_dmrs DMRS subgraph to replace with.
     :param equalities
-    :param hierarchy
+    :param hierarchy An optional predicate hierarchy.
     :param copy_dmrs True if DMRS graph argument should be copied before being mapped.
     :param iterative True if all possible mappings should be performed iteratively to the same DMRS graph, instead of a separate copy per mapping (iterative=False requires copy_dmrs=True).
     :param all_matches True if all possible matches should be returned, instead of only the first (or None).

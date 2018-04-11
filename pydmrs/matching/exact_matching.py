@@ -8,7 +8,7 @@ def dmrs_exact_matching(sub_dmrs, dmrs, optional_nodeids=(), equalities=(), hier
     :param dmrs DMRS graph to match against.
     :param optional_nodeids
     :param equalities
-    :param hierarchy
+    :param hierarchy An optional predicate hierarchy.
     :param match_top_index
     :return Iterator of dictionaries, mapping node ids of the matched (sub)graph to the corresponding matching node id in the containing graph.
     """

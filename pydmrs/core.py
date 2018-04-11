@@ -1,11 +1,9 @@
 import bisect
-from collections import namedtuple
 import copy
+import xml.etree.ElementTree as ET
 from operator import attrgetter
-from itertools import chain
-from warnings import warn
+
 from pydmrs.components import *
-from pydmrs._exceptions import *
 
 
 class LinkLabel(namedtuple('LinkLabelNamedTuple', ('rargname', 'post'))):
@@ -87,6 +85,32 @@ class Link(namedtuple('LinkNamedTuple', ('start', 'end', 'rargname', 'post'))):
     @property
     def labelstring(self):
         return "{}/{}".format(self.rargname, self.post)
+
+    def to_xml(self):
+        xlink = ET.Element('link')
+        xlink.set('from', str(self.start))
+        xlink.set('to', str(self.end))
+        xrargname = ET.SubElement(xlink, 'rargname')
+        xrargname.text = self.rargname
+        xpost = ET.SubElement(xlink, 'post')
+        xpost.text = self.post
+        return xlink
+
+    @classmethod
+    def from_xml(cls, elem):
+        start = int(elem.get('from'))
+        end = int(elem.get('to'))
+        rargname = None
+        post = None
+        for sub in elem:
+            if sub.tag == 'rargname':
+                if sub.text != 'MOD':
+                    rargname = sub.text
+            elif sub.tag == 'post':
+                post = sub.text
+            else:
+                raise PydmrsValueError(sub.tag)
+        return Link(start, end, rargname, post)
 
 
 class Node(object):
@@ -214,6 +238,69 @@ class Node(object):
                    self.surface,
                    self.base,
                    self.carg)
+
+    def to_xml(self):
+        xnode = ET.Element('node')
+        xnode.set('nodeid', str(self.nodeid))
+        if self.cfrom is not None and self.cto is not None:
+            xnode.set('cfrom', str(self.cfrom))
+            xnode.set('cto', str(self.cto))
+        if self.carg:
+            xnode.set('carg', '{}'.format(self.carg))
+        if isinstance(self.pred, GPred):
+            xpred = ET.SubElement(xnode, 'gpred')
+            xpred.text = str(self.pred) + '_rel'
+        elif isinstance(self.pred, RealPred):
+            xpred = ET.SubElement(xnode, 'realpred')
+            xpred.set('lemma', self.pred.lemma)
+            xpred.set('pos', self.pred.pos)
+            if self.pred.sense:
+                xpred.set('sense', self.pred.sense)
+        else:
+            raise PydmrsTypeError("predicates must be RealPred or GPred objects")
+        xsortinfo = ET.SubElement(xnode, 'sortinfo')
+        if self.sortinfo:
+            for key in self.sortinfo:
+                value = self.sortinfo[key]
+                if value:
+                    xsortinfo.set(key, value)
+        return xnode
+
+    @classmethod
+    def from_xml(cls, elem, convert_legacy_prontype=True):
+        nodeid = int(elem.get('nodeid')) if 'nodeid' in elem.attrib else None
+        cfrom = int(elem.get('cfrom')) if 'cfrom' in elem.attrib else None
+        cto = int(elem.get('cto')) if 'cto' in elem.attrib else None
+        surface = elem.get('surface')
+        base = elem.get('base')
+        carg = elem.get('carg')
+
+        pred = None  # Default value
+        sortinfo = None  # Default value
+        for sub in elem:
+            if sub.tag == 'realpred':
+                try:
+                    pred = RealPred(sub.get('lemma'), sub.get('pos'), sub.get('sense'))
+                except PydmrsValueError:
+                    # If the whole pred name is under 'lemma', rather than split between 'lemma', 'pos', 'sense'
+                    pred = RealPred.from_string(sub.get('lemma'))
+                    warn("RealPred given as string rather than lemma, pos, sense", PydmrsWarning)
+            elif sub.tag == 'gpred':
+                try:
+                    pred = GPred.from_string(sub.text)
+                except PydmrsValueError:
+                    # If the string is actually for a RealPred, not a GPred
+                    pred = RealPred.from_string(sub.text)
+                    warn("RealPred string found in a <gpred> tag", PydmrsWarning)
+            elif sub.tag == 'sortinfo':
+                if sub.attrib:  # If sub.attrib is empty, leave sortinfo as None
+                    sortinfo = Sortinfo.from_dict(sub.attrib,
+                                                  convert_legacy_prontype=convert_legacy_prontype)
+            else:
+                raise PydmrsValueError(sub.tag)
+        return cls(nodeid=nodeid, pred=pred, carg=carg, sortinfo=sortinfo, cfrom=cfrom, cto=cto,
+                   surface=surface,
+                   base=base)
 
 
 class PointerNode(Node):
@@ -793,6 +880,7 @@ class DictDmrs(Dmrs):
     """
     A DMRS graph implemented with dicts for nodes and links
     """
+
     def __init__(self, *args, **kwargs):
         """
         Initialise dictionaries from lists
@@ -1024,12 +1112,14 @@ def abstractSortDictDmrs(node_key=None, link_key=None):
     wrapper.Node = SortDictDmrs.Node
     return wrapper
 
+
 class SortDictDmrs(DictDmrs):
     """
     A DMRS graph implemented with both dicts and lists for nodes and links,
     with lists sorted according to some key.
     By default, nodes and links are sorted by nodeid.
     """
+
     # To override @property binding from DictDmrs
     nodes = None
     links = None
@@ -1056,17 +1146,17 @@ class SortDictDmrs(DictDmrs):
         # If link_key not specified but node_key specified,
         # sort according to start and end keys
         elif node_key is not None:
-            self.link_key = lambda x : (node_key(self[x.start]),
-                                        node_key(self[x.end]),
-                                        x.rargname if x.rargname else '',  # in case None
-                                        x.post)
+            self.link_key = lambda x: (node_key(self[x.start]),
+                                       node_key(self[x.end]),
+                                       x.rargname if x.rargname else '',  # in case None
+                                       x.post)
         # If link_key not specified and node_key not specified,
         # we don't need to look up the node to find the nodeid
         else:
-            self.link_key = lambda x : (x.start,
-                                        x.end,
-                                        x.rargname if x.rargname else '',  # in case None
-                                        x.post)
+            self.link_key = lambda x: (x.start,
+                                       x.end,
+                                       x.rargname if x.rargname else '',  # in case None
+                                       x.post)
 
         super(SortDictDmrs, self).__init__(*args, **kwargs)
 

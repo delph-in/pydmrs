@@ -423,8 +423,7 @@ class GPred(namedtuple('GPredNamedTuple', ('name')), Pred):
             raise PydmrsTypeError()
         if hierarchy is not None and str(self) in hierarchy.get(str(other), ()):
             return True
-        return type(other) is Pred or (
-            isinstance(other, GPred) and (self.name != '?' and other.name == '?'))
+        return type(other) is Pred or (isinstance(other, GPred) and (self.name != '?' and other.name == '?'))
 
     def is_less_specific(self, other, hierarchy=None):
         """
