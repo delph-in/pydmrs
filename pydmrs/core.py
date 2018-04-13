@@ -641,8 +641,8 @@ class Dmrs(object):
             assert start_id in unvisited_nodeids, 'Start nodeid not a valid node id.'
 
         # Start the explore set with nodes adjacent to the starting node
-        explore_set = self.get_neighbours(start_id, nodeids=True) & unvisited_nodeids
         unvisited_nodeids.remove(start_id)
+        explore_set = self.get_neighbours(start_id, nodeids=True) & unvisited_nodeids
 
         # Iteratively visit a node and update the explore set with neighbouring nodes until explore set empty
         while explore_set:
