@@ -12,9 +12,8 @@ DEFAULT_ERG_FILE = get_config_option(config, 'Grammar', 'ERG')
 
 def parse(sentence, cls=ListDmrs, erg_file=DEFAULT_ERG_FILE):
     results = []
-    for result in ace.parse(erg_file, sentence)['RESULTS']:  # cmdargs=['-r', 'root_informal']
-        mrs = result['MRS']
-        xmrs = simplemrs.loads_one(mrs)
+    for result in ace.parse(erg_file, sentence).results():  # cmdargs=['-r', 'root_informal']
+        xmrs = result.mrs()
         dmrs_xml = dmrx.dumps_one(xmrs)[11:-12]
         dmrs = cls.loads_xml(dmrs_xml)
         results.append(dmrs)
@@ -26,7 +25,7 @@ def generate(dmrs, erg_file=DEFAULT_ERG_FILE):
     xmrs = dmrx.loads_one(dmrs_xml)
     mrs = simplemrs.dumps_one(xmrs)
     results = []
-    for result in ace.generate(erg_file, mrs)['RESULTS']:
-        sentence = result['SENT']
+    for result in ace.generate(erg_file, mrs).results():
+        sentence = result['surface']
         results.append(sentence)
     return results
