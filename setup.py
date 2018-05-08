@@ -7,7 +7,7 @@ setup(
   name = 'pydmrs',
   version = VERSION,
   description = 'A library for manipulating DMRS graphs',
-  author = 'Ann Copestake, Guy Emerson, Mike Goodman, Matic Horvat, Alex Kuhnle, Ewa Muszyńska',
+  author = 'Ann Copestake, Guy Emerson, Michael Wayne Goodman, Matic Horvat, Alex Kuhnle, Ewa Muszyńska',
   author_email = 'gete2@cam.ac.uk',
   license = 'MIT',
   url = 'https://github.com/delph-in/pydmrs',
