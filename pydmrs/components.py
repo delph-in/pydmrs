@@ -284,7 +284,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
             result = True
         elif self.pos != other.pos:
             return False
-        if self.sense not in ('unknown', '?') and other.sense in ('unknown', '?'):
+        if other.sense == '?':
             result = True
         elif self.sense != other.sense:
             return False
@@ -309,7 +309,7 @@ class RealPred(namedtuple('RealPredNamedTuple', ('lemma', 'pos', 'sense')), Pred
             result = True
         elif self.pos != other.pos:
             return False
-        if self.sense in ('unknown', '?') and other.sense not in ('unknown', '?'):
+        if self.sense == '?':
             result = True
         elif self.sense != other.sense:
             return False
