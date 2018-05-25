@@ -43,9 +43,13 @@ class AnchorNode(Node):
         :param hierarchy: An optional predicate hierarchy.
         """
         node = dmrs[nodeid]
+
         if self == node or self.is_less_specific(node, hierarchy=hierarchy):
             return
-        if isinstance(self.pred, RealPred):
+
+        if self.pred == node.pred or self.pred.is_less_specific(node.pred, hierarchy=hierarchy):
+            pass
+        elif isinstance(self.pred, RealPred):
             if isinstance(node.pred, RealPred):
                 node.pred = RealPred(node.pred.lemma if self.pred.lemma == '?' else self.pred.lemma, node.pred.pos if self.pred.pos in ('u', '?') else self.pred.pos, node.pred.sense if self.pred.sense in ('unknown', '?') else self.pred.sense)
             else:
@@ -57,7 +61,10 @@ class AnchorNode(Node):
                 node.pred = copy.deepcopy(self.pred)
         elif not isinstance(self.pred, Pred):
             node.pred = None
-        if isinstance(self.sortinfo, EventSortinfo):
+
+        if self.sortinfo == node.sortinfo or self.sortinfo.is_less_specific(node.sortinfo):
+            pass
+        elif isinstance(self.sortinfo, EventSortinfo):
             if isinstance(node.sortinfo, EventSortinfo):
                 node.sortinfo = EventSortinfo(node.sortinfo.sf if self.sortinfo.sf in ('u', '?') else self.sortinfo.sf, node.sortinfo.tense if self.sortinfo.tense in ('u', '?') else self.sortinfo.tense, node.sortinfo.mood if self.sortinfo.mood in ('u', '?') else self.sortinfo.mood, node.sortinfo.perf if self.sortinfo.perf in ('u', '?') else self.sortinfo.perf, node.sortinfo.prog if self.sortinfo.prog in ('u', '?') else self.sortinfo.prog)
             else:
@@ -69,6 +76,7 @@ class AnchorNode(Node):
                 node.sortinfo = copy.deepcopy(self.sortinfo)
         elif not isinstance(self.sortinfo, Sortinfo):
             node.sortinfo = None
+
         if self.carg != '?':
             node.carg = self.carg
 
@@ -172,7 +180,7 @@ class OptionalNode(AnchorNode):
         self.requires_target = False
 
 
-def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), hierarchy=None, copy_dmrs=True, iterative=True, all_matches=True, require_connected=True, max_matches=100):
+def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), hierarchy=None, copy_dmrs=True, iterative=True, all_matches=True, match_top_index=True, require_connected=True, max_matches=100):
     """
     Performs an exact DMRS (sub)graph matching of a (sub)graph against a containing graph.
     :param dmrs DMRS graph to map.
@@ -183,6 +191,7 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), hierarchy=None,
     :param copy_dmrs True if DMRS graph argument should be copied before being mapped.
     :param iterative True if all possible mappings should be performed iteratively to the same DMRS graph, instead of a separate copy per mapping (iterative=False requires copy_dmrs=True).
     :param all_matches True if all possible matches should be returned, instead of only the first (or None).
+    :param match_top_index True if top and index should be distinguished.
     :param require_connected True if mappings resulting in a disconnected DMRS graph should be ignored.
     :param max_matches: Maximum number of matches.
     :return Mapped DMRS graph (resp. a list of graphs in case of iterative=False and all_matches=True)
@@ -208,9 +217,9 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), hierarchy=None,
     # set up variables according to settings
     if iterative:
         result_dmrs = copy.deepcopy(dmrs) if copy_dmrs else dmrs
-        matchings = dmrs_exact_matching(search_dmrs, dmrs, optional_nodeids=optional_nodeids, equalities=equalities, hierarchy=hierarchy, match_top_index=True)
+        matchings = dmrs_exact_matching(search_dmrs, dmrs, optional_nodeids=optional_nodeids, equalities=equalities, hierarchy=hierarchy, match_top_index=match_top_index)
     else:
-        matchings = dmrs_exact_matching(search_dmrs, dmrs, optional_nodeids=optional_nodeids, equalities=equalities, hierarchy=hierarchy, match_top_index=True)
+        matchings = dmrs_exact_matching(search_dmrs, dmrs, optional_nodeids=optional_nodeids, equalities=equalities, hierarchy=hierarchy, match_top_index=match_top_index)
     if not iterative and all_matches:
         result = []
 
@@ -256,7 +265,10 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), hierarchy=None,
         replace_matching = {}
         for nodeid in search_matching:
             if nodeid in sub_mapping:
-                replace_dmrs[sub_mapping[nodeid]].map(result_dmrs, search_matching[nodeid], hierarchy=hierarchy)
+                if search_dmrs[nodeid].pred.is_more_specific(replace_dmrs[sub_mapping[nodeid]].pred, hierarchy=hierarchy):
+                    replace_dmrs[sub_mapping[nodeid]].map(result_dmrs, search_matching[nodeid])
+                else:
+                    replace_dmrs[sub_mapping[nodeid]].map(result_dmrs, search_matching[nodeid], hierarchy=hierarchy)
                 replace_dmrs[sub_mapping[nodeid]].after_map(result_dmrs, search_matching[nodeid])
                 replace_matching[sub_mapping[nodeid]] = search_matching[nodeid]
             elif search_matching[nodeid] is not None:

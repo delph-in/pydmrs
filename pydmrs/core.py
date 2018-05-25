@@ -257,7 +257,9 @@ class Node(object):
             if self.pred.sense:
                 xpred.set('sense', self.pred.sense)
         else:
-            raise PydmrsTypeError("predicates must be RealPred or GPred objects")
+            # raise PydmrsTypeError("predicates must be RealPred or GPred objects")
+            xpred = ET.SubElement(xnode, 'pred')
+            xpred.text = str(self.pred) + '_rel'
         xsortinfo = ET.SubElement(xnode, 'sortinfo')
         if self.sortinfo:
             for key in self.sortinfo:
