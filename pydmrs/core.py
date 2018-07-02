@@ -280,7 +280,7 @@ class Node(object):
         for sub in elem:
             if sub.tag == 'realpred':
                 try:
-                    pred = RealPred(sub.get('lemma'), sub.get('pos'), sub.get('sense'))
+                    pred = RealPred(sub.get('lemma').lower(), sub.get('pos'), sub.get('sense'))
                 except PydmrsValueError:
                     # If the whole pred name is under 'lemma', rather than split between 'lemma', 'pos', 'sense'
                     pred = RealPred.from_string(sub.get('lemma'))
