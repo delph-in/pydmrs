@@ -66,6 +66,7 @@ class Link(namedtuple('LinkNamedTuple', ('start', 'end', 'rargname', 'post'))):
             post = post.upper()
         if start == end:
             warn("Link start must not equal link end.", PydmrsWarning)
+        # TODO: Pydelphin uses MOD/EQ for undirected links - make compatible.
         if rargname in ('', 'NONE', 'NULL', 'NIL'):
             rargname = None
         if post in ('', 'NONE', 'NULL', 'NIL'):
@@ -429,7 +430,8 @@ class Dmrs(object):
 
     def iter_outgoing(self, nodeid):
         """
-        Iterate through links going from a given node
+        Iterate through links going from a given node, including EQ links.
+        # TODO: Probably should remove the EQ links from this iterator.
         """
         if nodeid not in self:
             raise PydmrsValueError('{} not a valid nodeid'.format(nodeid))
@@ -439,12 +441,24 @@ class Dmrs(object):
 
     def iter_incoming(self, nodeid):
         """
-        Iterate through links coming to a given node
+        Iterate through links coming to a given node, including EQ links.
+        # TODO: Probably should remove the EQ links from this iterator.
         """
         if nodeid not in self:
             raise PydmrsValueError('{} not a valid nodeid'.format(nodeid))
         for link in self.iter_links():
             if link.end == nodeid:
+                yield link
+
+    def iter_eq(self, nodeid):
+        """
+        Iterate through EQ links to/from a given node. Depending on the convention used, this can duplicate links already
+        iterated through in iter_incoming or iter_outgoing.
+        """
+        if nodeid not in self:
+            raise PydmrsValueError('{} not a valid nodeid'.format(nodeid))
+        for link in self.iter_links():
+            if (link.end == nodeid or link.start == nodeid) and link.rargname is None:
                 yield link
 
     def free_nodeid(self):
@@ -474,7 +488,7 @@ class Dmrs(object):
         for nodeid in iterable:
             self.remove_node(nodeid)
 
-    def get_out(self, nodeid, rargname=None, post=None, itr=False, eq=True):
+    def get_out(self, nodeid, rargname=None, post=None, itr=False):
         """
         Get links going from a node.
         If rargname or post are specified, filter according to the label.
@@ -484,30 +498,37 @@ class Dmrs(object):
 
         if rargname or post:
             linkset = filter_links(linkset, rargname=rargname, post=post)
-        if not eq:
-            linkset = (x for x in linkset if x.rargname)
+        linkset = (x for x in linkset if x.rargname)
 
         if not itr:
             linkset = set(linkset)
 
         return linkset
 
-    def get_in(self, nodeid, rargname=None, post=None, itr=False, eq=True):
+    def get_in(self, nodeid, rargname=None, post=None, itr=False):
         """
         Get links coming to a node.
         If rargname or post are specified, filter according to the label.
         If itr is set to True, return an iterator rather than a set.
         """
         linkset = self.iter_incoming(nodeid)
-
         if rargname or post:
             linkset = filter_links(linkset, rargname=rargname, post=post)
-        if not eq:
-            linkset = (x for x in linkset if x.rargname)
+        linkset = (x for x in linkset if x.rargname)
 
         if not itr:
             linkset = set(linkset)
 
+        return linkset
+
+    def get_eq(self, nodeid, itr=False):
+        """
+        Get EQ links coming to/from a node.
+        If itr is set to True, return an iterator rather than a set.
+        """
+        linkset = self.iter_eq(nodeid)
+        if not itr:
+            linkset = set(linkset)
         return linkset
 
     def get_links(self, nodeid, rargname=None, post=None, itr=False):
@@ -518,19 +539,20 @@ class Dmrs(object):
         """
         in_links = self.get_in(nodeid, rargname, post, itr)
         out_links = self.get_out(nodeid, rargname, post, itr)
+        eq_links = self.get_eq(nodeid)
         if itr:
-            return chain(in_links, out_links)
+            return chain(in_links, out_links, eq_links)
         else:
-            return in_links | out_links
+            return in_links | out_links | eq_links
 
-    def get_out_nodes(self, nodeid, rargname=None, post=None, nodeids=False, itr=False, eq=True):
+    def get_out_nodes(self, nodeid, rargname=None, post=None, nodeids=False, itr=False):
         """
         Get end nodes of links going from a node.
         If rargname or post are specified, filter according to the label.
         If nodeids is set to True, return nodeids rather than nodes.
         If itr is set to True, return an iterator rather than a list (of nodes) or set (of nodeids).
         """
-        links = self.get_out(nodeid, rargname=rargname, post=post, itr=True, eq=eq)
+        links = self.get_out(nodeid, rargname=rargname, post=post, itr=True)
         # Get nodeids:
         nodes = (link.end for link in links)
         # Get nodes, if requested:
@@ -544,16 +566,36 @@ class Dmrs(object):
                 nodes = list(nodes)
         return nodes
 
-    def get_in_nodes(self, nodeid, rargname=None, post=None, nodeids=False, itr=False, eq=True):
+    def get_in_nodes(self, nodeid, rargname=None, post=None, nodeids=False, itr=False):
         """
         Get start nodes of links coming to a node.
         If rargname or post are specified, filter according to the label.
         If nodeids is set to True, return nodeids rather than nodes.
         If itr is set to True, return an iterator rather than a list (of nodes) or set (of nodeids).
         """
-        links = self.get_in(nodeid, rargname=rargname, post=post, itr=True, eq=eq)
+        links = self.get_in(nodeid, rargname=rargname, post=post, itr=True)
         # Get nodeids:
         nodes = (link.start for link in links)
+        # Get nodes, if requested:
+        if not nodeids:
+            nodes = (self[nid] for nid in nodes)
+        # Convert to a list/set if requested:
+        if not itr:
+            if nodeids:
+                nodes = set(nodes)
+            else:
+                nodes = list(nodes)
+        return nodes
+
+    def get_eq_nodes(self, nodeid, nodeids=False, itr=False):
+        """
+        Get nodes to the node with an EQ link.
+        If nodeids is set to True, return nodeids rather than nodes.
+        If itr is set to True, return an iterator rather than a list (of nodes) or set (of nodeids).
+        """
+        links = self.iter_eq(nodeid)
+        # Get nodeids:
+        nodes = (link.start if link.start != nodeid else link.end for link in links)
         # Get nodes, if requested:
         if not nodeids:
             nodes = (self[nid] for nid in nodes)
@@ -571,15 +613,17 @@ class Dmrs(object):
         If rargname or post are specified, filter according to the label.
         If nodeids is set to True, return nodeids rather than nodes.
         If itr is set to True, return an iterator rather than a list (of nodes) or set (of nodeids).
+        Include EQ links.
         """
         in_nodes = self.get_in_nodes(nodeid, rargname, post, nodeids, itr)
         out_nodes = self.get_out_nodes(nodeid, rargname, post, nodeids, itr)
+        eq_nodes = self.get_eq_nodes(nodeid, nodeids, itr)
         if itr:
-            return chain(in_nodes, out_nodes)
+            return chain(in_nodes, out_nodes, eq_nodes)
         elif nodeids:
-            return in_nodes | out_nodes
+            return in_nodes | out_nodes | eq_nodes
         else:
-            return in_nodes + out_nodes
+            return in_nodes + out_nodes + eq_nodes
 
     def get_label(self, rargname=None, post=None, itr=False):
         """
@@ -1242,6 +1286,9 @@ class SortDictDmrs(DictDmrs):
                    for link in self.get_out(old_id, itr=True))
         new_in = (Link(link.start, new_id, link.rargname, link.post) \
                   for link in self.get_in(old_id, itr=True))
+        new_eq = (Link(link.start, new_id, link.rargname, link.post) if link.end == old_id \
+                  else Link(new_id, link.end, link.rargname, link.post) \
+                  for link in self.get_eq(old_id, itr=True))
 
         # Remove the node and all associated links
         self.remove_node(old_id)
@@ -1254,4 +1301,6 @@ class SortDictDmrs(DictDmrs):
         for link in new_out:
             self.add_link(link)
         for link in new_in:
+            self.add_link(link)
+        for link in new_eq:
             self.add_link(link)

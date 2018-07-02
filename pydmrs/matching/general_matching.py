@@ -145,8 +145,10 @@ def find_match(start_id1, start_id2, dmrs1, dmrs2, matched_nodes, matched_links)
 
     links1 = dmrs1.get_out(start_id1)
     links1.update(dmrs1.get_in(start_id1))
+    links1.update(dmrs1.get_eq(start_id1))
     links2 = dmrs2.get_out(start_id2)
     links2.update(dmrs2.get_in(start_id2))
+    links2.update(dmrs2.get_eq(start_id2))
     for link1 in links1:
         if link1 not in [pair[0] for pair in matched_links]:
             for link2 in links2:

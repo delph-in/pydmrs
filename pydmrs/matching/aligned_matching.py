@@ -63,7 +63,7 @@ def get_compounds(dmrs, compound_preds):
         if str(node.pred) in compound_preds:
             arg1 = dmrs.get_out_nodes(node.nodeid, rargname='ARG1').pop().nodeid
             arg2 = dmrs.get_out_nodes(node.nodeid, rargname='ARG2').pop().nodeid
-            compounds.append({"node": node, "args" : (arg1, arg2)})
+            compounds.append({"node": node, "args": (arg1, arg2)})
     return compounds
 
 
@@ -90,7 +90,6 @@ def add_compound_matches(small_dmrs, large_dmrs, longest_matches, compound_preds
                     if small_cmpd['node'] == large_cmpd['node']:
                         cmpd_pairs.append((small_cmpd['node'].nodeid, large_cmpd['node'].nodeid))
         m.extend(cmpd_pairs)
-
 
 
 def find_extra_surface_nodeids(nodeids, large_dmrs):
@@ -143,11 +142,17 @@ def get_links(dmrs, nodeids):
     :return: A list of all links starting and ending on a node from nodeids.
     """
     links = []
+    eq_links = set()
     for nodeid in nodeids:
         node_links = dmrs.get_out(nodeid)
         for link in node_links:
             if link.end in nodeids:
                 links.append(link)
+        node_links = dmrs.get_eq(nodeid)
+        for link in node_links:
+            if link not in eq_links:
+                eq_links.add(link)
+    links.extend(eq_links)
     return links
 
 
@@ -177,12 +182,18 @@ def get_link_diff(small_dmrs, matched_subgraph, matching_nodeids):
     both = []
     small_only = []
     subgraph_only = []
+    checked_eq_links = set()
     for small_nodeid, subgraph_nodeid in matching_nodeids:
         if small_nodeid:
-            small_links = small_dmrs.get_out(small_nodeid)
+            small_links = small_dmrs.get_out(small_nodeid) | small_dmrs.get_eq(small_nodeid)
             subgraph_links = list(matched_subgraph.get_out(subgraph_nodeid))
             links_flag = [False] * len(subgraph_links)
             for link1 in small_links:
+                # Check if the EQ has been counted already.
+                if not link1.rargname:
+                    if link1 in checked_eq_links:
+                        continue
+                    checked_eq_links.add(link1)
                 match_found = False
                 for link2 in subgraph_links:
                     if are_equal_links(link1, link2, small_dmrs, matched_subgraph):
@@ -198,9 +209,13 @@ def get_link_diff(small_dmrs, matched_subgraph, matching_nodeids):
         else:
             subgraph_only.extend(matched_subgraph.get_out(subgraph_nodeid))
 
+    checked_eq_links = set()
     for nodeid in small_dmrs:
         if nodeid not in list(zip(*matching_nodeids))[0]:
             small_only.extend(small_dmrs.get_out(nodeid))
+            eq_links = small_dmrs.get_eq(nodeid)
+            small_only.extend({link for link in eq_links if link not in checked_eq_links})
+            checked_eq_links.update(eq_links)
 
     return small_only, subgraph_only, both
 
