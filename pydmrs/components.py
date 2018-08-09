@@ -751,10 +751,15 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
             return self.cvarsort != 'i'
         if self.cvarsort != other.cvarsort:
             return False
-        for key, value in other.iter_specified():
-            if not self.is_specified(key) or value != self[key]:
-                return False
         result = False
+        for key, value in other.iter_specified():
+            if not self.is_specified(key):
+                return False
+            elif value != self[key]:
+                if key == 'tense' and value == 'tensed' and self[key] != 'untensed':
+                    result = True
+                else:
+                    return False
         for key, value in self.iter_specified():
             if not other.is_specified(key):
                 result = True
@@ -773,10 +778,15 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
             return other.cvarsort != 'i'
         if self.cvarsort != other.cvarsort:
             return False
-        for key, value in self.iter_specified():
-            if not other.is_specified(key) or value != other[key]:
-                return False
         result = False
+        for key, value in self.iter_specified():
+            if not other.is_specified(key):
+                return False
+            elif value != other[key]:
+                if key == 'tense' and value == 'tensed' and other[key] != 'untensed':
+                    result = True
+                else:
+                    return False
         for key, value in other.iter_specified():
             if not self.is_specified(key):
                 result = True
