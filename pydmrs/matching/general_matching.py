@@ -13,7 +13,7 @@ class Match(object):
         The link_pairs is the link equivalent of the nodeid_pairs.
     """
 
-    def __init__(self, nodeid_pairs=[], link_pairs=[]):
+    def __init__(self, nodeid_pairs=None, link_pairs=None):
         self.nodeid_pairs = nodeid_pairs
         self.link_pairs = link_pairs
 
@@ -59,6 +59,18 @@ class Match(object):
         else:
             return False
 
+    def get_first(self, nodeid):
+        for nodeid1, nodeid2 in self.nodeid_pairs:
+            if nodeid == nodeid2:
+                return nodeid1
+        return None
+
+    def get_second(self, nodeid):
+        for nodeid1, nodeid2 in self.nodeid_pairs:
+            if nodeid == nodeid1:
+                return nodeid2
+        return None
+
 
 # ------------------------------------------------------------------------------
 def group_same_nodes(nodes):
@@ -78,7 +90,7 @@ def group_same_nodes(nodes):
         if not group_node_type:
             group_node_type = node
             current_group.append(node.nodeid)
-        elif are_equal_nodes(node, group_node_type):
+        elif are_equal_nodes(node, group_node_type, underspecified=False):
             current_group.append(node.nodeid)
         else:
             grouped_nodes.append((group_node_type.pred, current_group))
@@ -88,10 +100,14 @@ def group_same_nodes(nodes):
     return grouped_nodes
 
 
-def pair_same_node_groups(dmrs1, dmrs2):
-    """ Finds which nodes in dmrs1 are equivalent to which nodes in dmrs2.
+def pair_same_node_groups(dmrs1, dmrs2, underspecified):
+    """ Finds which nodes in dmrs1 are equivalent to which nodes in dmrs2. Allow the nodes in dmrs1 to be
+    underspecified, but not the other way.
         :param dmrs1 A DMRS object. For matching, the small dmrs.
         :param dmrs2 A DMRS object. For matching, the large dmrs.
+        :param underspecified: If True, the underspecified nodes in dmrs1 will be matched to more specific ones in
+                            dmrs2.
+
         :return A list of tuples (pred, nodes from dmrs1, nodes from dmrs2). All
                 nodes in nodes from dmrs1 and nodes form dmrs2 are quivalent.
                 The pred is their common predicate. The list of tuples is sorted
@@ -100,33 +116,26 @@ def pair_same_node_groups(dmrs1, dmrs2):
     grouped_nodes1 = group_same_nodes(dmrs1.nodes)
     grouped_nodes2 = group_same_nodes(dmrs2.nodes)
     grouped_nodes = []
-    i = 0
-    j = 0
-    while i < len(grouped_nodes1) and j < len(grouped_nodes2):
-        pred1, group1 = grouped_nodes1[i]
-        pred2, group2 = grouped_nodes2[j]
-        if pred1 == pred2 and are_equal_nodes(dmrs1[group1[0]], dmrs2[group2[0]]):
-            grouped_nodes.append((pred1, group1, group2))
-            i += 1
-            j += 1
-        else:
-            if str(pred1) > str(pred2):
-                j += 1
-            else:
-                i += 1
+
+    for pred1, node_list1 in grouped_nodes1:
+        paired_nodes2 = []
+        for pred2, node_list2 in grouped_nodes2:
+            if dmrs1[node_list1[0]] == dmrs2[node_list2[0]]:
+                paired_nodes2 = node_list2
+                break
+            elif underspecified and dmrs1[node_list1[0]].is_less_specific(dmrs2[node_list2[0]]):
+                paired_nodes2.extend(node_list2)
+        grouped_nodes.append((pred1, node_list1, paired_nodes2))
     return grouped_nodes
 
 
-def find_match(start_id1, start_id2, dmrs1, dmrs2, matched_nodes, matched_links):
+def extend_match(match, start_nodeids, dmrs1, dmrs2, underspecified=True):
     """ Finds a match between dmrs1 and dmrs2.
+        :param match: A Match object to be extended.
+        :param start_nodeids: A tuple of matching nodeids with which to start to match extension.
         :param dmrs1 A DMRS object. For matching, the small dmrs.
         :param dmrs2 A DMRS object. For matching, the large dmrs.
-        :param start_id1 A nodeid of a node from dmrs1 from which the graph traversal should be started.
-        :param start_id2 A nodeid of a node from dmrs2 from which the graph traversal should be started.
-        :param matched_nodes Nodes matched so far during the graph traversal
-                             Gets updated during recursion. Use an empty list for the top call.
-        :param matched_links Link matched so far during the graph traversal.
-                            Gets updated during recursion. Use an empty list for the top call.
+        :param underspecified: If True (default), treat underspecified nodes as equal.
 
         The two start nodes should be equivalent by are_equal_nodes criterion.
 
@@ -138,11 +147,14 @@ def find_match(start_id1, start_id2, dmrs1, dmrs2, matched_nodes, matched_links)
 
         :return A Match composed of updated matched_nodes, matched_links.
     """
-    assert (are_equal_nodes(dmrs1[start_id1], dmrs2[start_id2]))
-    matched_nodes.append((start_id1, start_id2))
-
+    match.nodeid_pairs.append(start_nodeids)
+    matched_first = set(x[0] for x in match.nodeid_pairs)
+    if match.link_pairs:
+        matched_links1, matched_links2 = tuple(set(x) for x in zip(*match.link_pairs))
+    else:
+        matched_links1, matched_links2 = set(), set()
     node_queue = []
-
+    start_id1, start_id2 = start_nodeids
     links1 = dmrs1.get_out(start_id1)
     links1.update(dmrs1.get_in(start_id1))
     links1.update(dmrs1.get_eq(start_id1))
@@ -150,35 +162,43 @@ def find_match(start_id1, start_id2, dmrs1, dmrs2, matched_nodes, matched_links)
     links2.update(dmrs2.get_in(start_id2))
     links2.update(dmrs2.get_eq(start_id2))
     for link1 in links1:
-        if link1 not in [pair[0] for pair in matched_links]:
+        if link1 not in matched_links1:
             for link2 in links2:
-                if link2 not in [pair[1] for pair in matched_links]:
+                if link2 not in matched_links2:
                     if are_equal_links(link1, link2, dmrs1, dmrs2):
-                        matched_links.append((link1, link2))
+                        if link1.start in matched_first and match.get_second(link1.start) != link2.start:
+                            continue
+                        if link1.end in matched_first and match.get_second(link1.end) != link2.end:
+                            continue
+                        match.link_pairs.append((link1, link2))
+                        matched_links1.add(link1)
+                        matched_links2.add(link2)
                         paired1 = link1.start if link1.end == start_id1 else link1.end
                         paired2 = link2.start if link2.end == start_id2 else link2.end
                         node_queue.append((paired1, paired2))
                         break
 
     for nodeid1, nodeid2 in node_queue:
-        if (nodeid1, nodeid2) not in matched_nodes:
-            find_match(nodeid1, nodeid2, dmrs1, dmrs2, matched_nodes, matched_links)
-    return Match(matched_nodes, matched_links)
+        if (nodeid1, nodeid2) not in match.nodeid_pairs and are_equal_nodes(dmrs1[nodeid1], dmrs2[nodeid2],
+                                                                            underspecified):
+            extend_match(match, (nodeid1, nodeid2), dmrs1, dmrs2, underspecified)
 
 
-def find_all_matches(dmrs1, dmrs2):
+def find_all_matches(dmrs1, dmrs2, underspecified=False):
     """ Finds all regions with potential matches between two DMRS graphs.
         :param dmrs1 A DMRS object. For matching, the small dmrs.
         :param dmrs2 A DMRS object. For matching, the large dmrs.
+        :param underspecified: If True, the underspecified nodes in dmrs1 will be matched to more specific ones in
+                            dmrs2.
 
-        The function initiates a find_match top call and repeats it until all
+        The function initiates a extend_match top call and repeats it until all
         possible pairings are explored. GPreds and quantifiers 'a' and 'the'
-        are not allowed as the start ndoes of find_match to narrow down the search
+        are not allowed as the start ndoes of extend_match to narrow down the search
         space.
 
-        :return A list of Match objects.
+        :return A list of Match objects where pairs come from (dmrs1, dmrs2).
         """
-    node_pairings = pair_same_node_groups(dmrs1, dmrs2)
+    node_pairings = pair_same_node_groups(dmrs1, dmrs2, underspecified)
     matches = []
     checked_node_pairs = []
 
@@ -190,11 +210,15 @@ def find_all_matches(dmrs1, dmrs2):
     sorted_pairings = sorted(filtered_pairings,
                              key=lambda pairing: len(pairing[1]) * len(pairing[2]))
 
+    if not sorted_pairings:
+        sorted_pairings = node_pairings
     for pred, group1, group2 in sorted_pairings:
         all_pairs = product(group1, group2)
         for pair in all_pairs:
-            if pair not in checked_node_pairs:
-                match = find_match(pair[0], pair[1], dmrs1, dmrs2, [], [])
+            if pair not in checked_node_pairs and are_equal_nodes(dmrs1[pair[0]], dmrs2[pair[1]],
+                                                                  underspecified=underspecified):
+                match = Match([], [])
+                extend_match(match, (pair[0], pair[1]), dmrs1, dmrs2, underspecified)
                 checked_node_pairs.extend(match.nodeid_pairs)
                 matches.append(match)
     return matches  # (matched_nodes, matched_links)
@@ -269,21 +293,25 @@ def find_biggest_disjoint_matches(matches):
 
 # -------------------------------------------------------------------------------\
 # IMPORTANT
-def find_best_matches(small_dmrs, large_dmrs):
+
+def find_best_matches(small_dmrs, large_dmrs, exact=False, underspecified=False):
     """ Finds the best matches between two DMRS (in case more the one reached
-        the same score).
+        the same score). If disconnected matches found, it finds their optimal combination.
         :param small_dmrs A DMRS object.
         :param large_dmrs A DMRS object.
-
+        :param exact: If True, only look for exact perfect matches.
+        :param underspecified: If True, the underspecified nodes in small_dmrs will be matched to more specific ones in
+                            large_dmrs.
         :return A list of Matches.
     """
-    matches = find_all_matches(small_dmrs, large_dmrs)
+    matches = find_all_matches(small_dmrs, large_dmrs, underspecified)
     if not matches:
         return None
     else:
+        if exact:
+            return [m for m in matches if get_fscore(m, small_dmrs) == 1]
         if len(matches) == 1:
             return matches
-
         best_combinations = []
         indexed_best_combined_matches = find_biggest_disjoint_matches(matches)
         for index, match in indexed_best_combined_matches:
