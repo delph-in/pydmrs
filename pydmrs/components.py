@@ -518,7 +518,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         """
         Returns True if value of feature is not '?' or 'u'
         """
-        return feature == 'cvarsort' or (feature in self.features and self[feature] not in ('u', '?'))
+        return feature == 'cvarsort' or (feature in self.features and self[feature] not in ('u', '?', None))
 
     # For convenience, we can also get features which are not None
 
@@ -529,7 +529,7 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         for feat in self.features:
             if hasattr(self, feat):
                 val = self[feat]
-                if val != 'u' and val != '?':
+                if val != 'u' and val != '?' and val is not None:
                     yield feat, val
 
     # Setters and getters
