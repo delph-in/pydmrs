@@ -752,15 +752,17 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         if self.cvarsort != other.cvarsort:
             return False
         for key, value in other.iter_specified():
-            if not self.is_specified(key) or value != self[key]:
+            if not self.is_specified(key):
                 return False
-        result = False
-        for key, value in self.iter_specified():
-            if not other.is_specified(key):
-                result = True
-            elif value != other[key]:
-                return False
-        return result
+            elif value != self[key]:
+                if key == 'tense' and value == 'tensed' and self[key] != 'untensed':
+                    continue
+                else:
+                    return False
+        only_this_specified = set(other.iter_specified()).difference(other.iter_specified())
+        if not only_this_specified:
+            return False
+        return True
 
     def is_less_specific(self, other):
         """
@@ -774,15 +776,17 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
         if self.cvarsort != other.cvarsort:
             return False
         for key, value in self.iter_specified():
-            if not other.is_specified(key) or value != other[key]:
+            if not other.is_specified(key):
                 return False
-        result = False
-        for key, value in other.iter_specified():
-            if not self.is_specified(key):
-                result = True
-            elif value != self[key]:
-                return False
-        return result
+            elif value != other[key]:
+                if key == 'tense' and value == 'tensed' and other[key] != 'untensed':
+                    continue
+                else:
+                    return False
+        only_other_specified = set(other.iter_specified()).difference(self.iter_specified())
+        if not only_other_specified:
+            return False
+        return True
 
 
 class EventSortinfo(Sortinfo):
