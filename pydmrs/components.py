@@ -751,21 +751,18 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
             return self.cvarsort != 'i'
         if self.cvarsort != other.cvarsort:
             return False
-        result = False
         for key, value in other.iter_specified():
             if not self.is_specified(key):
                 return False
             elif value != self[key]:
                 if key == 'tense' and value == 'tensed' and self[key] != 'untensed':
-                    result = True
+                    continue
                 else:
                     return False
-        for key, value in self.iter_specified():
-            if not other.is_specified(key):
-                result = True
-            elif value != other[key]:
-                return False
-        return result
+        only_this_specified = set(other.iter_specified()).difference(other.iter_specified())
+        if not only_this_specified:
+            return False
+        return True
 
     def is_less_specific(self, other):
         """
@@ -778,21 +775,18 @@ class Sortinfo(MutableMapping, metaclass=SortinfoMeta):
             return other.cvarsort != 'i'
         if self.cvarsort != other.cvarsort:
             return False
-        result = False
         for key, value in self.iter_specified():
             if not other.is_specified(key):
                 return False
             elif value != other[key]:
                 if key == 'tense' and value == 'tensed' and other[key] != 'untensed':
-                    result = True
+                    continue
                 else:
                     return False
-        for key, value in other.iter_specified():
-            if not self.is_specified(key):
-                result = True
-            elif value != self[key]:
-                return False
-        return result
+        only_other_specified = set(other.iter_specified()).difference(self.iter_specified())
+        if not only_other_specified:
+            return False
+        return True
 
 
 class EventSortinfo(Sortinfo):
