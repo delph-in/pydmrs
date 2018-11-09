@@ -539,7 +539,9 @@ class Dmrs(object):
         """
         in_links = self.get_in(nodeid, rargname, post, itr)
         out_links = self.get_out(nodeid, rargname, post, itr)
-        eq_links = self.get_eq(nodeid)
+        eq_links = set()
+        if rargname is None and (post is None or post == 'EQ'):
+            eq_links = self.get_eq(nodeid)
         if itr:
             return chain(in_links, out_links, eq_links)
         else:
