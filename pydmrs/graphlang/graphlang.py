@@ -3,6 +3,10 @@ from pydmrs.core import Link, Node, ListDmrs
 from pydmrs.mapping.mapping import AnchorNode, OptionalNode, SubgraphNode
 
 
+# EventSortinfo = type('ChineseEventSortinfo', (Sortinfo,), dict(cvarsort='e', __slots__=["e_dot_aspect", "sf"]))
+# InstanceSortinfo = type('ChineseInstanceSortinfo', (Sortinfo,), dict(cvarsort='x', __slots__=["cog_dash_st", "png_dot_animacy", "png_dot_gender", "png_dot_pernum", "sf", "speci"]))
+
+
 default_sortinfo_classes = dict(
     e=EventSortinfo,
     x=InstanceSortinfo
@@ -51,6 +55,7 @@ def parse_graphlang(
         else:
             assert all(cvarsort in sortinfo_classes for cvarsort in sortinfo_shortforms)
         assert 'i' not in sortinfo_classes
+        sortinfo_classes = dict(sortinfo_classes)
         sortinfo_classes['i'] = Sortinfo
     nodeid = 1
     nodes = []
@@ -211,7 +216,7 @@ def _parse_node(string, nodeid, queries, equalities, anchors, sortinfo_classes, 
 
 
 def _parse_pred(string, nodeid, queries, equalities):
-    assert string.islower(), 'Predicates must be lower-case.'
+    # assert string.islower(), 'Predicates must be lower-case.'  # for Chinese
     assert ' ' not in string, 'Predicates must not contain spaces.'
     if string[0] == '"' and string[-1] == '"':
         string = string[1:-1]
@@ -283,6 +288,7 @@ def _parse_sortinfo(string, nodeid, queries, equalities, sortinfo_classes, sorti
                 value = 'u'
             elif key in shortform and value in shortform[key]:
                 value = shortform[key][value]
+            key = key.replace('-', '_dash_').replace('.', '_dot_')
             sortinfo[key] = value
         return sortinfo
     else:  # implicit specification
@@ -393,6 +399,10 @@ if __name__ == '__main__':
     assert len(sys.argv) <= 2 and sys.stdin.isatty() == (len(sys.argv) == 2), 'Invalid arguments.'
     if sys.stdin.isatty():
         sys.stdout.write(parse_graphlang(sys.argv[1]).dumps_xml(encoding='utf-8') + '\n')
+
+        # from erg.mrs import Mrs
+        # sys.stdout.write(str(parse_graphlang(sys.argv[1]).convert_to(Mrs)) + '\n')
+
     else:
         for line in sys.stdin:
             sys.stdout.write(parse_graphlang(line).dumps_xml(encoding='utf-8') + '\n')

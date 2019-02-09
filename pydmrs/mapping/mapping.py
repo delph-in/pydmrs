@@ -64,18 +64,21 @@ class AnchorNode(Node):
 
         if self.sortinfo == node.sortinfo or self.sortinfo.is_less_specific(node.sortinfo):
             pass
-        elif isinstance(self.sortinfo, EventSortinfo):
-            if isinstance(node.sortinfo, EventSortinfo):
-                node.sortinfo = EventSortinfo(node.sortinfo.sf if self.sortinfo.sf in ('u', '?') else self.sortinfo.sf, node.sortinfo.tense if self.sortinfo.tense in ('u', '?') else self.sortinfo.tense, node.sortinfo.mood if self.sortinfo.mood in ('u', '?') else self.sortinfo.mood, node.sortinfo.perf if self.sortinfo.perf in ('u', '?') else self.sortinfo.perf, node.sortinfo.prog if self.sortinfo.prog in ('u', '?') else self.sortinfo.prog)
-            else:
-                node.sortinfo = copy.deepcopy(self.sortinfo)
-        elif isinstance(self.sortinfo, InstanceSortinfo):
-            if isinstance(node.sortinfo, InstanceSortinfo):
-                node.sortinfo = InstanceSortinfo(node.sortinfo.pers if self.sortinfo.pers in ('u', '?') else self.sortinfo.pers, node.sortinfo.num if self.sortinfo.num in ('u', '?') else self.sortinfo.num, node.sortinfo.gend if self.sortinfo.gend in ('u', '?') else self.sortinfo.gend, node.sortinfo.ind if self.sortinfo.ind in ('u', '?') else self.sortinfo.ind, node.sortinfo.pt if self.sortinfo.pt in ('u', '?') else self.sortinfo.pt)
-            else:
-                node.sortinfo = copy.deepcopy(self.sortinfo)
-        elif not isinstance(self.sortinfo, Sortinfo):
-            node.sortinfo = None
+        elif isinstance(node.sortinfo, self.sortinfo.__class__):
+            node.sortinfo = self.sortinfo.__class__(**{feature: node.sortinfo[feature] if self.sortinfo[feature] in ('u', '?') else self.sortinfo[feature] for feature in self.sortinfo.features})
+        else:
+            node.sortinfo = copy.deepcopy(self.sortinfo)
+        # elif isinstance(self.sortinfo, EventSortinfo):
+        #     if isinstance(node.sortinfo, EventSortinfo):
+        #         node.sortinfo = EventSortinfo(node.sortinfo.sf if self.sortinfo.sf in ('u', '?') else self.sortinfo.sf, node.sortinfo.tense if self.sortinfo.tense in ('u', '?') else self.sortinfo.tense, node.sortinfo.mood if self.sortinfo.mood in ('u', '?') else self.sortinfo.mood, node.sortinfo.perf if self.sortinfo.perf in ('u', '?') else self.sortinfo.perf, node.sortinfo.prog if self.sortinfo.prog in ('u', '?') else self.sortinfo.prog)
+        #     else:
+        #         node.sortinfo = copy.deepcopy(self.sortinfo)
+        # elif isinstance(self.sortinfo, InstanceSortinfo):
+        #     if isinstance(node.sortinfo, InstanceSortinfo):
+        #         node.sortinfo = InstanceSortinfo(node.sortinfo.pers if self.sortinfo.pers in ('u', '?') else self.sortinfo.pers, node.sortinfo.num if self.sortinfo.num in ('u', '?') else self.sortinfo.num, node.sortinfo.gend if self.sortinfo.gend in ('u', '?') else self.sortinfo.gend, node.sortinfo.ind if self.sortinfo.ind in ('u', '?') else self.sortinfo.ind, node.sortinfo.pt if self.sortinfo.pt in ('u', '?') else self.sortinfo.pt)
+        #     else:
+        # elif not isinstance(self.sortinfo, Sortinfo):
+        #     node.sortinfo = None
 
         if self.carg != '?':
             node.carg = self.carg
@@ -217,7 +220,7 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), hierarchy=None,
     # set up variables according to settings
     if iterative:
         result_dmrs = copy.deepcopy(dmrs) if copy_dmrs else dmrs
-        matchings = dmrs_exact_matching(search_dmrs, dmrs, optional_nodeids=optional_nodeids, equalities=equalities, hierarchy=hierarchy, match_top_index=match_top_index)
+        # matchings = dmrs_exact_matching(search_dmrs, dmrs, optional_nodeids=optional_nodeids, equalities=equalities, hierarchy=hierarchy, match_top_index=match_top_index)
     else:
         matchings = dmrs_exact_matching(search_dmrs, dmrs, optional_nodeids=optional_nodeids, equalities=equalities, hierarchy=hierarchy, match_top_index=match_top_index)
     if not iterative and all_matches:
@@ -225,17 +228,20 @@ def dmrs_mapping(dmrs, search_dmrs, replace_dmrs, equalities=(), hierarchy=None,
 
     # continue while there is a match for search_dmrs
     count = 0
+    last_matching = None
     for _ in range(max_matches):
         if iterative:
-            pass
-            # matchings = dmrs_exact_matching(search_dmrs, result_dmrs, optional_nodeids=optional_nodeids, equalities=equalities, hierarchy=hierarchy, match_top_index=True)
+            matchings = dmrs_exact_matching(search_dmrs, result_dmrs, optional_nodeids=optional_nodeids, equalities=equalities, hierarchy=hierarchy, match_top_index=match_top_index)
         else:
             result_dmrs = copy.deepcopy(dmrs) if copy_dmrs else dmrs
 
         # return mapping(s) if there are no more matches left
         try:
             search_matching = next(matchings)
+            while last_matching is not None and search_matching == last_matching:
+                search_matching = next(matchings)
             count += 1
+            last_matching = search_matching
         except StopIteration:
             if not all_matches:
                 if copy_dmrs:

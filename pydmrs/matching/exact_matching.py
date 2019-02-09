@@ -23,7 +23,7 @@ def dmrs_exact_matching(sub_dmrs, dmrs, optional_nodeids=(), equalities=(), hier
     # find matchable nodes and add unambiguous matchings
     for sub_node in sub_dmrs.iter_nodes():
         match = [node.nodeid for node in dmrs.iter_nodes() if sub_node == node or sub_node.is_less_specific(node, hierarchy=hierarchy)]
-        if match:
+        if len(match) > 0:
             if sub_node.nodeid in optional_nodeids:
                 match.append(None)
             if len(match) == 1:
@@ -130,7 +130,7 @@ def dmrs_exact_matching(sub_dmrs, dmrs, optional_nodeids=(), equalities=(), hier
 
     # does an exhaustive search over all the left-over matches in matches_items
     def _exhaustive_search(n):
-        if not n:
+        if n == 0:
             if _check_links():
                 yield matching.copy()
             return
