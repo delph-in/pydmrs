@@ -16,6 +16,6 @@ setup(
   packages = find_packages(),
   package_data = {'pydmrs': ['__config__/*.conf']},
   install_requires = [
-    'pydelphin'
+    'pydelphin >= 1.0.1'
   ]
 )

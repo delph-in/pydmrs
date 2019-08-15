@@ -1,5 +1,8 @@
-from delphin.interfaces import ace
-from delphin.mrs import simplemrs, dmrx
+
+from delphin import ace
+from delphin.mrs import from_dmrs
+from delphin.dmrs import from_mrs
+from delphin.codecs import simplemrs, dmrx
 
 from pydmrs.core import ListDmrs
 from pydmrs.utils import load_config, get_config_option
@@ -13,17 +16,19 @@ DEFAULT_ERG_FILE = get_config_option(config, 'Grammar', 'ERG')
 def parse(sentence, cls=ListDmrs, erg_file=DEFAULT_ERG_FILE):
     results = []
     for result in ace.parse(erg_file, sentence).results():  # cmdargs=['-r', 'root_informal']
-        xmrs = result.mrs()
-        dmrs_xml = dmrx.dumps_one(xmrs)[11:-12]
+        mrs = result.mrs()
+        _dmrs = from_mrs(mrs)
+        dmrs_xml = dmrx.encode(_dmrs)
         dmrs = cls.loads_xml(dmrs_xml)
         results.append(dmrs)
     return results
 
 
 def generate(dmrs, erg_file=DEFAULT_ERG_FILE):
-    dmrs_xml = '<dmrs-list>' + dmrs.dumps_xml(encoding='utf-8') + '</dmrs-list>'
-    xmrs = dmrx.loads_one(dmrs_xml)
-    mrs = simplemrs.dumps_one(xmrs)
+    dmrs_xml = dmrs.dumps_xml(encoding='utf-8')
+    _dmrs = dmrx.decode(dmrs_xml)
+    _mrs = from_dmrs(_dmrs)
+    mrs = simplemrs.encode(_mrs)
     results = []
     for result in ace.generate(erg_file, mrs).results():
         sentence = result['surface']
