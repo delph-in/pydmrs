@@ -21,8 +21,9 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs, convert_legacy_prontype=T
     dmrs.cto = int(xml.get('cto')) if 'cto' in xml.attrib else None
     dmrs.surface = xml.get('surface')
     dmrs.ident = int(xml.get('ident')) if 'ident' in xml.attrib else None
+    # top may be set as a graph attribute or as a link (see below)
+    top_id = int(xml.get('top')) if 'top' in xml.attrib else None
     index_id = int(xml.get('index')) if 'index' in xml.attrib else None
-    top_id = None
 
     for elem in xml:
         if elem.tag == 'node':
@@ -32,6 +33,9 @@ def loads_xml(bytestring, encoding=None, cls=ListDmrs, convert_legacy_prontype=T
         elif elem.tag == 'link':
             link = Link.from_xml(elem)
             if link.start == 0:
+                # this would overwrite any graph-level top attribute
+                # (see above), but let's assume we won't encounter
+                # both in the same graph
                 top_id = link.end
             else:
                 dmrs.add_link(link)
